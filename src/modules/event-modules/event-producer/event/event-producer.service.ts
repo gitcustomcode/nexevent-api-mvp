@@ -110,6 +110,7 @@ export class EventProducerService {
 
       return `Event successfully created: ${slug}`;
     } catch (error) {
+      console.log(error);
       if (error instanceof UnauthorizedException) {
         throw error;
       }
