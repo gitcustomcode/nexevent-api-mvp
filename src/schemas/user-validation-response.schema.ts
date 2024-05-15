@@ -18,6 +18,7 @@ export const UserValidationEmailResponseSchema = z.object({
   complement: z.string().nullish(),
   cep: z.string().nullish(),
   type: z.nativeEnum(UserType),
+  dateBirth: z.string().nullish(),
   createdAt: z.date(),
 });
 
