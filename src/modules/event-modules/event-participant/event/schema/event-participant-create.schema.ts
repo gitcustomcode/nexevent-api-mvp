@@ -1,3 +1,4 @@
+import { UserNetworkType } from '@prisma/client';
 import { z } from 'nestjs-zod/z';
 
 export const EventParticipantCreateSchema = z.object({
@@ -13,3 +14,10 @@ export const EventParticipantCreateSchema = z.object({
   country: z.string().nullish().describe('Event participant country'),
   cep: z.string().nullish().describe('Event participant cep'),
 });
+
+export const EventParticipantCreateNetworksSchema = z.array(
+  z.object({
+    network: z.nativeEnum(UserNetworkType).describe('User network type'),
+    username: z.string().describe('User network name'),
+  }),
+);
