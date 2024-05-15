@@ -22,13 +22,7 @@ export class UserProducerValidationService {
         where: {
           email: email,
         },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          profilePhoto: true,
-          type: true,
-        },
+       
       });
 
       if (user) {
@@ -38,6 +32,18 @@ export class UserProducerValidationService {
           email: user.email,
           profilePhoto: user.profilePhoto,
           type: user.type,
+          cep: user.cep,
+          document: user.document,
+          phoneCountry: user.phoneCountry,
+          phoneNumber: user.phoneNumber,
+          street: user.street,
+          district: user.district,
+          city: user.city,
+          complement: user.complement,
+          country: user.country,
+          createdAt: user.createdAt,
+          number: user.number,
+          state: user.state,
         };
 
         await UserValidationEmailResponseSchema.parseAsync(response);
@@ -84,6 +90,7 @@ export class UserProducerValidationService {
         createdAt: user.createdAt,
         number: user.number,
         state: user.state,
+        dateBirth: user.dateBirth,
       };
 
       await UserValidationEmailResponseSchema.parseAsync(response);

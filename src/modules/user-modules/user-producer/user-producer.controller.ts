@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Patch,
   Post,
   Request,
@@ -13,6 +14,7 @@ import {
   ApiCreatedResponse,
   ApiInternalServerErrorResponse,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -20,6 +22,7 @@ import { UserProducerService } from './user-producer.service';
 import { UserProducerCreateDto } from './dto/user-producer-create.dto';
 import { UserProducerFinishSignUpDto } from './dto/user-producer-finish-sign-up.dto';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
+import { UserProducerResponseDto } from './dto/user-producer-response.dto';
 
 @ApiTags('User Producer')
 @Controller('user-producer')
@@ -63,4 +66,25 @@ export class UserProducerController {
     const email = req.auth.user.email;
     return await this.userProducerService.finishSignUp(email, body);
   }
+
+  @Get('v1/user-producer/profile')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get user production' })
+  @ApiResponse({
+    description: 'Get user production',
+    type: UserProducerResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  async findOneUserProducer(
+    @Request() req: any,
+  ): Promise<UserProducerResponseDto> {
+    const email = req.auth.user.email;
+    return this.userProducerService.findOneUserProducer(email);
+  }
+
+
+
+
 }
