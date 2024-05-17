@@ -30,11 +30,39 @@ export const EventDashboardResponseSchema = z.object({
   ),
 });
 
-
 export const EventAllResponseSchema = z.array(
   z.object({
     id: z.string(),
     title: z.string(),
     slug: z.string(),
-  })
+  }),
 );
+
+export const GeneralDashboardResponseSchema = z.object({
+  totalEvents: z.number(),
+  totalTickets: z.number(),
+  totalParticipants: z.number(),
+  total: z.number(),
+
+  lastEvents: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      slug: z.string(),
+      total: z.number(),
+    }),
+  ),
+
+  bigParticipantsForState: z.object({
+    state: z.string(),
+    total: z.number(),
+  }),
+
+  bigSaleForState: z.object({
+    state: z.string(),
+    total: z.number(),
+  }),
+
+  participantsCheckIn: z.number(),
+  participantsNotCheckedIn: z.number(),
+});

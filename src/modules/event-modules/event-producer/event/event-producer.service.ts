@@ -11,6 +11,7 @@ import { EventCreateDto } from './dto/event-producer-create.dto';
 import { generateSlug } from 'src/utils/generate-slug';
 import {
   EventDashboardResponseDto,
+  GeneralDashboardResponseDto,
   ResponseEvents,
 } from './dto/event-producer-response.dto';
 import {
@@ -439,6 +440,83 @@ export class EventProducerService {
       throw new ConflictException(
         `Error uploading file document and term: ${error}`,
       );
+    }
+  }
+
+  async generalDashboard(email: string): Promise<GeneralDashboardResponseDto> {
+    try {
+      const user =
+        await this.userProducerValidationService.findUserByEmail(email);
+
+      const events = await this.prisma.event.findMany({
+        where: {
+          userId: user.id,
+        },
+        include: {
+          eventParticipant: {
+            include: {
+              user: true,
+              eventTicket: true,
+              eventParticipantHistoric: true,
+            },
+          },
+          eventTicket: true,
+        },
+      });
+
+      let totalTickets = 0;
+      let totalParticipants = 0;
+      let total = 0;
+      let participantsCheckIn = 0;
+
+      events.map((event) => {
+        totalTickets += event.eventTicket.length;
+        totalParticipants += event.eventParticipant.length;
+
+        event.eventParticipant.map((participant) => {
+          total += Number(participant.eventTicket.price);
+          participant.eventParticipantHistoric.map((historic) => {
+            if (historic.status === 'CHECK_IN') {
+              participantsCheckIn += 1;
+            }
+          });
+        });
+      });
+
+      const lastEvents = events.slice(0, 10).map((event) => {
+        let total = 0;
+        event.eventParticipant.map((participant) => {
+          total += Number(participant.eventTicket.price);
+        });
+        return {
+          id: event.id,
+          title: event.title,
+          slug: event.slug,
+          total: total,
+        };
+      });
+
+      const response: GeneralDashboardResponseDto = {
+        totalEvents: events.length,
+        totalTickets,
+        totalParticipants,
+        total,
+        participantsCheckIn,
+        participantsNotCheckedIn: totalParticipants - participantsCheckIn,
+        lastEvents,
+      };
+      return response;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException(error);
     }
   }
 }

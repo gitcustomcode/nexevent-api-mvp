@@ -29,6 +29,7 @@ import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import {
   EventAllResponseDto,
   EventDashboardResponseDto,
+  GeneralDashboardResponseDto,
   ResponseEvents,
 } from './dto/event-producer-response.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -225,5 +226,22 @@ export class EventProducerController {
       signature,
       file,
     );
+  }
+
+  @Get('v1/event-producer/general-dashboard')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get general dashboard' })
+  @ApiResponse({
+    description: 'event dashboard',
+    type: GeneralDashboardResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  async generalDashboard(
+    @Request() req: any,
+  ): Promise<GeneralDashboardResponseDto> {
+    const email = req.auth.user.email;
+    return this.eventProducerService.generalDashboard(email);
   }
 }
