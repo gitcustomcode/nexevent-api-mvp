@@ -154,7 +154,6 @@ model TermSignatorie {
 model Event {
   id             String      @id @default(uuid())
   userId         String      @map("user_id")
-  groupId        String?     @map("group_id")
   slug           String      @unique
   sequential     Int
   title          String
@@ -181,8 +180,19 @@ model Event {
   eventSchedule    EventSchedule[]
   eventTerm        EventTerm[]
   eventParticipant EventParticipant[]
+  EventStaff       EventStaff[]
 
   @@map("events")
+} 
+
+model EventStaff {
+  id       String @id @default(uuid())
+  eventId  String @map("event_id")
+  email    String
+  password String
+  event    Event  @relation(fields: [eventId], references: [id])
+
+  @@map("event_staffs")
 }
 
 model EventSchedule {

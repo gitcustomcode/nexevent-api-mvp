@@ -10,20 +10,25 @@ import { UserProducerValidationService } from 'src/services/user-producer-valida
 import { EventCreateDto } from './dto/event-producer-create.dto';
 import { generateSlug } from 'src/utils/generate-slug';
 import {
-  EventAllResponseDto,
   EventDashboardResponseDto,
+  ResponseEvents,
 } from './dto/event-producer-response.dto';
 import {
   StorageService,
   StorageServiceType,
 } from 'src/services/storage.service';
 import { randomUUID } from 'crypto';
+import { EventsResponse } from 'mailgun.js';
+import { PaginationService } from 'src/services/paginate.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class EventProducerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly userProducerValidationService: UserProducerValidationService,
+    private readonly storageService: StorageService,
+    private readonly paginationService: PaginationService,
   ) {}
 
   async createEvent(email: string, body: EventCreateDto): Promise<string> {
@@ -221,17 +226,46 @@ export class EventProducerService {
     }
   }
 
-  async findAllEvents(email: string): Promise<EventAllResponseDto> {
+  async findAllEvents(
+    email: string,
+    page: number,
+    perPage: number,
+    title?: string,
+    category?: string,
+  ): Promise<ResponseEvents> {
     try {
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
           email,
         );
 
+      const where: Prisma.EventWhereInput = {
+        userId: user.id,
+      };
+
+      if (title) {
+        where.title = { contains: title, mode: 'insensitive' };
+      }
+
+      if (category) {
+        where.category = { contains: category, mode: 'insensitive' };
+      }
+
       const event = await this.prisma.event.findMany({
-        where: {
-          userId: user.id,
+        where,
+        orderBy: {
+          createdAt: 'desc',
         },
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
+      });
+
+      const totalItems = await this.prisma.event.count({ where });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
       });
 
       const events = event.map((event) => {
@@ -242,7 +276,12 @@ export class EventProducerService {
         };
       });
 
-      return events;
+      const response: ResponseEvents = {
+        data: events,
+        pageInfo: pagination,
+      };
+
+      return response;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;

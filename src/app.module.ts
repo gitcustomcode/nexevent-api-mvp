@@ -12,6 +12,7 @@ import { ConfigService } from 'aws-sdk';
 import { OtpModule } from './modules/otp-modules/otp/otp.module';
 import { EventProducerAccreditationModule } from './modules/event-modules/event-producer/event-accreditation/event-producer-accreditation.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { EventProducerStaffModule } from './modules/event-modules/event-producer/event-staff/event-producer-staff.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     EventParticipantModule,
     OtpModule,
     EventProducerAccreditationModule,
+    EventProducerStaffModule,
   ],
   controllers: [],
   providers: [
