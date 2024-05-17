@@ -47,4 +47,14 @@ export const EventCreateSchema = z.object({
     credentialType: z.nativeEnum(CredentialType),
     limit: z.number(),
   }),
+  eventTickets: z.array(
+    z.object({
+      title: z.string().describe('Ticket title'),
+      description: z.string().describe('Ticket description'),
+      price: z.number().describe('Ticket price'),
+      color: z.string().describe('Ticket color'),
+      links: z.number().describe('Ticket links generate'),
+      guestPerLink: z.number().describe('Ticket link guest per link'),
+    })
+  ),
 });

@@ -12,7 +12,7 @@ import { String } from 'aws-sdk/clients/apigateway';
 
 @Injectable()
 export class UserProducerValidationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async findUserByEmail(
     email: string,
@@ -22,7 +22,7 @@ export class UserProducerValidationService {
         where: {
           email: email,
         },
-       
+
       });
 
       if (user) {
@@ -30,6 +30,7 @@ export class UserProducerValidationService {
           id: user.id,
           name: user.name,
           email: user.email,
+          dateBirth: user.dateBirth,
           profilePhoto: user.profilePhoto,
           type: user.type,
           cep: user.cep,
@@ -76,6 +77,7 @@ export class UserProducerValidationService {
         id: user.id,
         name: user.name,
         email: user.email,
+        dateBirth: user.dateBirth,
         profilePhoto: user.profilePhoto,
         type: user.type,
         cep: user.cep,
@@ -90,7 +92,6 @@ export class UserProducerValidationService {
         createdAt: user.createdAt,
         number: user.number,
         state: user.state,
-        dateBirth: user.dateBirth,
       };
 
       await UserValidationEmailResponseSchema.parseAsync(response);

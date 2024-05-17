@@ -9,7 +9,10 @@ import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { EventCreateDto } from './dto/event-producer-create.dto';
 import { generateSlug } from 'src/utils/generate-slug';
-import { EventDashboardResponseDto } from './dto/event-producer-response.dto';
+import {
+  EventAllResponseDto,
+  EventDashboardResponseDto,
+} from './dto/event-producer-response.dto';
 import {
   StorageService,
   StorageServiceType,
@@ -21,10 +24,9 @@ export class EventProducerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly userProducerValidationService: UserProducerValidationService,
-    private readonly storageService: StorageService,
   ) {}
 
-  async createEvent(email: string, body: EventCreateDto): Promise<String> {
+  async createEvent(email: string, body: EventCreateDto): Promise<string> {
     try {
       const {
         category,
@@ -37,6 +39,7 @@ export class EventProducerService {
         startPublishAt,
         subtitle,
         title,
+        eventTickets,
       } = body;
 
       const slug = generateSlug(title);
@@ -78,20 +81,20 @@ export class EventProducerService {
         cost = eventConfig.limit - 20 + eventConfig.limit * factor;
       }
 
-      await this.prisma.event.create({
+      const createdEvent = await this.prisma.event.create({
         data: {
           userId: user.id,
-          slug,
+          slug: slug,
           sequential: sequential + 1,
-          title,
-          category,
-          subtitle,
-          location,
+          title: title,
+          category: category,
+          subtitle: subtitle,
+          location: location,
           type: cost > 0 ? 'PAID_OUT' : 'FREE',
-          startAt,
-          endAt,
-          startPublishAt,
-          endPublishAt,
+          startAt: startAt,
+          endAt: endAt,
+          startPublishAt: startPublishAt,
+          endPublishAt: endPublishAt,
           eventSchedule: {
             createMany: {
               data: eventScheduleFormatted,
@@ -111,22 +114,31 @@ export class EventProducerService {
               cost: cost,
             },
           },
+          eventTicket: {
+            createMany: {
+              data: eventTickets.map((ticket, index) => ({
+                slug: generateSlug(ticket.title),
+                sequential: index + 1,
+                title: ticket.title,
+                description: ticket.description,
+                price: ticket.price,
+                color: ticket.color,
+                guest: ticket.guestPerLink * ticket.links,
+              })),
+            },
+          },
+        },
+        include: {
+          eventTicket: true,
         },
       });
 
-      return `Event successfully created: ${slug}`;
+      // console.log("Evento criado:", createdEvent);
+
+      return `Evento criado com sucesso: ${slug}`;
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      console.error('Erro ao criar evento:', error);
+      throw error;
     }
   }
 
@@ -198,6 +210,39 @@ export class EventProducerService {
       };
 
       return response;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new ConflictException(error);
+    }
+  }
+
+  async findAllEvents(email: string): Promise<EventAllResponseDto> {
+    try {
+      const user =
+        await this.userProducerValidationService.validateUserProducerByEmail(
+          email,
+        );
+
+      const event = await this.prisma.event.findMany({
+        where: {
+          userId: user.id,
+        },
+      });
+
+      const events = event.map((event) => {
+        return {
+          id: event.id,
+          title: event.title,
+          slug: event.slug,
+        };
+      });
+
+      return events;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;

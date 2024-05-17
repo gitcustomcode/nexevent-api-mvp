@@ -29,3 +29,12 @@ export const EventDashboardResponseSchema = z.object({
     }),
   ),
 });
+
+
+export const EventAllResponseSchema = z.array(
+  z.object({
+    id: z.string(),
+    title: z.string(),
+    slug: z.string(),
+  })
+);

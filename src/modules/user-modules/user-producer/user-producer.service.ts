@@ -72,7 +72,7 @@ export class UserProducerService {
         throw new NotFoundException('User not found');
       }
 
-      const { dateBirth, document, name, phoneCountry, phoneNumber } = body;
+      const { dateBirth, document, name, phoneCountry, phoneNumber, street, district, state, city, country, number, complement, cep } = body;
 
       await this.prisma.user.update({
         where: {
@@ -84,6 +84,16 @@ export class UserProducerService {
           document,
           phoneCountry,
           phoneNumber,
+          street,
+          district,
+          state,
+          city,
+          country,
+          number,
+          complement,
+          cep,
+
+
         },
       });
 
