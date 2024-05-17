@@ -12,7 +12,7 @@ import { String } from 'aws-sdk/clients/apigateway';
 
 @Injectable()
 export class UserProducerValidationService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async findUserByEmail(
     email: string,
@@ -22,7 +22,6 @@ export class UserProducerValidationService {
         where: {
           email: email,
         },
-
       });
 
       if (user) {
@@ -61,8 +60,23 @@ export class UserProducerValidationService {
   async validateUserProducerByEmail(
     email: string,
     password?: string,
+    eventId?: string,
   ): Promise<UserValidationEmailResponseDto> {
     try {
+      if (eventId) {
+        const staff = await this.prisma.eventStaff.findFirst({
+          where: {
+            eventId,
+            email,
+          },
+        });
+
+        if (!staff) {
+          throw new NotFoundException('Staff not found');
+        }
+
+        return staff;
+      }
       const user = await this.prisma.user.findUnique({
         where: {
           email: email,
@@ -128,7 +142,6 @@ export class UserProducerValidationService {
   }
 
   async eventExists(slug: string, userEmail: String) {
-    const user = await this.validateUserProducerByEmail(userEmail);
     const event = await this.prisma.event.findUnique({
       where: {
         slug: slug,
@@ -139,12 +152,10 @@ export class UserProducerValidationService {
       },
     });
 
+    await this.validateUserProducerByEmail(userEmail, null, event.id);
+
     if (!event) {
       throw new NotFoundException('Event not found');
-    }
-
-    if (event.userId !== user.id) {
-      throw new UnauthorizedException('Unauthorized');
     }
 
     return event;

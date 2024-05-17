@@ -26,7 +26,11 @@ import {
 import { EventProducerService } from './event-producer.service';
 import { EventCreateDto } from './dto/event-producer-create.dto';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
-import { EventAllResponseDto, EventDashboardResponseDto } from './dto/event-producer-response.dto';
+import {
+  EventAllResponseDto,
+  EventDashboardResponseDto,
+  ResponseEvents,
+} from './dto/event-producer-response.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Event Producer')
@@ -86,11 +90,45 @@ export class EventProducerController {
   })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiQuery({
+    name: 'page',
+    type: String,
+    required: false,
+    example: '1',
+  })
+  @ApiQuery({
+    name: 'perPage',
+    type: String,
+    required: false,
+    example: '10',
+  })
+  @ApiQuery({
+    name: 'title',
+    type: String,
+    required: false,
+    example: '10',
+  })
+  @ApiQuery({
+    name: 'category',
+    type: String,
+    required: false,
+    example: '10',
+  })
   async findAllEvents(
     @Request() req: any,
-  ): Promise<EventAllResponseDto> {
+    @Query('page') page: string = '1',
+    @Query('perPage') perPage: string = '10',
+    @Query('title') title?: string,
+    @Query('category') category?: string,
+  ): Promise<ResponseEvents> {
     const email = req.auth.user.email;
-    return this.eventProducerService.findAllEvents(email);
+    return await this.eventProducerService.findAllEvents(
+      email,
+      Number(page),
+      Number(perPage),
+      title,
+      category,
+    );
   }
 
   @Post('v1/event-producer/:eventId/upload-photo')
