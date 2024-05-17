@@ -19,7 +19,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { EventParticipantService } from './event-participant.service';
-import { EventParticipantCreateDto, EventParticipantCreateNetworksDto } from './dto/event-participant-create.dto';
+import {
+  EventParticipantCreateDto,
+  EventParticipantCreateNetworksDto,
+} from './dto/event-participant-create.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Event Participant')
@@ -55,7 +58,7 @@ export class EventParticipantController {
     @Query('userEmail') userEmail: string,
     @Param('eventTicketLinkId') eventTicketLinkId: string,
   ) {
-    return this.eventParticipantService.createParticipant(
+    return await this.eventParticipantService.createParticipant(
       userEmail,
       eventTicketLinkId,
       body,

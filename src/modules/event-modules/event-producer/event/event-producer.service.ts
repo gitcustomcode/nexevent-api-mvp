@@ -10,12 +10,18 @@ import { UserProducerValidationService } from 'src/services/user-producer-valida
 import { EventCreateDto } from './dto/event-producer-create.dto';
 import { generateSlug } from 'src/utils/generate-slug';
 import { EventDashboardResponseDto } from './dto/event-producer-response.dto';
+import {
+  StorageService,
+  StorageServiceType,
+} from 'src/services/storage.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class EventProducerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly userProducerValidationService: UserProducerValidationService,
+    private readonly storageService: StorageService,
   ) {}
 
   async createEvent(email: string, body: EventCreateDto): Promise<String> {
@@ -200,6 +206,155 @@ export class EventProducerService {
         throw error;
       }
       throw new ConflictException(error);
+    }
+  }
+
+  async updatePhotoEvent(
+    email: string,
+    eventId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    await this.userProducerValidationService.validateUserProducerByEmail(email);
+    const currentDate = new Date();
+    const year = currentDate.getFullYear().toString();
+    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+    const day = currentDate.getDate().toString().padStart(2, '0');
+
+    const uniqueFilename = `${randomUUID()}-${file.originalname}`;
+    const photoPath = `${year}/${month}/${day}/${uniqueFilename}`;
+
+    const event = await this.prisma.event.findUnique({
+      where: {
+        id: eventId,
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Account not make a event');
+    }
+
+    this.storageService.uploadFile(
+      StorageServiceType.S3,
+      photoPath,
+      file.buffer,
+    );
+
+    await this.prisma.event.update({
+      where: { id: eventId },
+      data: { photo: photoPath },
+    });
+
+    return 'Event photo uploaded';
+  }
+
+  async createEventTerms(
+    email: string,
+    eventId: string,
+    name: string,
+    signature: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    try {
+      await this.userProducerValidationService.validateUserProducerByEmail(
+        email,
+      );
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          id: eventId,
+        },
+      });
+
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const deadlineAt = new Date();
+
+      deadlineAt.setDate(deadlineAt.getDate() + 30);
+
+      const formattedDeadline = deadlineAt.toISOString();
+
+      const termCreated = await this.prisma.term.create({
+        data: {
+          deadlineAt: formattedDeadline,
+          name: name,
+          path: name,
+        },
+      });
+
+      await this.uploadEventTerms(termCreated.id, file);
+
+      await this.prisma.eventTerm.create({
+        data: {
+          eventId: eventId,
+          termId: termCreated.id,
+          signature: signature === 'true' ? true : false,
+        },
+      });
+
+      return 'Event terms created successfully';
+    } catch (error) {
+      console.log(error);
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException(error);
+    }
+  }
+
+  async uploadEventTerms(documentAndTermId: string, file: Express.Multer.File) {
+    try {
+      const allowedMimeTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
+
+      if (!allowedMimeTypes.includes(file.mimetype)) {
+        throw new BadRequestException(
+          'Only PDF and Word (DOCX) files are allowed.',
+        );
+      }
+
+      const currentDate = new Date();
+      const year = currentDate.getFullYear().toString();
+      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = currentDate.getDate().toString().padStart(2, '0');
+
+      const filename = file.originalname;
+      const fileExtension = filename.split('.').pop();
+
+      const uniqueFilename = `${randomUUID()}.${fileExtension}`;
+
+      const filePath = `document-and-term/${year}/${month}/${day}/${uniqueFilename}`;
+
+      this.storageService.uploadFile(
+        StorageServiceType.S3,
+        filePath,
+        file.buffer,
+      );
+
+      const response = await this.prisma.term.update({
+        where: {
+          id: documentAndTermId,
+        },
+        data: {
+          path: filePath,
+        },
+      });
+
+      return response;
+    } catch (error) {
+      console.log(`Error uploading file document and term: ${error}`);
+      throw new ConflictException(
+        `Error uploading file document and term: ${error}`,
+      );
     }
   }
 }
