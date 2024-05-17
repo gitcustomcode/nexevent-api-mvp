@@ -17,6 +17,9 @@ import {
   StorageService,
   StorageServiceType,
 } from 'src/services/storage.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { EmailService } from 'src/services/email.service';
+import * as QRCode from 'qrcode';
 
 @Injectable()
 export class EventParticipantService {
@@ -24,6 +27,7 @@ export class EventParticipantService {
     private readonly prisma: PrismaService,
     private readonly userParticipantValidationService: UserParticipantValidationService,
     private readonly storageService: StorageService,
+    private readonly emailService: EmailService,
   ) {}
 
   async createParticipant(
@@ -257,7 +261,7 @@ export class EventParticipantService {
   }
 
   async updateUserParticipantStatus(event, user) {
-    let participantStatus: EventParticipantStatus = 'AWAITING_PAYMENT';
+    let participantStatus: EventParticipantStatus = 'COMPLETE';
 
     const eventConfig = event.eventConfig[0];
 
@@ -275,5 +279,70 @@ export class EventParticipantService {
     }
 
     return participantStatus;
+  }
+
+  @Cron(CronExpression.EVERY_30_SECONDS, {
+    name: 'eventParticipantSendEmails',
+  })
+  async sendCronEmail() {
+    const eventParticipants = await this.prisma.eventParticipant.findMany({
+      where: {
+        sendEmailAt: null,
+      },
+      take: 1,
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+            document: true,
+          },
+        },
+        event: {
+          select: {
+            title: true,
+            startAt: true,
+            endAt: true,
+            description: true,
+          },
+        },
+        eventTicket: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    });
+
+    eventParticipants.forEach(async (eventParticipant) => {
+      const { user, event, eventTicket } = eventParticipant;
+      const { name, email, document } = user;
+      const { startAt, endAt, description, title: nameEvent } = event;
+      const { title: nameTicket } = eventTicket;
+
+      const qrCodeBase64 = await QRCode.toDataURL(eventParticipant.qrcode);
+
+      const data = {
+        to: email,
+        name: name,
+        type: 'sendEmailParticipantQRcode',
+      };
+
+      this.emailService.sendEmail(data, {
+        eventName: nameEvent,
+        ticketName: nameTicket,
+        description: description,
+        startDate: startAt,
+        endDate: endAt,
+        qrCodeHtml: qrCodeBase64,
+        qrCode: eventParticipant.qrcode,
+        invictaClub: '',
+      });
+
+      await this.prisma.eventParticipant.update({
+        where: { id: eventParticipant.id },
+        data: { sendEmailAt: new Date() },
+      });
+    });
   }
 }

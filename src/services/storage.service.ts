@@ -54,6 +54,34 @@ export class StorageService {
     }
   }
 
+  async validateFacial(imageData1: Buffer, imageData2: Buffer) {
+    const rekognition = new AWS.Rekognition();
+
+    const params: AWS.Rekognition.CompareFacesRequest = {
+      SourceImage: {
+        Bytes: imageData1,
+      },
+      TargetImage: {
+        Bytes: imageData2,
+      },
+      SimilarityThreshold: 90, // Limiar de similaridade em percentual
+    };
+
+    try {
+      const result = await rekognition.compareFaces(params).promise();
+
+      if (result.FaceMatches && result.FaceMatches.length > 0) {
+        const similarity = result.FaceMatches[0].Similarity;
+        return similarity; // Determinar se é a mesma pessoa com base no limiar de similaridade
+      } else {
+        return false;
+      }
+    } catch (err) {
+      console.error('Erro ao comparar rostos:', err);
+      throw err;
+    }
+  }
+
   private async getToS3(bucket: string, key: string): Promise<Buffer> {
     const getParams = {
       Bucket: bucket,

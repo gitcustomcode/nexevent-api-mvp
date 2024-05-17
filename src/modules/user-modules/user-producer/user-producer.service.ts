@@ -11,12 +11,18 @@ import { AuthService } from 'src/modules/auth-modules/auth/auth.service';
 import { genSaltSync, hash } from 'bcrypt';
 import { UserProducerFinishSignUpDto } from './dto/user-producer-finish-sign-up.dto';
 import { UserProducerResponseDto } from './dto/user-producer-response.dto';
+import { randomUUID } from 'crypto';
+import {
+  StorageService,
+  StorageServiceType,
+} from 'src/services/storage.service';
 
 @Injectable()
 export class UserProducerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly userProducerValidationService: UserProducerValidationService,
+    private readonly storageService: StorageService,
     private readonly authService: AuthService,
   ) {}
 
@@ -97,16 +103,10 @@ export class UserProducerService {
     }
   }
 
-  async findOneUserProducer(
-    email: string,
-  ): Promise<UserProducerResponseDto> {
+  async findOneUserProducer(email: string): Promise<UserProducerResponseDto> {
     try {
       const user =
-        await this.userProducerValidationService.findUserByEmail(
-          email,
-        );
-  
-  
+        await this.userProducerValidationService.findUserByEmail(email);
 
       const response: UserProducerResponseDto = {
         id: user.id,
@@ -129,6 +129,50 @@ export class UserProducerService {
       };
 
       return response;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new ConflictException(error);
+    }
+  }
+
+  async uploadProfilePhoto(email: string, photo: Express.Multer.File) {
+    try {
+      const userExists =
+        await this.userProducerValidationService.findUserByEmail(email);
+
+      if (!userExists) {
+        throw new NotFoundException('User not found');
+      }
+
+      const currentDate = new Date();
+      const year = currentDate.getFullYear().toString();
+      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = currentDate.getDate().toString().padStart(2, '0');
+
+      const uniqueFilename = `${randomUUID()}-${photo.originalname}`;
+      const photoPath = `${year}/${month}/${day}/${uniqueFilename}`;
+
+      await this.prisma.user.update({
+        where: {
+          id: userExists.id,
+        },
+        data: {
+          profilePhoto: photoPath,
+        },
+      });
+
+      await this.storageService.uploadFile(
+        StorageServiceType.S3,
+        photoPath,
+        photo.buffer,
+      );
+
+      return 'Photo uploaded successfully';
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;

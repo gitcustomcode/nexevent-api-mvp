@@ -7,6 +7,7 @@ import { StorageService } from 'src/services/storage.service';
 import { ConfigService } from 'aws-sdk';
 import { ConfigModule } from '@nestjs/config';
 import variables from 'src/variables';
+import { EmailService } from 'src/services/email.service';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import variables from 'src/variables';
     PrismaService,
     UserParticipantValidationService,
     StorageService,
+    EmailService,
   ],
 })
 export class EventParticipantModule {}

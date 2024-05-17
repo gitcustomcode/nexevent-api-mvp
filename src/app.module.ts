@@ -9,15 +9,21 @@ import { EventTicketProducerModule } from './modules/event-modules/event-produce
 import { EventNetworkProducerModule } from './modules/event-modules/event-producer/event-network/event-network-producer.module';
 import { EventParticipantModule } from './modules/event-modules/event-participant/event/event-participant.module';
 import { ConfigService } from 'aws-sdk';
+import { OtpModule } from './modules/otp-modules/otp/otp.module';
+import { EventProducerAccreditationModule } from './modules/event-modules/event-producer/event-accreditation/event-producer-accreditation.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     AuthModule,
     UserProducerModule,
     EventProducerModule,
     EventTicketProducerModule,
     EventNetworkProducerModule,
     EventParticipantModule,
+    OtpModule,
+    EventProducerAccreditationModule,
   ],
   controllers: [],
   providers: [

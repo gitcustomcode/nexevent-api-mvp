@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { EventProducerController } from './event-producer.controller';
-import { EventProducerService } from './event-producer.service';
+import { EventProducerAccreditationController } from './event-producer-accreditation.controller';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
+import { EventProducerAccreditationService } from './event-producer-accreditation.service';
 import { StorageService } from 'src/services/storage.service';
 import { ConfigModule } from '@nestjs/config';
 import variables from 'src/variables';
@@ -13,12 +13,12 @@ import variables from 'src/variables';
       load: [variables],
     }),
   ],
-  controllers: [EventProducerController],
+  controllers: [EventProducerAccreditationController],
   providers: [
-    EventProducerService,
+    EventProducerAccreditationService,
     PrismaService,
-    UserProducerValidationService,
     StorageService,
+    UserProducerValidationService,
   ],
 })
-export class EventProducerModule {}
+export class EventProducerAccreditationModule {}
