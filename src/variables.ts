@@ -13,9 +13,9 @@ export default registerAs('app', () => ({
 
   mailGunApiKey: process.env.MAILGUN_API_KEYS,
   mailGunDomain: process.env.MAILGUN_DOMAIN,
-  mailGuFrom: process.env.MAILGUN_FROM,
+  mailGunFrom: process.env.MAILGUN_FROM,
 
-  cryptoPassword: process.env.CRYPTO_PASSWORD,
+  cryptoPassword: process.env.CRYPT_PASSWORD,
   jwt: process.env.JWT_SECRET,
 
   clickSignApiKey: process.env.CLICK_SIGN_API_KEY,

@@ -4,24 +4,35 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Request,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiInternalServerErrorResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { EventProducerService } from './event-producer.service';
 import { EventCreateDto } from './dto/event-producer-create.dto';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
-import { EventDashboardResponseDto } from './dto/event-producer-response.dto';
+import {
+  EventAllResponseDto,
+  EventDashboardResponseDto,
+  GeneralDashboardResponseDto,
+  ResponseEvents,
+} from './dto/event-producer-response.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Event Producer')
 @Controller('event-producer')
@@ -68,5 +79,169 @@ export class EventProducerController {
   ): Promise<EventDashboardResponseDto> {
     const email = req.auth.user.email;
     return this.eventProducerService.findOneDashboard(email, slug);
+  }
+
+  @Get('v1/event-producer/events')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get all events' })
+  @ApiResponse({
+    description: 'find all events',
+    type: EventAllResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiQuery({
+    name: 'page',
+    type: String,
+    required: false,
+    example: '1',
+  })
+  @ApiQuery({
+    name: 'perPage',
+    type: String,
+    required: false,
+    example: '10',
+  })
+  @ApiQuery({
+    name: 'title',
+    type: String,
+    required: false,
+    example: '10',
+  })
+  @ApiQuery({
+    name: 'category',
+    type: String,
+    required: false,
+    example: '10',
+  })
+  async findAllEvents(
+    @Request() req: any,
+    @Query('page') page: string = '1',
+    @Query('perPage') perPage: string = '10',
+    @Query('title') title?: string,
+    @Query('category') category?: string,
+  ): Promise<ResponseEvents> {
+    const email = req.auth.user.email;
+    return await this.eventProducerService.findAllEvents(
+      email,
+      Number(page),
+      Number(perPage),
+      title,
+      category,
+    );
+  }
+
+  @Post('v1/event-producer/:eventId/upload-photo')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Upload a event photo' })
+  @ApiCreatedResponse({
+    description: 'event photo created',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventId',
+    required: true,
+    type: String,
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async createParticipantFacial(
+    @Request() req: any,
+    @Param('eventId') eventId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const email = req.auth.user.email;
+    return await this.eventProducerService.updatePhotoEvent(
+      email,
+      eventId,
+      file,
+    );
+  }
+
+  @Post('v1/event-producer/:eventId/create-terms')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Upload a event photo' })
+  @ApiCreatedResponse({
+    description: 'event photo created',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventId',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'name',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'signature',
+    required: true,
+    type: String,
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async createEventTerms(
+    @Request() req: any,
+    @Param('eventId') eventId: string,
+    @Query('name') name: string,
+    @Query('signature') signature: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const email = req.auth.user.email;
+    return await this.eventProducerService.createEventTerms(
+      email,
+      eventId,
+      name,
+      signature,
+      file,
+    );
+  }
+
+  @Get('v1/event-producer/general-dashboard')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get general dashboard' })
+  @ApiResponse({
+    description: 'event dashboard',
+    type: GeneralDashboardResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  async generalDashboard(
+    @Request() req: any,
+  ): Promise<GeneralDashboardResponseDto> {
+    const email = req.auth.user.email;
+    return this.eventProducerService.generalDashboard(email);
   }
 }

@@ -9,11 +9,17 @@ import { EventParticipantStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserParticipantValidationService } from 'src/services/user-participant-validation.service';
-import { EventParticipantCreateDto } from './dto/event-participant-create.dto';
+import {
+  EventParticipantCreateDto,
+  EventParticipantCreateNetworksDto,
+} from './dto/event-participant-create.dto';
 import {
   StorageService,
   StorageServiceType,
 } from 'src/services/storage.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { EmailService } from 'src/services/email.service';
+import * as QRCode from 'qrcode';
 
 @Injectable()
 export class EventParticipantService {
@@ -21,6 +27,7 @@ export class EventParticipantService {
     private readonly prisma: PrismaService,
     private readonly userParticipantValidationService: UserParticipantValidationService,
     private readonly storageService: StorageService,
+    private readonly emailService: EmailService,
   ) {}
 
   async createParticipant(
@@ -73,6 +80,7 @@ export class EventParticipantService {
 
       return {
         eventParticipantId: eventParticipant.id,
+        participantStatus: eventParticipant.status,
       };
     } catch (error) {
       console.log(error);
@@ -89,11 +97,14 @@ export class EventParticipantService {
     }
   }
 
-  async createUserFacial(partipantId: string, photo: Express.Multer.File) {
+  async createParticipantFacial(
+    participantId: string,
+    photo: Express.Multer.File,
+  ) {
     try {
       const participantExists =
         await this.userParticipantValidationService.participantExists(
-          partipantId,
+          participantId,
         );
 
       const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
@@ -127,18 +138,113 @@ export class EventParticipantService {
 
       await this.prisma.userFacial.create({
         data: {
-          userId: partipantId,
+          userId: participantExists.userId,
           path: filePath,
           expirationDate: expiryDate,
         },
       });
 
-      await this.updateUserParticipantStatus(
+      const userUpdated = await this.prisma.user.findUnique({
+        where: {
+          id: participantExists.userId,
+        },
+        include: {
+          userFacials: true,
+          userSocials: true,
+          userHobbie: true,
+        },
+      });
+
+      const participantStatus = await this.updateUserParticipantStatus(
         participantExists.event,
-        participantExists.user,
+        userUpdated,
       );
 
-      return 'success';
+      const participantUpdated = await this.prisma.eventParticipant.update({
+        where: {
+          id: participantExists.id,
+        },
+        data: {
+          status: participantStatus,
+        },
+      });
+
+      return {
+        eventParticipantId: participantUpdated.id,
+        participantStatus: participantUpdated.status,
+      };
+    } catch (error) {
+      console.log(error);
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException(error);
+    }
+  }
+
+  async createParticipantNetworks(
+    participantId: string,
+    body: EventParticipantCreateNetworksDto,
+  ) {
+    try {
+      const participantExists =
+        await this.userParticipantValidationService.participantExists(
+          participantId,
+        );
+
+      const userSocialsFormatted = body.map((network) => {
+        return {
+          userId: participantExists.user.id,
+          network: network.network,
+          username: network.username,
+        };
+      });
+
+      await this.prisma.userSocial.deleteMany({
+        where: {
+          userId: participantExists.user.id,
+        },
+      });
+
+      await this.prisma.userSocial.createMany({
+        data: userSocialsFormatted,
+      });
+
+      const userUpdated = await this.prisma.user.findUnique({
+        where: {
+          id: participantExists.userId,
+        },
+        include: {
+          userFacials: true,
+          userSocials: true,
+          userHobbie: true,
+        },
+      });
+
+      const participantStatus = await this.updateUserParticipantStatus(
+        participantExists.event,
+        userUpdated,
+      );
+
+      const participantUpdated = await this.prisma.eventParticipant.update({
+        where: {
+          id: participantExists.id,
+        },
+        data: {
+          status: participantStatus,
+        },
+      });
+
+      return {
+        eventParticipantId: participantUpdated.id,
+        participantStatus: participantUpdated.status,
+      };
     } catch (error) {
       console.log(error);
       if (error instanceof UnauthorizedException) {
@@ -155,7 +261,7 @@ export class EventParticipantService {
   }
 
   async updateUserParticipantStatus(event, user) {
-    let participantStatus: EventParticipantStatus = 'AWAITING_PAYMENT';
+    let participantStatus: EventParticipantStatus = 'COMPLETE';
 
     const eventConfig = event.eventConfig[0];
 
@@ -173,5 +279,70 @@ export class EventParticipantService {
     }
 
     return participantStatus;
+  }
+
+  @Cron(CronExpression.EVERY_30_SECONDS, {
+    name: 'eventParticipantSendEmails',
+  })
+  async sendCronEmail() {
+    const eventParticipants = await this.prisma.eventParticipant.findMany({
+      where: {
+        sendEmailAt: null,
+      },
+      take: 1,
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+            document: true,
+          },
+        },
+        event: {
+          select: {
+            title: true,
+            startAt: true,
+            endAt: true,
+            description: true,
+          },
+        },
+        eventTicket: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    });
+
+    eventParticipants.forEach(async (eventParticipant) => {
+      const { user, event, eventTicket } = eventParticipant;
+      const { name, email, document } = user;
+      const { startAt, endAt, description, title: nameEvent } = event;
+      const { title: nameTicket } = eventTicket;
+
+      const qrCodeBase64 = await QRCode.toDataURL(eventParticipant.qrcode);
+
+      const data = {
+        to: email,
+        name: name,
+        type: 'sendEmailParticipantQRcode',
+      };
+
+      this.emailService.sendEmail(data, {
+        eventName: nameEvent,
+        ticketName: nameTicket,
+        description: description,
+        startDate: startAt,
+        endDate: endAt,
+        qrCodeHtml: qrCodeBase64,
+        qrCode: eventParticipant.qrcode,
+        invictaClub: '',
+      });
+
+      await this.prisma.eventParticipant.update({
+        where: { id: eventParticipant.id },
+        data: { sendEmailAt: new Date() },
+      });
+    });
   }
 }

@@ -1,8 +1,9 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiInternalServerErrorResponse,
   ApiOperation,
+  ApiParam,
   ApiQuery,
   ApiResponse,
   ApiTags,
@@ -39,5 +40,42 @@ export class AuthController {
     @Query('userPassword') userPassword: string,
   ): Promise<String> {
     return await this.authService.login(userEmail, userPassword);
+  }
+
+  @Get('v1/auth/login/:eventSlug')
+  @ApiOperation({
+    summary: 'Login',
+  })
+  @ApiResponse({
+    description: 'the auth has been successfully',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'userEmail',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'userPassword',
+    required: true,
+    type: String,
+  })
+  async staffLogin(
+    @Query('userEmail') userEmail: string,
+    @Query('userPassword') userPassword: string,
+    @Param('eventSlug') eventSlug: string,
+  ): Promise<String> {
+    return await this.authService.staffLogin(
+      eventSlug,
+      userEmail,
+      userPassword,
+    );
   }
 }

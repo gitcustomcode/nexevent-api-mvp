@@ -5,6 +5,7 @@ import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { AuthService } from 'src/modules/auth-modules/auth/auth.service';
 import { ConfigService } from '@nestjs/config';
+import { StorageService } from 'src/services/storage.service';
 
 @Module({
   controllers: [UserProducerController],
@@ -14,6 +15,7 @@ import { ConfigService } from '@nestjs/config';
     UserProducerValidationService,
     AuthService,
     ConfigService,
+    StorageService,
   ],
 })
 export class UserProducerModule {}

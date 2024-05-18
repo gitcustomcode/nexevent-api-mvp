@@ -9,16 +9,42 @@ import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { EventCreateDto } from './dto/event-producer-create.dto';
 import { generateSlug } from 'src/utils/generate-slug';
-import { EventDashboardResponseDto } from './dto/event-producer-response.dto';
+import {
+  EventDashboardResponseDto,
+  GeneralDashboardResponseDto,
+  ResponseEvents,
+} from './dto/event-producer-response.dto';
+import {
+  StorageService,
+  StorageServiceType,
+} from 'src/services/storage.service';
+import { randomUUID } from 'crypto';
+import { EventsResponse } from 'mailgun.js';
+import { PaginationService } from 'src/services/paginate.service';
+import { Prisma } from '@prisma/client';
+
+type DataItem = {
+  state: string | null;
+  ticketValue: number;
+};
+
+type StateSums = {
+  [key: string]: {
+    count: number;
+    ticketSum: number;
+  };
+};
 
 @Injectable()
 export class EventProducerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly userProducerValidationService: UserProducerValidationService,
+    private readonly storageService: StorageService,
+    private readonly paginationService: PaginationService,
   ) {}
 
-  async createEvent(email: string, body: EventCreateDto): Promise<String> {
+  async createEvent(email: string, body: EventCreateDto): Promise<string> {
     try {
       const {
         category,
@@ -31,6 +57,7 @@ export class EventProducerService {
         startPublishAt,
         subtitle,
         title,
+        eventTickets,
       } = body;
 
       const slug = generateSlug(title);
@@ -72,20 +99,20 @@ export class EventProducerService {
         cost = eventConfig.limit - 20 + eventConfig.limit * factor;
       }
 
-      await this.prisma.event.create({
+      const createdEvent = await this.prisma.event.create({
         data: {
           userId: user.id,
-          slug,
+          slug: slug,
           sequential: sequential + 1,
-          title,
-          category,
-          subtitle,
-          location,
+          title: title,
+          category: category,
+          subtitle: subtitle,
+          location: location,
           type: cost > 0 ? 'PAID_OUT' : 'FREE',
-          startAt,
-          endAt,
-          startPublishAt,
-          endPublishAt,
+          startAt: startAt,
+          endAt: endAt,
+          startPublishAt: startPublishAt,
+          endPublishAt: endPublishAt,
           eventSchedule: {
             createMany: {
               data: eventScheduleFormatted,
@@ -105,21 +132,31 @@ export class EventProducerService {
               cost: cost,
             },
           },
+          eventTicket: {
+            createMany: {
+              data: eventTickets.map((ticket, index) => ({
+                slug: generateSlug(ticket.title),
+                sequential: index + 1,
+                title: ticket.title,
+                description: ticket.description,
+                price: ticket.price,
+                color: ticket.color,
+                guest: ticket.guestPerLink * ticket.links,
+              })),
+            },
+          },
+        },
+        include: {
+          eventTicket: true,
         },
       });
 
-      return `Event successfully created: ${slug}`;
+      // console.log("Evento criado:", createdEvent);
+
+      return `Evento criado com sucesso: ${slug}`;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      console.error('Erro ao criar evento:', error);
+      throw error;
     }
   }
 
@@ -199,6 +236,368 @@ export class EventProducerService {
         throw error;
       }
       throw new ConflictException(error);
+    }
+  }
+
+  async findAllEvents(
+    email: string,
+    page: number,
+    perPage: number,
+    title?: string,
+    category?: string,
+  ): Promise<ResponseEvents> {
+    try {
+      const user =
+        await this.userProducerValidationService.validateUserProducerByEmail(
+          email,
+        );
+
+      const where: Prisma.EventWhereInput = {
+        userId: user.id,
+      };
+
+      if (title) {
+        where.title = { contains: title, mode: 'insensitive' };
+      }
+
+      if (category) {
+        where.category = { contains: category, mode: 'insensitive' };
+      }
+
+      const event = await this.prisma.event.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
+      });
+
+      const totalItems = await this.prisma.event.count({ where });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const events = event.map((event) => {
+        return {
+          id: event.id,
+          title: event.title,
+          slug: event.slug,
+        };
+      });
+
+      const response: ResponseEvents = {
+        data: events,
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new ConflictException(error);
+    }
+  }
+
+  async updatePhotoEvent(
+    email: string,
+    eventId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    await this.userProducerValidationService.validateUserProducerByEmail(email);
+    const currentDate = new Date();
+    const year = currentDate.getFullYear().toString();
+    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+    const day = currentDate.getDate().toString().padStart(2, '0');
+
+    const uniqueFilename = `${randomUUID()}-${file.originalname}`;
+    const photoPath = `${year}/${month}/${day}/${uniqueFilename}`;
+
+    const event = await this.prisma.event.findUnique({
+      where: {
+        id: eventId,
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Account not make a event');
+    }
+
+    this.storageService.uploadFile(
+      StorageServiceType.S3,
+      photoPath,
+      file.buffer,
+    );
+
+    await this.prisma.event.update({
+      where: { id: eventId },
+      data: { photo: photoPath },
+    });
+
+    return 'Event photo uploaded';
+  }
+
+  async createEventTerms(
+    email: string,
+    eventId: string,
+    name: string,
+    signature: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    try {
+      await this.userProducerValidationService.validateUserProducerByEmail(
+        email,
+      );
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          id: eventId,
+        },
+      });
+
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const deadlineAt = new Date();
+
+      deadlineAt.setDate(deadlineAt.getDate() + 30);
+
+      const formattedDeadline = deadlineAt.toISOString();
+
+      const termCreated = await this.prisma.term.create({
+        data: {
+          deadlineAt: formattedDeadline,
+          name: name,
+          path: name,
+        },
+      });
+
+      await this.uploadEventTerms(termCreated.id, file);
+
+      await this.prisma.eventTerm.create({
+        data: {
+          eventId: eventId,
+          termId: termCreated.id,
+          signature: signature === 'true' ? true : false,
+        },
+      });
+
+      return 'Event terms created successfully';
+    } catch (error) {
+      console.log(error);
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException(error);
+    }
+  }
+
+  async uploadEventTerms(documentAndTermId: string, file: Express.Multer.File) {
+    try {
+      const allowedMimeTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
+
+      if (!allowedMimeTypes.includes(file.mimetype)) {
+        throw new BadRequestException(
+          'Only PDF and Word (DOCX) files are allowed.',
+        );
+      }
+
+      const currentDate = new Date();
+      const year = currentDate.getFullYear().toString();
+      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = currentDate.getDate().toString().padStart(2, '0');
+
+      const filename = file.originalname;
+      const fileExtension = filename.split('.').pop();
+
+      const uniqueFilename = `${randomUUID()}.${fileExtension}`;
+
+      const filePath = `document-and-term/${year}/${month}/${day}/${uniqueFilename}`;
+
+      this.storageService.uploadFile(
+        StorageServiceType.S3,
+        filePath,
+        file.buffer,
+      );
+
+      const response = await this.prisma.term.update({
+        where: {
+          id: documentAndTermId,
+        },
+        data: {
+          path: filePath,
+        },
+      });
+
+      return response;
+    } catch (error) {
+      console.log(`Error uploading file document and term: ${error}`);
+      throw new ConflictException(
+        `Error uploading file document and term: ${error}`,
+      );
+    }
+  }
+
+  async generalDashboard(email: string): Promise<GeneralDashboardResponseDto> {
+    try {
+      const user =
+        await this.userProducerValidationService.findUserByEmail(email);
+
+      const events = await this.prisma.event.findMany({
+        where: {
+          userId: user.id,
+        },
+        include: {
+          eventParticipant: {
+            include: {
+              user: true,
+              eventTicket: true,
+              eventParticipantHistoric: true,
+            },
+          },
+          eventTicket: true,
+        },
+      });
+
+      let totalTickets = 0;
+      let totalParticipants = 0;
+      let total = 0;
+      let participantsCheckIn = [];
+      let participantsState = [];
+
+      events.map((event) => {
+        totalTickets += event.eventTicket.length;
+        totalParticipants += event.eventParticipant.length;
+
+        event.eventParticipant.map((participant) => {
+          participantsState.push({
+            state: participant.user.state,
+            ticketValue: participant.eventTicket.price,
+          });
+          total += Number(participant.eventTicket.price);
+          participant.eventParticipantHistoric.map((historic) => {
+            if (historic.status === 'CHECK_IN') {
+              participantsCheckIn.push({
+                id: historic.eventParticipantId,
+                status: historic.status,
+              });
+            }
+          });
+        });
+      });
+
+      const stateSums: StateSums = participantsState.reduce(
+        (acc: StateSums, item: DataItem) => {
+          const state = item.state === null ? 'não definido' : item.state;
+          if (acc[state]) {
+            acc[state].count += 1;
+            acc[state].ticketSum += Number(item.ticketValue);
+          } else {
+            acc[state] = {
+              count: 1,
+              ticketSum: Number(item.ticketValue),
+            };
+          }
+          return acc;
+        },
+        {},
+      );
+
+      // Passo 2: Encontrar o estado com a maior quantidade de participantes
+      let maxState: string | null = null;
+      let maxCount = 0;
+
+      for (const [state, { count }] of Object.entries(stateSums)) {
+        if (count > maxCount) {
+          maxCount = count;
+          maxState = state;
+        }
+      }
+
+      // Passo 3: Calcular a porcentagem de participantes daquele estado
+      const percentage = ((maxCount / participantsState.length) * 100).toFixed(
+        2,
+      );
+
+      // Passo 4: Calcular a soma dos valores dos ingressos de cada estado
+      const ticketSums: { [key: string]: number } = {};
+      for (const [state, { ticketSum }] of Object.entries(stateSums)) {
+        ticketSums[state] = ticketSum;
+      }
+
+      const bigSaleForState = {
+        state: '',
+        total: 0,
+      };
+
+      if (maxState) {
+        bigSaleForState.state = maxState;
+        bigSaleForState.total = ticketSums[maxState];
+      }
+
+      const bigParticipantsForState = {
+        state: maxState,
+        total: percentage,
+      };
+
+      const lastEvents = events.slice(0, 10).map((event) => {
+        let total = 0;
+        event.eventParticipant.map((participant) => {
+          total += Number(participant.eventTicket.price);
+        });
+        return {
+          id: event.id,
+          title: event.title,
+          slug: event.slug,
+          total: total,
+        };
+      });
+
+      const uniqueArray = Array.from(
+        new Map(participantsCheckIn.map((item) => [item.id, item])).values(),
+      );
+
+      const response: GeneralDashboardResponseDto = {
+        totalEvents: events.length,
+        totalTickets,
+        totalParticipants,
+        total,
+        participantsCheckIn: uniqueArray.length,
+        participantsNotCheckedIn: totalParticipants - uniqueArray.length,
+        lastEvents,
+        bigParticipantsForState,
+        bigSaleForState,
+      };
+
+      return response;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException(error);
     }
   }
 }
