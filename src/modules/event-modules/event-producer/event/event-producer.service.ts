@@ -23,6 +23,18 @@ import { EventsResponse } from 'mailgun.js';
 import { PaginationService } from 'src/services/paginate.service';
 import { Prisma } from '@prisma/client';
 
+type DataItem = {
+  state: string | null;
+  ticketValue: number;
+};
+
+type StateSums = {
+  [key: string]: {
+    count: number;
+    ticketSum: number;
+  };
+};
+
 @Injectable()
 export class EventProducerService {
   constructor(
@@ -467,21 +479,83 @@ export class EventProducerService {
       let totalTickets = 0;
       let totalParticipants = 0;
       let total = 0;
-      let participantsCheckIn = 0;
+      let participantsCheckIn = [];
+      let participantsState = [];
 
       events.map((event) => {
         totalTickets += event.eventTicket.length;
         totalParticipants += event.eventParticipant.length;
 
         event.eventParticipant.map((participant) => {
+          participantsState.push({
+            state: participant.user.state,
+            ticketValue: participant.eventTicket.price,
+          });
           total += Number(participant.eventTicket.price);
           participant.eventParticipantHistoric.map((historic) => {
             if (historic.status === 'CHECK_IN') {
-              participantsCheckIn += 1;
+              participantsCheckIn.push({
+                id: historic.eventParticipantId,
+                status: historic.status,
+              });
             }
           });
         });
       });
+
+      const stateSums: StateSums = participantsState.reduce(
+        (acc: StateSums, item: DataItem) => {
+          const state = item.state === null ? 'não definido' : item.state;
+          if (acc[state]) {
+            acc[state].count += 1;
+            acc[state].ticketSum += Number(item.ticketValue);
+          } else {
+            acc[state] = {
+              count: 1,
+              ticketSum: Number(item.ticketValue),
+            };
+          }
+          return acc;
+        },
+        {},
+      );
+
+      // Passo 2: Encontrar o estado com a maior quantidade de participantes
+      let maxState: string | null = null;
+      let maxCount = 0;
+
+      for (const [state, { count }] of Object.entries(stateSums)) {
+        if (count > maxCount) {
+          maxCount = count;
+          maxState = state;
+        }
+      }
+
+      // Passo 3: Calcular a porcentagem de participantes daquele estado
+      const percentage = ((maxCount / participantsState.length) * 100).toFixed(
+        2,
+      );
+
+      // Passo 4: Calcular a soma dos valores dos ingressos de cada estado
+      const ticketSums: { [key: string]: number } = {};
+      for (const [state, { ticketSum }] of Object.entries(stateSums)) {
+        ticketSums[state] = ticketSum;
+      }
+
+      const bigSaleForState = {
+        state: '',
+        total: 0,
+      };
+
+      if (maxState) {
+        bigSaleForState.state = maxState;
+        bigSaleForState.total = ticketSums[maxState];
+      }
+
+      const bigParticipantsForState = {
+        state: maxState,
+        total: percentage,
+      };
 
       const lastEvents = events.slice(0, 10).map((event) => {
         let total = 0;
@@ -496,15 +570,22 @@ export class EventProducerService {
         };
       });
 
+      const uniqueArray = Array.from(
+        new Map(participantsCheckIn.map((item) => [item.id, item])).values(),
+      );
+
       const response: GeneralDashboardResponseDto = {
         totalEvents: events.length,
         totalTickets,
         totalParticipants,
         total,
-        participantsCheckIn,
-        participantsNotCheckedIn: totalParticipants - participantsCheckIn,
+        participantsCheckIn: uniqueArray.length,
+        participantsNotCheckedIn: totalParticipants - uniqueArray.length,
         lastEvents,
+        bigParticipantsForState,
+        bigSaleForState,
       };
+
       return response;
     } catch (error) {
       if (error instanceof UnauthorizedException) {

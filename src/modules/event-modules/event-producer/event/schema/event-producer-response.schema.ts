@@ -55,7 +55,7 @@ export const GeneralDashboardResponseSchema = z.object({
 
   bigParticipantsForState: z.object({
     state: z.string(),
-    total: z.number(),
+    total: z.string(),
   }),
 
   bigSaleForState: z.object({
