@@ -118,4 +118,35 @@ export class UserProducerController {
     const email = req.auth.user.email;
     return await this.userProducerService.uploadProfilePhoto(email, file);
   }
+
+  @Post('v1/user-producer/profile/upload-facial')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Upload a user facial photo' })
+  @ApiCreatedResponse({
+    description: 'user facial photo created',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFacialPhoto(
+    @Request() req: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const email = req.auth.user.email;
+    return await this.userProducerService.uploadFacialPhoto(email, file);
+  }
 }

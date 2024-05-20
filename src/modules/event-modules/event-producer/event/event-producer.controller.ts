@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Request,
@@ -30,6 +31,7 @@ import {
   EventAllResponseDto,
   EventDashboardResponseDto,
   GeneralDashboardResponseDto,
+  ResponseEventParticipants,
   ResponseEvents,
 } from './dto/event-producer-response.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -57,7 +59,7 @@ export class EventProducerController {
     return this.eventProducerService.createEvent(email, body);
   }
 
-  @Get('v1/event-producer/dashboard/:slug')
+  @Get('v1/event-producer/:slug')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Get event dashboard' })
@@ -81,7 +83,7 @@ export class EventProducerController {
     return this.eventProducerService.findOneDashboard(email, slug);
   }
 
-  @Get('v1/event-producer/events')
+  @Get('v1/event-producer/events/find-all')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Get all events' })
@@ -160,7 +162,7 @@ export class EventProducerController {
     },
   })
   @UseInterceptors(FileInterceptor('file'))
-  async createParticipantFacial(
+  async createEventPhoto(
     @Request() req: any,
     @Param('eventId') eventId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -243,5 +245,75 @@ export class EventProducerController {
   ): Promise<GeneralDashboardResponseDto> {
     const email = req.auth.user.email;
     return this.eventProducerService.generalDashboard(email);
+  }
+
+  @Get('v1/event-producer/:slug/participans/find-all')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get general dashboard' })
+  @ApiResponse({
+    description: 'event dashboard',
+    type: ResponseEventParticipants,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'slug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  @ApiQuery({
+    name: 'page',
+    type: Number,
+    required: false,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'perPage',
+    type: Number,
+    required: false,
+    example: 1,
+  })
+  async findAllParticipants(
+    @Request() req: any,
+    @Param('slug') slug: string,
+    @Query('page') page: number = 1,
+    @Query('perPage') perPage: number = 10,
+  ): Promise<ResponseEventParticipants> {
+    const email = req.auth.user.email;
+    return this.eventProducerService.findAllParticipants(
+      email,
+      slug,
+      page,
+      perPage,
+    );
+  }
+
+  @Patch('v1/event-producer/:eventId/payment/')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Payment event' })
+  @ApiResponse({
+    description: 'Payment successful',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventId',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'eventCostId',
+    required: true,
+    type: Number,
+  })
+  async paidEventCost(
+    @Param('eventId') eventId: string,
+    @Query('eventCostId') eventCostId: number,
+  ): Promise<string> {
+    return this.eventProducerService.paidEventCost(eventId, eventCostId);
   }
 }
