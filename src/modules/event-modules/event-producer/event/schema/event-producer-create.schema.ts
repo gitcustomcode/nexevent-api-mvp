@@ -12,6 +12,7 @@ function parseDate(value: string): Date {
 export const EventCreateSchema = z.object({
   title: z.string().describe('Event name'),
   subtitle: z.string().describe('Event subtitle'),
+  eventPublic: z.boolean().default(true).describe('Event public'),
   startAt: z
     .string()
     .transform(parseDate)
@@ -55,6 +56,6 @@ export const EventCreateSchema = z.object({
       color: z.string().describe('Ticket color'),
       links: z.number().describe('Ticket links generate'),
       guestPerLink: z.number().describe('Ticket link guest per link'),
-    })
+    }),
   ),
 });

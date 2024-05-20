@@ -163,6 +163,7 @@ model Event {
   description    String?
   location       String?
   type           EventType   @default(FREE)
+  public         Boolean     @default(true)
   status         EventStatus @default(ENABLE)
   startAt        DateTime    @map("start_at")
   endAt          DateTime    @map("end_at")

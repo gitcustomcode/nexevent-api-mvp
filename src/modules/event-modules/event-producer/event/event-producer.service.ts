@@ -61,6 +61,7 @@ export class EventProducerService {
         subtitle,
         title,
         eventTickets,
+        eventPublic,
       } = body;
 
       const slug = generateSlug(title);
@@ -111,6 +112,7 @@ export class EventProducerService {
           category: category,
           subtitle: subtitle,
           location: location,
+          public: eventPublic,
           type: cost > 0 ? 'PAID_OUT' : 'FREE',
           startAt: startAt,
           endAt: endAt,

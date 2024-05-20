@@ -13,6 +13,7 @@ import {
 } from 'src/services/storage.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import {
+  FindByQrCodeResponseDto,
   GetEventConfigDto,
   LastAccreditedParticipantsResponse,
 } from './dto/event-producer-accreditation-response.dto';
@@ -26,7 +27,11 @@ export class EventProducerAccreditationService {
     private readonly paginationService: PaginationService,
     private readonly userProducerValidationService: UserProducerValidationService,
   ) {}
-  async findByQrCode(userEmail: string, slug: string, qrcode: string) {
+  async findByQrCode(
+    userEmail: string,
+    slug: string,
+    qrcode: string,
+  ): Promise<FindByQrCodeResponseDto> {
     try {
       const event = await this.userProducerValidationService.eventExists(
         slug,
@@ -39,7 +44,13 @@ export class EventProducerAccreditationService {
 
       const participant = await this.findOne(event.id, null, qrcode);
 
-      return participant;
+      const response: FindByQrCodeResponseDto = {
+        id: participant.id,
+        userDocument: participant.user.document,
+        userName: participant.user.name,
+      };
+
+      return response;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
@@ -153,6 +164,20 @@ export class EventProducerAccreditationService {
         },
       });
 
+      if (
+        event.eventConfig[0].printAutomatic === true &&
+        participant.eventParticipantHistoric.length === 0
+      ) {
+        await this.prisma.eventParticipant.update({
+          where: {
+            id: participant.id,
+          },
+          data: {
+            status: 'AWAITING_PRINT',
+          },
+        });
+      }
+
       return `The participant  ${historic.status} the event`;
     } catch (error) {
       console.log(error);
@@ -166,6 +191,39 @@ export class EventProducerAccreditationService {
         throw error;
       }
       throw new BadRequestException(error);
+    }
+  }
+
+  async rePrintParticipant(
+    userEmail: string,
+    slug: string,
+    participantId: string,
+  ) {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        slug,
+        userEmail,
+      );
+
+      if (event.status === 'DISABLE') {
+        throw new UnauthorizedException('Event disabled');
+      }
+
+      const participant = await this.findOne(event.id, participantId);
+
+      await this.prisma.eventParticipant.update({
+        where: {
+          id: participant.id,
+        },
+        data: {
+          status: 'AWAITING_PRINT',
+          isPrinted: false,
+        },
+      });
+
+      return `Print participant ${participant.id}`;
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -188,6 +246,7 @@ export class EventProducerAccreditationService {
         eventParticipantHistoric: {
           orderBy: { createdAt: 'desc' },
         },
+        user: true,
       },
     });
 

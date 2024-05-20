@@ -15,3 +15,9 @@ export const GetEventConfigSchema = z.object({
   printAutomatic: z.boolean(),
   credentialType: z.nativeEnum(CredentialType),
 });
+
+export const FindByQrCodeResponseSchema = z.object({
+  id: z.string(),
+  userName: z.string(),
+  userDocument: z.string(),
+});

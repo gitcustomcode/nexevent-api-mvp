@@ -1,5 +1,6 @@
 import { createZodDto } from 'nestjs-zod';
 import {
+  FindByQrCodeResponseSchema,
   GetEventConfigSchema,
   LastAccreditedParticipantsSchema,
 } from '../schema/event-producer-accreditation-response.schema';
@@ -11,6 +12,10 @@ export class LastAccreditedParticipantsDto extends createZodDto(
 ) {}
 
 export class GetEventConfigDto extends createZodDto(GetEventConfigSchema) {}
+
+export class FindByQrCodeResponseDto extends createZodDto(
+  FindByQrCodeResponseSchema,
+) {}
 
 export class LastAccreditedParticipantsResponse {
   @ApiProperty({
