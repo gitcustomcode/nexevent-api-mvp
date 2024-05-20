@@ -25,7 +25,7 @@ import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import { EventNetworksProducerCreateDto } from './dto/event-networks-producer-create.dto';
 import { EventNetworksResponse } from './dto/event-networks-producer-response.dto';
 
-@ApiTags('Event Producer')
+@ApiTags('Event Producer networks')
 @Controller('event-producer')
 export class EventNetworkProducerController {
   constructor(

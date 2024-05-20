@@ -198,6 +198,9 @@ export class EventProducerService {
                 },
               },
             },
+            orderBy: {
+              createdAt: 'desc',
+            },
           },
           eventParticipant: {
             include: {
@@ -217,6 +220,9 @@ export class EventProducerService {
               },
               eventParticipantHistoric: true,
               eventTicket: true,
+            },
+            orderBy: {
+              createdAt: 'desc',
             },
           },
           eventConfig: true,
@@ -284,12 +290,13 @@ export class EventProducerService {
           }
 
           const hour = new Date(historic.createdAt).getHours();
+          const day = new Date(historic.createdAt).getDay();
 
           // Atualiza as contagens por hora
-          if (hourCounts[hour]) {
-            hourCounts[hour] += 1;
+          if (hourCounts[`${day}-${hour}`]) {
+            hourCounts[`${day}-${hour}`] += 1;
           } else {
-            hourCounts[hour] = 1;
+            hourCounts[`${day}-${hour}`] = 1;
           }
         });
       });
@@ -372,6 +379,7 @@ export class EventProducerService {
       const response: EventDashboardResponseDto = {
         id: event.id,
         title: event.title,
+        slug: event.slug,
         photo: event.photo,
         eventLimit: event.eventConfig[0].limit,
         participants: participants,
@@ -725,18 +733,24 @@ export class EventProducerService {
         total: percentage,
       };
 
-      const lastEvents = events.slice(0, 10).map((event) => {
-        let total = 0;
-        event.eventParticipant.map((participant) => {
-          total += Number(participant.eventTicket.price);
-        });
-        return {
-          id: event.id,
-          title: event.title,
-          slug: event.slug,
-          total: total,
-        };
-      });
+      const lastEvents = events
+        .map((event) => {
+          let total = 0;
+          event.eventParticipant.forEach((participant) => {
+            total += Number(participant.eventTicket.price);
+          });
+
+          if (total > 0) {
+            return {
+              id: event.id,
+              title: event.title,
+              slug: event.slug,
+              total: total,
+            };
+          }
+        })
+        .filter((event) => event !== undefined) // Filtra os eventos que foram removidos (total <= 0)
+        .slice(-10);
 
       const uniqueArray = Array.from(
         new Map(participantsCheckIn.map((item) => [item.id, item])).values(),
@@ -774,6 +788,7 @@ export class EventProducerService {
     slug: string,
     page: number,
     perPage: number,
+    name?: string,
   ): Promise<ResponseEventParticipants> {
     try {
       const where: Prisma.EventParticipantWhereInput = {
@@ -781,6 +796,15 @@ export class EventProducerService {
           slug: slug,
         },
       };
+
+      if (name) {
+        where.user = {
+          name: {
+            contains: name,
+            mode: 'insensitive',
+          },
+        };
+      }
 
       await this.userProducerValidationService.eventExists(slug, email);
 
@@ -822,12 +846,18 @@ export class EventProducerService {
         return {
           id: participant.id,
           name: participant.user.name,
-          status: participant.eventParticipantHistoric[0].status,
+          status:
+            participant.eventParticipantHistoric.length > 0
+              ? participant.eventParticipantHistoric[0].status
+              : null,
           ticketName: participant.eventTicket.title,
-          facial: participant.user.userFacials[0].path,
+          facial:
+            participant.user.userFacials.length > 0
+              ? participant.user.userFacials[0].path
+              : null,
           email: participant.user.email,
           userNetwork:
-            participant.user.userSocials[0].username !== null
+            participant.user.userSocials.length > 0
               ? participant.user.userSocials[0].username
               : 'Sem registro',
         };

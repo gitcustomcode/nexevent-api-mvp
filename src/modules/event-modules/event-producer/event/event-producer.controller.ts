@@ -59,7 +59,7 @@ export class EventProducerController {
     return this.eventProducerService.createEvent(email, body);
   }
 
-  @Get('v1/event-producer/:slug')
+  @Get('v1/event-producer/:slug/dashboard')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Get event dashboard' })
@@ -275,11 +275,17 @@ export class EventProducerController {
     required: false,
     example: 1,
   })
+  @ApiQuery({
+    name: 'name',
+    type: String,
+    required: false,
+  })
   async findAllParticipants(
     @Request() req: any,
     @Param('slug') slug: string,
     @Query('page') page: number = 1,
     @Query('perPage') perPage: number = 10,
+    @Query('name') name?: string,
   ): Promise<ResponseEventParticipants> {
     const email = req.auth.user.email;
     return this.eventProducerService.findAllParticipants(
@@ -287,6 +293,7 @@ export class EventProducerController {
       slug,
       page,
       perPage,
+      name,
     );
   }
 
