@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { PrismaService } from 'src/services/prisma.service';
+import { StorageService } from 'src/services/storage.service';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PrismaService } from 'src/services/prisma.service';
     AuthService,
     UserProducerValidationService,
     JwtService,
+    StorageService,
     PrismaService,
   ],
 })

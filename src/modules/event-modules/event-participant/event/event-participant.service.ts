@@ -20,6 +20,7 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EmailService } from 'src/services/email.service';
 import * as QRCode from 'qrcode';
+import { ParticipantTicketDto } from './dto/event-participant-response.dto';
 
 @Injectable()
 export class EventParticipantService {
@@ -279,6 +280,39 @@ export class EventParticipantService {
     }
 
     return participantStatus;
+  }
+
+  async participantTicket(
+    participantId: string,
+  ): Promise<ParticipantTicketDto> {
+    try {
+      const participant = await this.prisma.eventParticipant.findUnique({
+        where: {
+          id: participantId,
+        },
+        include: {
+          eventTicket: true,
+          event: true,
+        },
+      });
+
+      if (!participant) {
+        throw new NotFoundException('Participant not found');
+      }
+
+      const response: ParticipantTicketDto = {
+        id: participant.id,
+        ticketName: participant.eventTicket.title,
+        price: Number(participant.eventTicket.price),
+        eventName: participant.event.title,
+        qrcode: participant.qrcode,
+        startAt: participant.event.startAt,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
   }
 
   @Cron(CronExpression.EVERY_30_SECONDS, {

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   Post,
   Query,
@@ -16,6 +17,7 @@ import {
   ApiOperation,
   ApiParam,
   ApiQuery,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { EventParticipantService } from './event-participant.service';
@@ -24,6 +26,7 @@ import {
   EventParticipantCreateNetworksDto,
 } from './dto/event-participant-create.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ParticipantTicketDto } from './dto/event-participant-response.dto';
 
 @ApiTags('Event Participant')
 @Controller('event-participant')
@@ -125,5 +128,22 @@ export class EventParticipantController {
       participantId,
       body,
     );
+  }
+
+  @Get('v1/event-participant/:participantId/ticket')
+  @ApiOperation({ summary: 'Get event participant ticket' })
+  @ApiResponse({
+    description: 'event participant ticket',
+    type: ParticipantTicketDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'participantId',
+    required: true,
+    type: String,
+  })
+  async participantTicket(@Param('participantId') participantId: string) {
+    return await this.eventParticipantService.participantTicket(participantId);
   }
 }

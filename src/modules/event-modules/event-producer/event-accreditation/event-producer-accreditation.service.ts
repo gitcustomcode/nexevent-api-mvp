@@ -69,10 +69,6 @@ export class EventProducerAccreditationService {
         },
       });
 
-      if (eventParticipants[0].user.userFacials.length === 0) {
-        throw new NotFoundException('Participants not have a facial');
-      }
-
       const validationPromises = eventParticipants.map(async (participant) => {
         if (participant.user.userFacials.length > 0) {
           const photo = await this.storageService.getFile(

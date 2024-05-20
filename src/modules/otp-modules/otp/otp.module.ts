@@ -8,6 +8,7 @@ import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { ConfigModule } from '@nestjs/config';
 import variables from 'src/variables';
+import { StorageService } from 'src/services/storage.service';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import variables from 'src/variables';
     AuthService,
     PrismaService,
     UserProducerValidationService,
+    StorageService,
   ],
 })
 export class OtpModule {}

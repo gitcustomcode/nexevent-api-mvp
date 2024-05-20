@@ -12,6 +12,7 @@ import { generateSlug } from 'src/utils/generate-slug';
 import {
   EventDashboardResponseDto,
   GeneralDashboardResponseDto,
+  ResponseEventParticipants,
   ResponseEvents,
 } from './dto/event-producer-response.dto';
 import {
@@ -22,6 +23,8 @@ import { randomUUID } from 'crypto';
 import { EventsResponse } from 'mailgun.js';
 import { PaginationService } from 'src/services/paginate.service';
 import { Prisma } from '@prisma/client';
+import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
+import { EventTicketCreateDto } from '../event-ticket/dto/event-ticket-producer-create.dto';
 
 type DataItem = {
   state: string | null;
@@ -31,7 +34,7 @@ type DataItem = {
 type StateSums = {
   [key: string]: {
     count: number;
-    ticketSum: number;
+    ticketSum?: number;
   };
 };
 
@@ -42,9 +45,10 @@ export class EventProducerService {
     private readonly userProducerValidationService: UserProducerValidationService,
     private readonly storageService: StorageService,
     private readonly paginationService: PaginationService,
+    private readonly eventTicketProducerService: EventTicketProducerService,
   ) {}
 
-  async createEvent(email: string, body: EventCreateDto): Promise<string> {
+  async createEvent(email: string, body: EventCreateDto): Promise<object> {
     try {
       const {
         category,
@@ -85,14 +89,14 @@ export class EventProducerService {
       let cost = 0;
 
       const factor = eventConfig.printAutomatic
-        ? 1
+        ? 2
         : 0 +
           (eventConfig.credentialType === 'QRCODE'
             ? 1
             : eventConfig.credentialType === 'FACIAL_IN_SITE'
-              ? 2
+              ? 3
               : eventConfig.credentialType === 'FACIAL'
-                ? 3
+                ? 4
                 : 0);
 
       if (factor > 0 || eventConfig.limit > 20) {
@@ -128,32 +132,38 @@ export class EventProducerService {
           eventCost: {
             create: {
               limit: eventConfig.limit,
-              status: true,
+              status: false,
               cost: cost,
-            },
-          },
-          eventTicket: {
-            createMany: {
-              data: eventTickets.map((ticket, index) => ({
-                slug: generateSlug(ticket.title),
-                sequential: index + 1,
-                title: ticket.title,
-                description: ticket.description,
-                price: ticket.price,
-                color: ticket.color,
-                guest: ticket.guestPerLink * ticket.links,
-              })),
             },
           },
         },
         include: {
-          eventTicket: true,
+          eventCost: true,
         },
       });
 
-      // console.log("Evento criado:", createdEvent);
+      for (const ticket of eventTickets) {
+        const body: EventTicketCreateDto = {
+          title: ticket.title,
+          color: ticket.color,
+          description: ticket.description,
+          price: ticket.price,
+          links: ticket.links,
+          guestPerLink: ticket.guestPerLink,
+        };
 
-      return `Evento criado com sucesso: ${slug}`;
+        await this.eventTicketProducerService.createEventTicket(
+          email,
+          createdEvent.slug,
+          body,
+        );
+      }
+
+      return {
+        id: createdEvent.id,
+        slug: createdEvent.slug,
+        eventCostid: createdEvent.eventCost[0].id,
+      };
     } catch (error) {
       console.error('Erro ao criar evento:', error);
       throw error;
@@ -178,6 +188,7 @@ export class EventProducerService {
         include: {
           eventTicket: {
             include: {
+              eventTicketGuest: true,
               EventParticipant: {
                 include: {
                   user: true,
@@ -188,54 +199,208 @@ export class EventProducerService {
               },
             },
           },
+          eventParticipant: {
+            include: {
+              user: {
+                include: {
+                  userSocials: {
+                    where: {
+                      username: { not: '' },
+                    },
+                  },
+                  userFacials: {
+                    orderBy: {
+                      createdAt: 'desc',
+                    },
+                  },
+                },
+              },
+              eventParticipantHistoric: true,
+              eventTicket: true,
+            },
+          },
           eventConfig: true,
+          EventStaff: true,
         },
       });
 
-      const participants = event.eventTicket.map((ticket) => {
-        if (ticket) {
-          ticket.EventParticipant.map((participant) => {
-            return {
-              id: participant.id,
-              name: participant.user.name,
-              status: participant.eventParticipantHistoric[0].status,
-              ticketName: ticket.title,
-            };
-          });
-        } else {
-          return null;
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const tickets = [];
+      let totalTickets = event.eventTicket ? event.eventTicket.length : 0;
+      let totalTicketsUsed = 0;
+      let links = 0;
+      let participantsCheckIn = [];
+      let participantsState = [];
+      const participants = [];
+      const staffs = [];
+      const hourCounts: { [key: string]: number } = {};
+
+      event.EventStaff.map((staff) => {
+        staffs.push({
+          id: staff.id,
+          email: staff.email,
+        });
+      });
+
+      event.eventTicket.map((ticket) => {
+        if (ticket.status === 'PART_FULL' || ticket.status === 'FULL') {
+          totalTicketsUsed += 1;
         }
       });
 
-      const tickets = event.eventTicket.map((ticket) => {
-        return {
-          id: ticket.id,
-          name: ticket.title,
-          status: ticket.status,
-          guest: ticket.guest,
-          participantsCount: ticket.EventParticipant.length,
-        };
+      event.eventParticipant.map((participant) => {
+        participantsState.push({
+          state: participant.user.state,
+        });
+
+        participants.push({
+          id: participant.id,
+          name: participant.user.name,
+          status:
+            participant.eventParticipantHistoric.length > 0
+              ? participant.eventParticipantHistoric[0].status
+              : null,
+          ticketName: participant.eventTicket.title,
+          facial:
+            participant.user.userFacials.length > 0
+              ? participant.user.userFacials[0].path
+              : null,
+          email: participant.user.email,
+          userNetwork:
+            participant.user.userSocials.length > 0
+              ? participant.user.userSocials[0].username
+              : null,
+        });
+
+        participant.eventParticipantHistoric.map((historic) => {
+          if (historic.status === 'CHECK_IN') {
+            participantsCheckIn.push({
+              id: historic.eventParticipantId,
+              status: historic.status,
+            });
+          }
+
+          const hour = new Date(historic.createdAt).getHours();
+
+          // Atualiza as contagens por hora
+          if (hourCounts[hour]) {
+            hourCounts[hour] += 1;
+          } else {
+            hourCounts[hour] = 1;
+          }
+        });
       });
+
+      const hourlyCountsArray = Object.values(hourCounts);
+
+      event.eventTicket.map((ticket) => {
+        let linksUsed = 0;
+
+        links += ticket.guest;
+
+        ticket.eventTicketGuest.map((link) => {
+          if (link.status === 'FULL') {
+            linksUsed += 1;
+          }
+        });
+        const enableLinks = ticket.eventTicketGuest.filter(
+          (link) => link.status !== 'FULL',
+        );
+        tickets.push({
+          id: ticket.id,
+          title: ticket.title,
+          price: ticket.price,
+          linksUsed: `${ticket.eventTicketGuest.length - linksUsed}/${ticket.eventTicketGuest.length}`,
+          guestPerLink:
+            ticket.eventTicketGuest.length > 0
+              ? ticket.eventTicketGuest[0].invite
+              : 0,
+          link: enableLinks.length > 0 ? enableLinks[0].id : null,
+        });
+      });
+
+      const stateSums: StateSums = participantsState.reduce(
+        (acc: StateSums, item: DataItem) => {
+          const state = item.state === null ? 'não definido' : item.state;
+          if (acc[state]) {
+            acc[state].count += 1;
+          } else {
+            acc[state] = {
+              count: 1,
+            };
+          }
+          return acc;
+        },
+        {},
+      );
+
+      const sortedStates = Object.entries(stateSums).sort(
+        (a, b) => b[1].count - a[1].count,
+      );
+
+      const topStatesCount = 4;
+      const topStates = sortedStates.slice(0, topStatesCount);
+      const otherStates = sortedStates.slice(topStatesCount);
+
+      const topStatesResult: StateSums = {};
+      topStates.forEach(([state, { count }]) => {
+        topStatesResult[state] = { count };
+      });
+
+      const othersCount = otherStates.reduce(
+        (sum, [_, { count }]) => sum + count,
+        0,
+      );
+      if (othersCount > 0) {
+        topStatesResult['outros'] = { count: othersCount };
+      }
+
+      const uniqueArray = Array.from(
+        new Map(participantsCheckIn.map((item) => [item.id, item])).values(),
+      );
+
+      const resultArray = Object.entries(topStatesResult).map(
+        ([state, { count }]) => ({
+          state,
+          count,
+        }),
+      );
 
       const response: EventDashboardResponseDto = {
         id: event.id,
         title: event.title,
+        photo: event.photo,
         eventLimit: event.eventConfig[0].limit,
-        credentialType: event.eventConfig[0].credentialType,
-        eventParticipants: participants,
-        eventParticipantsCount: participants.length,
-        eventTickets: tickets,
+        participants: participants,
+        credential: {
+          participantsCredentialPerHour: hourlyCountsArray,
+          participantsCheckIn: uniqueArray.length,
+          initialDate: event.startAt,
+          finalDate: event.endAt,
+        },
+        links,
+        tickets: tickets,
+        ticketsCreated: totalTickets,
+        ticketsUseds: totalTicketsUsed,
+        alreadyCheckIn: uniqueArray.length,
+        notCheckIn: event.eventParticipant.length - uniqueArray.length,
+        statesInfo: resultArray,
+        staffs,
       };
 
       return response;
     } catch (error) {
+      console.log(error);
       if (error instanceof UnauthorizedException) {
         throw error;
       }
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new ConflictException(error);
+      throw error;
     }
   }
 
@@ -247,6 +412,7 @@ export class EventProducerService {
     category?: string,
   ): Promise<ResponseEvents> {
     try {
+      console.log(page, perPage);
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
           email,
@@ -286,6 +452,8 @@ export class EventProducerService {
           id: event.id,
           title: event.title,
           slug: event.slug,
+          photo: event.photo,
+          startAt: event.startAt,
         };
       });
 
@@ -598,6 +766,98 @@ export class EventProducerService {
         throw error;
       }
       throw new BadRequestException(error);
+    }
+  }
+
+  async findAllParticipants(
+    email: string,
+    slug: string,
+    page: number,
+    perPage: number,
+  ): Promise<ResponseEventParticipants> {
+    try {
+      const where: Prisma.EventParticipantWhereInput = {
+        event: {
+          slug: slug,
+        },
+      };
+
+      await this.userProducerValidationService.eventExists(slug, email);
+
+      const eventParticipants = await this.prisma.eventParticipant.findMany({
+        where,
+        include: {
+          user: {
+            include: {
+              userFacials: {
+                orderBy: { createdAt: 'desc' },
+              },
+              userSocials: {
+                where: {
+                  username: { not: '' },
+                },
+              },
+            },
+          },
+          eventParticipantHistoric: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+          },
+          eventTicket: true,
+        },
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
+      });
+
+      const totalItems = await this.prisma.eventParticipant.count({ where });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const eventParticipant = eventParticipants.map((participant) => {
+        return {
+          id: participant.id,
+          name: participant.user.name,
+          status: participant.eventParticipantHistoric[0].status,
+          ticketName: participant.eventTicket.title,
+          facial: participant.user.userFacials[0].path,
+          email: participant.user.email,
+          userNetwork:
+            participant.user.userSocials[0].username !== null
+              ? participant.user.userSocials[0].username
+              : 'Sem registro',
+        };
+      });
+
+      const response: ResponseEventParticipants = {
+        data: eventParticipant,
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async paidEventCost(eventId: string, eventCostId: number): Promise<string> {
+    try {
+      await this.prisma.eventCost.update({
+        where: {
+          id: Number(eventCostId),
+          eventId: eventId,
+        },
+        data: {
+          status: true,
+        },
+      });
+      return 'Payment successful';
+    } catch (error) {
+      throw error;
     }
   }
 }
