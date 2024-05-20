@@ -8,6 +8,7 @@ import { z } from 'nestjs-zod/z';
 export const EventDashboardResponseSchema = z.object({
   id: z.string(),
   title: z.string(),
+  slug: z.string(),
   photo: z.string(),
   eventLimit: z.number(),
   participants: z.array(

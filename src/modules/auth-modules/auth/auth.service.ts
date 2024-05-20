@@ -160,7 +160,7 @@ export class AuthService {
       // Filtrar resultados válidos
       const validResults = results.filter((result) => result !== false);
 
-      return validResults;
+      return validResults[0];
     } catch (error) {
       console.error('Erro no login facial:', error.message);
       throw error;

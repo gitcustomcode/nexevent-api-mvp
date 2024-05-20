@@ -25,7 +25,7 @@ import { EventProducerAccreditationService } from './event-producer-accreditatio
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import { FileInterceptor } from '@nestjs/platform-express';
 
-@ApiTags('Event Producer')
+@ApiTags('Event Producer credential')
 @Controller('event-producer')
 export class EventProducerAccreditationController {
   constructor(
