@@ -418,9 +418,9 @@ export class EventProducerService {
     perPage: number,
     title?: string,
     category?: string,
+    status?: string,
   ): Promise<ResponseEvents> {
     try {
-      console.log(page, perPage);
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
           email,
@@ -436,6 +436,10 @@ export class EventProducerService {
 
       if (category) {
         where.category = { contains: category, mode: 'insensitive' };
+      }
+
+      if (status) {
+        where.status = status === 'ENABLE' ? 'ENABLE' : 'DISABLE';
       }
 
       const event = await this.prisma.event.findMany({

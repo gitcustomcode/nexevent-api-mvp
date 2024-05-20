@@ -27,6 +27,10 @@ export class EventProducerAccreditationService {
         userEmail,
       );
 
+      if (event.status === 'DISABLE') {
+        throw new UnauthorizedException('Event disabled');
+      }
+
       const participant = await this.findOne(event.id, null, qrcode);
 
       return participant;
@@ -54,6 +58,10 @@ export class EventProducerAccreditationService {
         slug,
         userEmail,
       );
+
+      if (event.status === 'DISABLE') {
+        throw new UnauthorizedException('Event disabled');
+      }
 
       const eventParticipants = await this.prisma.eventParticipant.findMany({
         where: {
@@ -117,6 +125,10 @@ export class EventProducerAccreditationService {
         userEmail,
       );
 
+      if (event.status === 'DISABLE') {
+        throw new UnauthorizedException('Event disabled');
+      }
+
       const participant = await this.findOne(event.id, participantId);
 
       let participantStatus: EventParticipantHistoricStatus = 'CHECK_IN';
@@ -179,4 +191,6 @@ export class EventProducerAccreditationService {
 
     return participant;
   }
+
+  async lastAccreditedParticipants() {}
 }
