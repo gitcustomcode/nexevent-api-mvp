@@ -315,6 +315,19 @@ export class EventParticipantService {
     }
   }
 
+  private async createTermSignatorie(userId: string) {
+    try {
+      const termSignatorie = await this.prisma.termSignatorie.findFirst({
+        where: {
+          userId: userId,
+          auths: 'whatsapp',
+        },
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+
   @Cron(CronExpression.EVERY_30_SECONDS, {
     name: 'eventParticipantSendEmails',
   })
