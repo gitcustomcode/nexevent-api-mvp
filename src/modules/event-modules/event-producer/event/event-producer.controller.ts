@@ -247,7 +247,7 @@ export class EventProducerController {
     return this.eventProducerService.generalDashboard(email);
   }
 
-  @Get('v1/event-producer/:slug/participans/find-all')
+  @Get('v1/event-producer/:slug/participants/find-all')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Get general dashboard' })

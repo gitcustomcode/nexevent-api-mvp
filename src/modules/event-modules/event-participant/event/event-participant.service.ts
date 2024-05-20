@@ -20,9 +20,13 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EmailService } from 'src/services/email.service';
 import * as QRCode from 'qrcode';
-import { ParticipantTicketDto } from './dto/event-participant-response.dto';
+import {
+  FindEventInfoDto,
+  ParticipantTicketDto,
+} from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import mime from 'mime';
+import { FindEventInfoSchema } from './schema/event-participant-response.schema';
 
 @Injectable()
 export class EventParticipantService {
@@ -351,6 +355,41 @@ export class EventParticipantService {
     }
   }
 
+  async findEventInfo(eventTicketLinkId: string): Promise<FindEventInfoDto> {
+    try {
+      const eventInfo = await this.prisma.eventTicketLink.findUnique({
+        where: {
+          id: eventTicketLinkId,
+        },
+        include: {
+          eventTicket: {
+            include: {
+              event: {
+                include: {
+                  eventTerm: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const response: FindEventInfoDto = {
+        id: eventInfo.eventTicket.event.id,
+        title: eventInfo.eventTicket.event.title,
+        startAt: eventInfo.eventTicket.event.startAt,
+        haveDocument:
+          eventInfo.eventTicket.event.eventTerm.length > 0 ? true : false,
+      };
+
+      await FindEventInfoSchema.parseAsync(response);
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   private async createTermSignatorie(userId: string) {
     try {
       const user = await this.prisma.user.findUnique({
@@ -472,7 +511,7 @@ export class EventParticipantService {
 
     eventParticipants.forEach(async (eventParticipant) => {
       const { user, event, eventTicket } = eventParticipant;
-      const { name, email, document } = user;
+      const { name, email } = user;
       const { startAt, endAt, description, title: nameEvent } = event;
       const { title: nameTicket } = eventTicket;
 

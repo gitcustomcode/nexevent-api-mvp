@@ -8,3 +8,10 @@ export const ParticipantTicketSchema = z.object({
   qrcode: z.string(),
   startAt: z.date(),
 });
+
+export const FindEventInfoSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  startAt: z.date(),
+  haveDocument: z.boolean(),
+});

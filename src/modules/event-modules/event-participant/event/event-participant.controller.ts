@@ -26,7 +26,10 @@ import {
   EventParticipantCreateNetworksDto,
 } from './dto/event-participant-create.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ParticipantTicketDto } from './dto/event-participant-response.dto';
+import {
+  FindEventInfoDto,
+  ParticipantTicketDto,
+} from './dto/event-participant-response.dto';
 
 @ApiTags('Event Participant')
 @Controller('event-participant')
@@ -145,5 +148,23 @@ export class EventParticipantController {
   })
   async participantTicket(@Param('participantId') participantId: string) {
     return await this.eventParticipantService.participantTicket(participantId);
+  }
+
+  @Get('v1/event-participant/:eventTicketLinkId/event-info')
+  @ApiOperation({ summary: 'Get event information' })
+  @ApiResponse({
+    type: FindEventInfoDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventTicketLinkId',
+    required: true,
+    type: String,
+  })
+  async test(
+    @Param('eventTicketLinkId') eventTicketLinkId: string,
+  ): Promise<FindEventInfoDto> {
+    return await this.eventParticipantService.findEventInfo(eventTicketLinkId);
   }
 }
