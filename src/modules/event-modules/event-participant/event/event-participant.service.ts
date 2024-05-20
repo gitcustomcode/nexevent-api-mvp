@@ -301,6 +301,7 @@ export class EventParticipantService {
     if (eventConfig.participantNetworks && user.userSocials.length <= 0) {
       return (participantStatus = 'AWAITING_QUIZ');
     } else if (
+      eventParticipant &&
       eventParticipant.signerId !== null &&
       eventParticipant.signature !== true
     ) {
