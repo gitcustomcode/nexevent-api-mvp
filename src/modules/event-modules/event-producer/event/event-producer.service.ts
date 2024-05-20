@@ -225,7 +225,11 @@ export class EventProducerService {
             },
           },
           eventConfig: true,
-          EventStaff: true,
+          EventStaff: {
+            orderBy: {
+              id: 'desc',
+            },
+          },
         },
       });
 
