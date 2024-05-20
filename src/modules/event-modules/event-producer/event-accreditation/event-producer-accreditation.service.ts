@@ -12,12 +12,15 @@ import {
   StorageServiceType,
 } from 'src/services/storage.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
+import { LastAccreditedParticipantsResponse } from './dto/event-producer-accreditation-response.dto';
+import { PaginationService } from 'src/services/paginate.service';
 
 @Injectable()
 export class EventProducerAccreditationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly paginationService: PaginationService,
     private readonly userProducerValidationService: UserProducerValidationService,
   ) {}
   async findByQrCode(userEmail: string, slug: string, qrcode: string) {
@@ -192,5 +195,67 @@ export class EventProducerAccreditationService {
     return participant;
   }
 
-  async lastAccreditedParticipants() {}
+  async lastAccreditedParticipants(
+    slug: string,
+    userEmail: string,
+    page?: number,
+    perPage?: number,
+  ): Promise<LastAccreditedParticipantsResponse> {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        slug,
+        userEmail,
+      );
+
+      const where: Prisma.EventParticipantHistoricWhereInput = {
+        eventParticipant: {
+          eventId: event.id,
+        },
+      };
+
+      const historic = await this.prisma.eventParticipantHistoric.findMany({
+        where,
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          eventParticipant: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      });
+
+      const totalItems = await this.prisma.eventParticipantHistoric.count({
+        where,
+      });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const historicFormatted = historic.map((part) => {
+        return {
+          id: part.id,
+          userName: part.eventParticipant.user.name,
+          status: part.status,
+          createdAt: part.createdAt,
+        };
+      });
+
+      const response: LastAccreditedParticipantsResponse = {
+        data: historicFormatted,
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
 }

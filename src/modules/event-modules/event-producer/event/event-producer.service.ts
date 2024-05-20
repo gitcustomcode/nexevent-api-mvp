@@ -20,7 +20,6 @@ import {
   StorageServiceType,
 } from 'src/services/storage.service';
 import { randomUUID } from 'crypto';
-import { EventsResponse } from 'mailgun.js';
 import { PaginationService } from 'src/services/paginate.service';
 import { Prisma } from '@prisma/client';
 import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
@@ -235,11 +234,11 @@ export class EventProducerService {
       }
 
       const tickets = [];
-      let totalTickets = event.eventTicket ? event.eventTicket.length : 0;
+      const totalTickets = event.eventTicket ? event.eventTicket.length : 0;
       let totalTicketsUsed = 0;
       let links = 0;
-      let participantsCheckIn = [];
-      let participantsState = [];
+      const participantsCheckIn = [];
+      const participantsState = [];
       const participants = [];
       const staffs = [];
       const hourCounts: { [key: string]: number } = {};
@@ -358,6 +357,7 @@ export class EventProducerService {
       });
 
       const othersCount = otherStates.reduce(
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         (sum, [_, { count }]) => sum + count,
         0,
       );
@@ -659,8 +659,8 @@ export class EventProducerService {
       let totalTickets = 0;
       let totalParticipants = 0;
       let total = 0;
-      let participantsCheckIn = [];
-      let participantsState = [];
+      const participantsCheckIn = [];
+      const participantsState = [];
 
       events.map((event) => {
         totalTickets += event.eventTicket.length;
