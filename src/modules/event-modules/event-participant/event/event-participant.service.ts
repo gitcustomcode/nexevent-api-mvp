@@ -21,6 +21,8 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { EmailService } from 'src/services/email.service';
 import * as QRCode from 'qrcode';
 import { ParticipantTicketDto } from './dto/event-participant-response.dto';
+import { ClickSignApiService } from 'src/services/click-sign.service';
+import mime from 'mime';
 
 @Injectable()
 export class EventParticipantService {
@@ -29,6 +31,7 @@ export class EventParticipantService {
     private readonly userParticipantValidationService: UserParticipantValidationService,
     private readonly storageService: StorageService,
     private readonly emailService: EmailService,
+    private readonly clickSignApiService: ClickSignApiService,
   ) {}
 
   async createParticipant(
@@ -67,6 +70,19 @@ export class EventParticipantService {
         user,
       );
 
+      let signerInfo = null;
+
+      if (event.eventTerm[0].signature) {
+        const signer = await this.createTermSignatorie(user.id);
+
+        const { clickSignResponseSigner } = await this.addTermSigner(
+          signer.id,
+          event.eventTerm[0].term.path,
+        );
+
+        signerInfo = clickSignResponseSigner;
+      }
+
       const eventParticipant = await this.prisma.eventParticipant.create({
         data: {
           eventId: event.id,
@@ -76,6 +92,15 @@ export class EventParticipantService {
           sequential: sequential + 1,
           userId: user.id,
           status: participantStatus,
+          signerId: signerInfo.list.signer_key
+            ? signerInfo.list.signer_key
+            : null,
+          documentSignerId: signerInfo.list.document_key
+            ? signerInfo.list.document_key
+            : null,
+          requestSignatureKey: signerInfo.list.request_signature_key
+            ? signerInfo.list.request_signature_key
+            : null,
         },
       });
 
@@ -317,12 +342,85 @@ export class EventParticipantService {
 
   private async createTermSignatorie(userId: string) {
     try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
       const termSignatorie = await this.prisma.termSignatorie.findFirst({
         where: {
           userId: userId,
           auths: 'whatsapp',
         },
       });
+
+      if (termSignatorie) {
+        return termSignatorie;
+      }
+
+      const clickSignResponse = await this.clickSignApiService.createSigner(
+        user.email,
+        user.phoneNumber,
+        user.name,
+        user.document,
+        user.dateBirth.toString(),
+      );
+
+      const termSignatorieCreate = await this.prisma.termSignatorie.create({
+        data: {
+          id: clickSignResponse.signer.key,
+          userId: userId,
+        },
+      });
+
+      return termSignatorieCreate;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  private async addTermSigner(signerId: string, documentPath: string) {
+    try {
+      const signer = await this.prisma.termSignatorie.findUnique({
+        where: {
+          id: signerId,
+        },
+      });
+
+      if (!signer) {
+        throw new NotFoundException('Signer not found');
+      }
+
+      const file = await this.storageService.getFile(
+        StorageServiceType.S3,
+        documentPath,
+      );
+
+      const fileBase64 = file.toString('base64');
+      const mimeType = mime.lookup(documentPath) || 'application/octet-stream';
+
+      console.log(mime.lookup(documentPath));
+      console.log(mimeType);
+
+      const contentBase64 = `data:${mimeType};base64,${fileBase64}`;
+
+      const clickSignResponseDoc = await this.clickSignApiService.postDocument(
+        '/' + signer.id + '/' + documentPath,
+        contentBase64,
+      );
+
+      const clickSignResponseSigner =
+        await this.clickSignApiService.addSignerDocument(
+          clickSignResponseDoc.document.key,
+          signer.id,
+        );
+
+      return { clickSignResponseSigner };
     } catch (error) {
       throw error;
     }

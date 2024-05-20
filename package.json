@@ -47,6 +47,7 @@
     "express": "^4.19.2",
     "lodash": "^4.17.21",
     "mailgun.js": "^9.3.0",
+    "mime": "^3.0.0",
     "nestjs-zod": "^3.0.0",
     "qrcode": "^1.5.3",
     "reflect-metadata": "^0.2.0",
