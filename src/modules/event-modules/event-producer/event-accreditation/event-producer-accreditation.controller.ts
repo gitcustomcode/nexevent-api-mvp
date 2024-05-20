@@ -24,7 +24,10 @@ import {
 import { EventProducerAccreditationService } from './event-producer-accreditation.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { LastAccreditedParticipantsResponse } from './dto/event-producer-accreditation-response.dto';
+import {
+  GetEventConfigDto,
+  LastAccreditedParticipantsResponse,
+} from './dto/event-producer-accreditation-response.dto';
 
 @ApiTags('Event Producer credential')
 @Controller('event-producer')
@@ -184,6 +187,32 @@ export class EventProducerAccreditationController {
       email,
       Number(page),
       Number(perPage),
+    );
+  }
+
+  @Get('v1/event-producer/:eventSlug/accreditation/event-config')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event config' })
+  @ApiResponse({
+    type: GetEventConfigDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  async getEventConfig(
+    @Request() req: any,
+    @Param('eventSlug') eventSlug: string,
+  ): Promise<GetEventConfigDto> {
+    const email = req.auth.user.email;
+    return await this.eventProducerAccreditationService.getEventConfig(
+      eventSlug,
+      email,
     );
   }
 }

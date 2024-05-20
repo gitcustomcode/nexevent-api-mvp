@@ -12,7 +12,10 @@ import {
   StorageServiceType,
 } from 'src/services/storage.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
-import { LastAccreditedParticipantsResponse } from './dto/event-producer-accreditation-response.dto';
+import {
+  GetEventConfigDto,
+  LastAccreditedParticipantsResponse,
+} from './dto/event-producer-accreditation-response.dto';
 import { PaginationService } from 'src/services/paginate.service';
 
 @Injectable()
@@ -251,6 +254,34 @@ export class EventProducerAccreditationService {
       const response: LastAccreditedParticipantsResponse = {
         data: historicFormatted,
         pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getEventConfig(
+    slug: string,
+    userEmail: string,
+  ): Promise<GetEventConfigDto> {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        slug,
+        userEmail,
+      );
+
+      const eventConfig = await this.prisma.eventConfig.findUnique({
+        where: {
+          eventId: event.id,
+        },
+      });
+
+      const response: GetEventConfigDto = {
+        id: eventConfig.id,
+        credentialType: eventConfig.credentialType,
+        printAutomatic: eventConfig.printAutomatic,
       };
 
       return response;

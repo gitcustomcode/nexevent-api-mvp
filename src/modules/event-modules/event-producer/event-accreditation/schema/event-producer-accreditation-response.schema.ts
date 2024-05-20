@@ -1,4 +1,4 @@
-import { EventParticipantHistoricStatus } from '@prisma/client';
+import { CredentialType, EventParticipantHistoricStatus } from '@prisma/client';
 import { z } from 'nestjs-zod/z';
 
 export const LastAccreditedParticipantsSchema = z.array(
@@ -9,3 +9,9 @@ export const LastAccreditedParticipantsSchema = z.array(
     createdAt: z.date(),
   }),
 );
+
+export const GetEventConfigSchema = z.object({
+  id: z.number(),
+  printAutomatic: z.boolean(),
+  credentialType: z.nativeEnum(CredentialType),
+});
