@@ -291,9 +291,19 @@ export class EventParticipantService {
 
     const eventConfig = event.eventConfig[0];
 
+    const eventParticipant = await this.prisma.eventParticipant.findFirst({
+      where: {
+        userId: user.id,
+        eventId: event.id,
+      },
+    });
+
     if (eventConfig.participantNetworks && user.userSocials.length <= 0) {
       return (participantStatus = 'AWAITING_QUIZ');
-    } else if (event.eventTerm.length > 0) {
+    } else if (
+      eventParticipant.signerId !== null &&
+      eventParticipant.signature !== true
+    ) {
       return (participantStatus = 'AWAITING_SIGNATURE');
     } else if (
       eventConfig.credentialType === 'FACIAL' ||
