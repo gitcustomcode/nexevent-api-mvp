@@ -35,7 +35,10 @@ import {
   ResponseEvents,
 } from './dto/event-producer-response.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { EventProducerUpdateDto } from './dto/event-producer-update.dto';
+import {
+  EventProducerUpdateDto,
+  EventProducerUpgradeDto,
+} from './dto/event-producer-update.dto';
 
 @ApiTags('Event Producer')
 @Controller('event-producer')
@@ -351,5 +354,28 @@ export class EventProducerController {
   ): Promise<string> {
     const email = req.auth.user.email;
     return this.eventProducerService.updateEvent(email, slug, body);
+  }
+
+  @Patch('v1/event-producer/:slug/upgrade-event/')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Upgrade event' })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'slug',
+    required: true,
+    type: String,
+  })
+  @ApiBody({
+    type: EventProducerUpgradeDto,
+  })
+  async upgradeEvent(
+    @Request() req: any,
+    @Param('slug') slug: string,
+    @Body() body: EventProducerUpgradeDto,
+  ) {
+    const email = req.auth.user.email;
+    return this.eventProducerService.upgradeEvent(email, slug, body);
   }
 }

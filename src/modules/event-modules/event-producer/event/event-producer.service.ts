@@ -24,7 +24,10 @@ import { PaginationService } from 'src/services/paginate.service';
 import { Prisma } from '@prisma/client';
 import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
 import { EventTicketCreateDto } from '../event-ticket/dto/event-ticket-producer-create.dto';
-import { EventProducerUpdateDto } from './dto/event-producer-update.dto';
+import {
+  EventProducerUpdateDto,
+  EventProducerUpgradeDto,
+} from './dto/event-producer-update.dto';
 
 type DataItem = {
   state: string | null;
@@ -290,6 +293,7 @@ export class EventProducerService {
               id: 'desc',
             },
           },
+          eventTerm: true,
         },
       });
 
@@ -445,6 +449,16 @@ export class EventProducerService {
         title: event.title,
         slug: event.slug,
         photo: event.photo,
+        category: event.category,
+        description: event.description,
+        endAt: event.endAt,
+        endPublishAt: event.endPublishAt,
+        eventPublic: event.public,
+        location: event.location,
+        startAt: event.startAt,
+        haveTerm: event.eventTerm.length > 0 ? true : false,
+        startPublishAt: event.startPublishAt,
+        subtitle: event.subtitle,
         eventLimit: event.eventConfig[0].limit,
         participants: participants,
         credential: {
@@ -954,6 +968,133 @@ export class EventProducerService {
         },
       });
       return 'Payment successful';
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async upgradeEvent(
+    email: string,
+    slug: string,
+    body: EventProducerUpgradeDto,
+  ) {
+    try {
+      const user =
+        await this.userProducerValidationService.validateUserProducerByEmail(
+          email,
+        );
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: slug,
+          userId: user.id,
+        },
+      });
+
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const eventConfig = await this.prisma.eventConfig.findUnique({
+        where: {
+          eventId: event.id,
+        },
+      });
+
+      if (!eventConfig) {
+        throw new NotFoundException('Event config not found');
+      }
+
+      const { credentialType, limit, printAutomatic } = body;
+
+      const currentPrintFactor = eventConfig.printAutomatic ? 2 : 0;
+
+      const currentCredentialFactor =
+        eventConfig.credentialType === 'QRCODE'
+          ? 1
+          : eventConfig.credentialType === 'FACIAL_IN_SITE'
+            ? 3
+            : eventConfig.credentialType === 'FACIAL'
+              ? 4
+              : 0;
+
+      const currentFactor = currentPrintFactor + currentCredentialFactor;
+
+      const newPrintFactor = printAutomatic ? 2 : 0;
+      const newCredentialFactor =
+        credentialType === 'QRCODE'
+          ? 1
+          : credentialType === 'FACIAL_IN_SITE'
+            ? 3
+            : credentialType === 'FACIAL'
+              ? 4
+              : 0;
+
+      const newFactor = newPrintFactor + newCredentialFactor;
+
+      console.log('Current Factor', currentFactor);
+      console.log('New Factor', newFactor);
+
+      if (currentFactor > newFactor) {
+        throw new ConflictException(
+          'You cannot change the setting to a lower value',
+        );
+      }
+
+      const newValue =
+        newFactor - currentFactor == 0
+          ? limit + limit * currentFactor
+          : eventConfig.limit * (newFactor - currentFactor);
+
+      const newParticipantsValue =
+        limit > 0 && newFactor - currentFactor !== 0
+          ? (newFactor + 1) * limit
+          : 0;
+
+      const newLimit = limit + eventConfig.limit;
+
+      const total = newValue + newParticipantsValue;
+
+      console.log('novo valor', total);
+
+      await this.prisma.eventCost.create({
+        data: {
+          eventId: event.id,
+          cost: Number(total) * -1,
+          limit: limit,
+          status: true,
+        },
+      });
+
+      await this.prisma.balanceHistoric.create({
+        data: {
+          value: Number(total) * -1,
+          description: `Alteração nas configurações do evento: ${event.title}`,
+          userId: user.id,
+          status: 'RECEIVED',
+        },
+      });
+
+      const updatedEventConfig = await this.prisma.eventConfig.update({
+        where: {
+          eventId: event.id,
+        },
+        data: {
+          credentialType: credentialType,
+          limit: newLimit,
+          printAutomatic: printAutomatic,
+          event: {
+            update: {
+              type:
+                printAutomatic || credentialType !== 'VOID' || newLimit > 20
+                  ? 'PAID_OUT'
+                  : 'FREE',
+            },
+          },
+        },
+      });
+
+      return updatedEventConfig;
     } catch (error) {
       throw error;
     }

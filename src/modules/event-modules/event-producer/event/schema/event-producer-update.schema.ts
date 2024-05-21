@@ -1,3 +1,4 @@
+import { CredentialType } from '@prisma/client';
 import { z } from 'nestjs-zod/z';
 
 export const EventProducerUpdate = z.object({
@@ -11,4 +12,10 @@ export const EventProducerUpdate = z.object({
   endAt: z.date().nullish(),
   startPublishAt: z.date().nullish(),
   endPublishAt: z.date().nullish(),
+});
+
+export const EventProducerUpgradeSchema = z.object({
+  printAutomatic: z.boolean(),
+  credentialType: z.nativeEnum(CredentialType),
+  limit: z.number(),
 });
