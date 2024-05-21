@@ -25,8 +25,7 @@ import {
   ParticipantTicketDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
-import mime from 'mime';
-import { FindEventInfoSchema } from './schema/event-participant-response.schema';
+import * as mime from 'mime-types';
 
 @Injectable()
 export class EventParticipantService {
@@ -76,15 +75,15 @@ export class EventParticipantService {
 
       let signerInfo = null;
 
-      if (event.eventTerm[0].signature) {
+      if (event.eventTerm.length > 0 && event.eventTerm[0].signature) {
         const signer = await this.createTermSignatorie(user.id);
 
-        const { clickSignResponseSigner } = await this.addTermSigner(
+        const res = await this.addTermSigner(
           signer.id,
           event.eventTerm[0].term.path,
         );
 
-        signerInfo = clickSignResponseSigner;
+        signerInfo = res.clickSignResponseSigner;
       }
 
       const eventParticipant = await this.prisma.eventParticipant.create({
@@ -96,13 +95,9 @@ export class EventParticipantService {
           sequential: sequential + 1,
           userId: user.id,
           status: participantStatus,
-          signerId: signerInfo.list.signer_key
-            ? signerInfo.list.signer_key
-            : null,
-          documentSignerId: signerInfo.list.document_key
-            ? signerInfo.list.document_key
-            : null,
-          requestSignatureKey: signerInfo.list.request_signature_key
+          signerId: signerInfo ? signerInfo.list.signer_key : null,
+          documentSignerId: signerInfo ? signerInfo.list.document_key : null,
+          requestSignatureKey: signerInfo
             ? signerInfo.list.request_signature_key
             : null,
         },
@@ -111,6 +106,7 @@ export class EventParticipantService {
       return {
         eventParticipantId: eventParticipant.id,
         participantStatus: eventParticipant.status,
+        requestSignatureKey: eventParticipant.requestSignatureKey,
       };
     } catch (error) {
       console.log(error);
@@ -302,13 +298,17 @@ export class EventParticipantService {
       },
     });
 
-    if (eventConfig.participantNetworks && user.userSocials.length <= 0) {
-      return (participantStatus = 'AWAITING_QUIZ');
-    } else if (
+    if (
       eventParticipant &&
       eventParticipant.signerId !== null &&
       eventParticipant.signature !== true
     ) {
+      return (participantStatus = 'AWAITING_SIGNATURE');
+    }
+
+    if (eventConfig.participantNetworks && user.userSocials.length <= 0) {
+      return (participantStatus = 'AWAITING_QUIZ');
+    } else if (event.eventTerm.length > 0) {
       return (participantStatus = 'AWAITING_SIGNATURE');
     } else if (
       eventConfig.credentialType === 'FACIAL' ||
@@ -382,8 +382,6 @@ export class EventParticipantService {
           eventInfo.eventTicket.event.eventTerm.length > 0 ? true : false,
       };
 
-      await FindEventInfoSchema.parseAsync(response);
-
       return response;
     } catch (error) {
       throw error;
@@ -454,8 +452,7 @@ export class EventParticipantService {
       const fileBase64 = file.toString('base64');
       const mimeType = mime.lookup(documentPath) || 'application/octet-stream';
 
-      console.log(mime.lookup(documentPath));
-      console.log(mimeType);
+      console.log(`MIME type: ${mimeType}`);
 
       const contentBase64 = `data:${mimeType};base64,${fileBase64}`;
 

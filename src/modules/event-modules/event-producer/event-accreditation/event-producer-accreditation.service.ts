@@ -85,6 +85,7 @@ export class EventProducerAccreditationService {
           eventId: event.id,
         },
         select: {
+          id: true,
           qrcode: true,
           user: {
             include: {
@@ -107,7 +108,11 @@ export class EventProducerAccreditationService {
           );
 
           if (valid !== false && valid > 90) {
-            return participant.qrcode;
+            return {
+              id: participant.id,
+              userName: participant.user.name,
+              qrcode: participant.qrcode,
+            };
           }
         }
       });

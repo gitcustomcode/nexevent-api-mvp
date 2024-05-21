@@ -133,7 +133,7 @@ model Term {
 
 model TermSignatorie {
   id                      String   @id @default(uuid())
-  userId                  String   @unique
+  userId                  String
   auths                   String   @default("api")
   communicateBy           String   @default("whatsapp")
   delivery                String   @default("none")

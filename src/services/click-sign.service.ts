@@ -23,7 +23,7 @@ export class ClickSignApiService {
       signer: {
         email: email,
         phone_number: phone_number,
-        auths: ['email'],
+        auths: ['api'],
         name: name,
         documentation: documentation,
         birthday: birthday,
@@ -37,9 +37,6 @@ export class ClickSignApiService {
       },
     };
 
-    console.log(this.accessToken);
-    console.log(this.apiUrl);
-
     try {
       const resposta = await axios.post(
         `${this.apiUrl}/v1/signers?access_token=${this.accessToken}`,
@@ -51,8 +48,6 @@ export class ClickSignApiService {
           },
         },
       );
-
-      console.log('Resposta da API:', resposta.data);
       return resposta.data; // ou faça algo com os dados da resposta
     } catch (erro) {
       console.error('Erro na chamada da API:', erro);
@@ -120,5 +115,33 @@ export class ClickSignApiService {
       console.error('Erro na chamada da API:', erro);
       throw erro; // ou manipule o erro conforme necessário
     }
+  }
+
+  async sendEmail(key: string) {
+    const url = 'https://sandbox.clicksign.com/api/v1/notifications';
+    const accessToken = '88cf1793-9582-482a-a925-d8fb19788011'; // Substitua pelo seu access_token
+
+    const data = {
+      request_signature_key: 'ccfa28ae-28ba-4172-b226-55b39cfad53e',
+      message: `Prezado João,\nPor favor assine o documento.\n\nQualquer dúvida estou à disposição.\n\nAtenciosamente,\nGuilherme Alvez`,
+      url: 'https://www.example.com/abc',
+    };
+
+    axios
+      .post(`${url}?access_token=${accessToken}`, data, {
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      })
+      .then((response) => {
+        console.log('Response:', response.data);
+      })
+      .catch((error) => {
+        console.error(
+          'Error:',
+          error.response ? error.response.data : error.message,
+        );
+      });
   }
 }

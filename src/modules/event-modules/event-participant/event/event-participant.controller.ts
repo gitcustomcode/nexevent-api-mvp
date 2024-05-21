@@ -30,13 +30,22 @@ import {
   FindEventInfoDto,
   ParticipantTicketDto,
 } from './dto/event-participant-response.dto';
+import { ClickSignApiService } from 'src/services/click-sign.service';
 
 @ApiTags('Event Participant')
 @Controller('event-participant')
 export class EventParticipantController {
   constructor(
     private readonly eventParticipantService: EventParticipantService,
+    private readonly clickSignApiService: ClickSignApiService,
   ) {}
+
+  @Get('v1/test/sobre/test')
+  async test() {
+    return await this.clickSignApiService.sendEmail(
+      'd721ff19-e4fd-46da-9c84-633f4a805124',
+    );
+  }
 
   @Post('v1/event-participant/:eventTicketLinkId/create-participant')
   @ApiOperation({ summary: 'Create event' })
@@ -162,7 +171,7 @@ export class EventParticipantController {
     required: true,
     type: String,
   })
-  async test(
+  async findEventInfo(
     @Param('eventTicketLinkId') eventTicketLinkId: string,
   ): Promise<FindEventInfoDto> {
     return await this.eventParticipantService.findEventInfo(eventTicketLinkId);

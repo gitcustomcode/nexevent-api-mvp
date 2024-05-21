@@ -24,6 +24,7 @@ import { PaginationService } from 'src/services/paginate.service';
 import { Prisma } from '@prisma/client';
 import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
 import { EventTicketCreateDto } from '../event-ticket/dto/event-ticket-producer-create.dto';
+import { EventProducerUpdateDto } from './dto/event-producer-update.dto';
 
 type DataItem = {
   state: string | null;
@@ -167,6 +168,63 @@ export class EventProducerService {
       };
     } catch (error) {
       console.error('Erro ao criar evento:', error);
+      throw error;
+    }
+  }
+
+  async updateEvent(email: string, slug: string, body: EventProducerUpdateDto) {
+    try {
+      const user =
+        await this.userProducerValidationService.validateUserProducerByEmail(
+          email,
+        );
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: slug,
+          userId: user.id,
+        },
+      });
+
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const {
+        category,
+        description,
+        endAt,
+        endPublishAt,
+        location,
+        eventPublic,
+        startAt,
+        startPublishAt,
+        subtitle,
+        title,
+      } = body;
+
+      await this.prisma.event.update({
+        where: {
+          id: event.id,
+        },
+        data: {
+          category: category ? category : event.category,
+          description: description ? description : event.description,
+          endAt: endAt ? endAt : event.endAt,
+          endPublishAt: endPublishAt ? endPublishAt : event.endPublishAt,
+          location: location ? location : event.location,
+          public: eventPublic ? eventPublic : event.public,
+          startAt: startAt ? startAt : event.startAt,
+          startPublishAt: startPublishAt
+            ? startPublishAt
+            : event.startPublishAt,
+          subtitle: subtitle ? subtitle : event.subtitle,
+          title: title ? title : event.title,
+        },
+      });
+
+      return `Event updated successfully`;
+    } catch (error) {
       throw error;
     }
   }
