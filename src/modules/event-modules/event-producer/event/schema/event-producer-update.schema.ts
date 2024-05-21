@@ -1,6 +1,14 @@
 import { CredentialType } from '@prisma/client';
 import { z } from 'nestjs-zod/z';
 
+function parseDate(value: string): Date {
+  const date = new Date(value);
+  if (isNaN(date.getTime())) {
+    throw new Error('Invalid date string');
+  }
+  return date;
+}
+
 export const EventProducerUpdate = z.object({
   title: z.string().nullish(),
   category: z.string().nullish(),
@@ -8,10 +16,26 @@ export const EventProducerUpdate = z.object({
   description: z.string().nullish(),
   location: z.string().nullish(),
   eventPublic: z.boolean().nullish(),
-  startAt: z.date().nullish(),
-  endAt: z.date().nullish(),
-  startPublishAt: z.date().nullish(),
-  endPublishAt: z.date().nullish(),
+  startAt: z
+    .string()
+    .transform(parseDate)
+    .default(new Date().toDateString())
+    .nullish(),
+  endAt: z
+    .string()
+    .transform(parseDate)
+    .default(new Date().toDateString())
+    .nullish(),
+  startPublishAt: z
+    .string()
+    .transform(parseDate)
+    .default(new Date().toDateString())
+    .nullish(),
+  endPublishAt: z
+    .string()
+    .transform(parseDate)
+    .default(new Date().toDateString())
+    .nullish(),
 });
 
 export const EventProducerUpgradeSchema = z.object({

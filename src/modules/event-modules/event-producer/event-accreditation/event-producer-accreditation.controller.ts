@@ -215,4 +215,31 @@ export class EventProducerAccreditationController {
       email,
     );
   }
+
+  @Get('v1/event-producer/:eventSlug/accreditation/check-out-all-participants')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event accreditation qrcode' })
+  @ApiResponse({
+    description: 'event accreditation qrcode',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  async checkOutInAllParticipants(
+    @Param('eventSlug') eventSlug: string,
+    @Request() req: any,
+  ) {
+    const email = req.auth.user.email;
+    return this.eventProducerAccreditationService.checkOutInAllParticipants(
+      email,
+      eventSlug,
+    );
+  }
 }

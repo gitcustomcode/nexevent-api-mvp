@@ -133,7 +133,7 @@ export class AuthController {
     },
   })
   @UseInterceptors(FileInterceptor('file'))
-  async loginWithEmail(
+  async loginWithFacial(
     @UploadedFile() file: Express.Multer.File,
     @Query('email') email: string,
   ) {
