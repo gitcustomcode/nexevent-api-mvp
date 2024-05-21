@@ -27,7 +27,7 @@ import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import { EventProducerCreateStaffDto } from './dto/event-producer-create-staff.dto';
 import { EventStaffsResponse } from './dto/event-producer-response-staff.dto';
 
-@ApiTags('Event Producer')
+@ApiTags('Event Producer staff')
 @Controller('event-producer')
 export class EventProducerStaffController {
   constructor(

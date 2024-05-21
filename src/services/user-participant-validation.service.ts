@@ -151,7 +151,11 @@ export class UserParticipantValidationService {
             event: {
               include: {
                 eventConfig: true,
-                eventTerm: true,
+                eventTerm: {
+                  include: {
+                    term: true,
+                  },
+                },
               },
             },
           },

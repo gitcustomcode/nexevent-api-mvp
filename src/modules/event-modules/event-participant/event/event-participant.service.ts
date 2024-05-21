@@ -20,6 +20,16 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EmailService } from 'src/services/email.service';
 import * as QRCode from 'qrcode';
+import {
+  FindAllPublicEvents,
+  FindEventInfoDto,
+  FindOnePublicEventsDto,
+  ParticipantTicketDto,
+} from './dto/event-participant-response.dto';
+import { ClickSignApiService } from 'src/services/click-sign.service';
+import * as mime from 'mime-types';
+import { Prisma } from '@prisma/client';
+import { PaginationService } from 'src/services/paginate.service';
 
 @Injectable()
 export class EventParticipantService {
@@ -28,6 +38,8 @@ export class EventParticipantService {
     private readonly userParticipantValidationService: UserParticipantValidationService,
     private readonly storageService: StorageService,
     private readonly emailService: EmailService,
+    private readonly clickSignApiService: ClickSignApiService,
+    private readonly paginationService: PaginationService,
   ) {}
 
   async createParticipant(
@@ -66,6 +78,19 @@ export class EventParticipantService {
         user,
       );
 
+      let signerInfo = null;
+
+      if (event.eventTerm.length > 0 && event.eventTerm[0].signature) {
+        const signer = await this.createTermSignatorie(user.id);
+
+        const res = await this.addTermSigner(
+          signer.id,
+          event.eventTerm[0].term.path,
+        );
+
+        signerInfo = res.clickSignResponseSigner;
+      }
+
       const eventParticipant = await this.prisma.eventParticipant.create({
         data: {
           eventId: event.id,
@@ -75,12 +100,18 @@ export class EventParticipantService {
           sequential: sequential + 1,
           userId: user.id,
           status: participantStatus,
+          signerId: signerInfo ? signerInfo.list.signer_key : null,
+          documentSignerId: signerInfo ? signerInfo.list.document_key : null,
+          requestSignatureKey: signerInfo
+            ? signerInfo.list.request_signature_key
+            : null,
         },
       });
 
       return {
         eventParticipantId: eventParticipant.id,
         participantStatus: eventParticipant.status,
+        requestSignatureKey: eventParticipant.requestSignatureKey,
       };
     } catch (error) {
       console.log(error);
@@ -265,6 +296,21 @@ export class EventParticipantService {
 
     const eventConfig = event.eventConfig[0];
 
+    const eventParticipant = await this.prisma.eventParticipant.findFirst({
+      where: {
+        userId: user.id,
+        eventId: event.id,
+      },
+    });
+
+    if (
+      eventParticipant &&
+      eventParticipant.signerId !== null &&
+      eventParticipant.signature !== true
+    ) {
+      return (participantStatus = 'AWAITING_SIGNATURE');
+    }
+
     if (eventConfig.participantNetworks && user.userSocials.length <= 0) {
       return (participantStatus = 'AWAITING_QUIZ');
     } else if (event.eventTerm.length > 0) {
@@ -279,6 +325,252 @@ export class EventParticipantService {
     }
 
     return participantStatus;
+  }
+
+  async participantTicket(
+    participantId: string,
+  ): Promise<ParticipantTicketDto> {
+    try {
+      const participant = await this.prisma.eventParticipant.findUnique({
+        where: {
+          id: participantId,
+        },
+        include: {
+          eventTicket: true,
+          event: true,
+        },
+      });
+
+      if (!participant) {
+        throw new NotFoundException('Participant not found');
+      }
+
+      const response: ParticipantTicketDto = {
+        id: participant.id,
+        ticketName: participant.eventTicket.title,
+        price: Number(participant.eventTicket.price),
+        eventName: participant.event.title,
+        qrcode: participant.qrcode,
+        startAt: participant.event.startAt,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async findEventInfo(eventTicketLinkId: string): Promise<FindEventInfoDto> {
+    try {
+      const eventInfo = await this.prisma.eventTicketLink.findUnique({
+        where: {
+          id: eventTicketLinkId,
+        },
+        include: {
+          eventTicket: {
+            include: {
+              event: {
+                include: {
+                  eventTerm: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const response: FindEventInfoDto = {
+        id: eventInfo.eventTicket.event.id,
+        title: eventInfo.eventTicket.event.title,
+        startAt: eventInfo.eventTicket.event.startAt,
+        haveDocument:
+          eventInfo.eventTicket.event.eventTerm.length > 0 ? true : false,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async findAllPublicEvents(
+    page: number,
+    perPage: number,
+    title?: string,
+    category?: string,
+  ): Promise<FindAllPublicEvents> {
+    try {
+      const where: Prisma.EventWhereInput = {
+        public: true,
+      };
+
+      if (title) {
+        where.title = { contains: title, mode: 'insensitive' };
+      }
+
+      if (category) {
+        where.category = { contains: category, mode: 'insensitive' };
+      }
+
+      const events = await this.prisma.event.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
+      });
+
+      const totalItems = await this.prisma.event.count({ where });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const eventsFormatted = events.map((event) => {
+        return {
+          id: event.id,
+          title: event.title,
+          slug: event.slug,
+          photo: event.photo,
+          category: event.category,
+          description: event.description,
+          startAt: event.startAt,
+          endAt: event.endAt,
+        };
+      });
+
+      const response: FindAllPublicEvents = {
+        data: eventsFormatted,
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async findOnePublicEvent(slug: string): Promise<FindOnePublicEventsDto> {
+    try {
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug,
+        },
+        include: {
+          eventTicket: true,
+        },
+      });
+
+      const response: FindOnePublicEventsDto = {
+        id: event.id,
+        title: event.title,
+        slug: event.slug,
+        photo: event.photo,
+        category: event.category,
+        description: event.description,
+        startAt: event.startAt,
+        endAt: event.endAt,
+        ticket: event.eventTicket.map((ticket) => {
+          return {
+            id: ticket.id,
+            title: ticket.title,
+            price: Number(ticket.price),
+          };
+        }),
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  private async createTermSignatorie(userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const termSignatorie = await this.prisma.termSignatorie.findFirst({
+        where: {
+          userId: userId,
+          auths: 'whatsapp',
+        },
+      });
+
+      if (termSignatorie) {
+        return termSignatorie;
+      }
+
+      const clickSignResponse = await this.clickSignApiService.createSigner(
+        user.email,
+        user.phoneNumber,
+        user.name,
+        user.document,
+        user.dateBirth.toString(),
+      );
+
+      const termSignatorieCreate = await this.prisma.termSignatorie.create({
+        data: {
+          id: clickSignResponse.signer.key,
+          userId: userId,
+        },
+      });
+
+      return termSignatorieCreate;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  private async addTermSigner(signerId: string, documentPath: string) {
+    try {
+      const signer = await this.prisma.termSignatorie.findUnique({
+        where: {
+          id: signerId,
+        },
+      });
+
+      if (!signer) {
+        throw new NotFoundException('Signer not found');
+      }
+
+      const file = await this.storageService.getFile(
+        StorageServiceType.S3,
+        documentPath,
+      );
+
+      const fileBase64 = file.toString('base64');
+      const mimeType = mime.lookup(documentPath) || 'application/octet-stream';
+
+      console.log(`MIME type: ${mimeType}`);
+
+      const contentBase64 = `data:${mimeType};base64,${fileBase64}`;
+
+      const clickSignResponseDoc = await this.clickSignApiService.postDocument(
+        '/' + signer.id + '/' + documentPath,
+        contentBase64,
+      );
+
+      const clickSignResponseSigner =
+        await this.clickSignApiService.addSignerDocument(
+          clickSignResponseDoc.document.key,
+          signer.id,
+        );
+
+      return { clickSignResponseSigner };
+    } catch (error) {
+      throw error;
+    }
   }
 
   @Cron(CronExpression.EVERY_30_SECONDS, {
@@ -316,7 +608,7 @@ export class EventParticipantService {
 
     eventParticipants.forEach(async (eventParticipant) => {
       const { user, event, eventTicket } = eventParticipant;
-      const { name, email, document } = user;
+      const { name, email } = user;
       const { startAt, endAt, description, title: nameEvent } = event;
       const { title: nameTicket } = eventTicket;
 
@@ -337,6 +629,9 @@ export class EventParticipantService {
         qrCodeHtml: qrCodeBase64,
         qrCode: eventParticipant.qrcode,
         invictaClub: '',
+        eventSlug: '',
+        staffEmail: '',
+        staffPassword: '',
       });
 
       await this.prisma.eventParticipant.update({

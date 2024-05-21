@@ -24,8 +24,12 @@ import {
 import { EventProducerAccreditationService } from './event-producer-accreditation.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  GetEventConfigDto,
+  LastAccreditedParticipantsResponse,
+} from './dto/event-producer-accreditation-response.dto';
 
-@ApiTags('Event Producer')
+@ApiTags('Event Producer credential')
 @Controller('event-producer')
 export class EventProducerAccreditationController {
   constructor(
@@ -141,6 +145,101 @@ export class EventProducerAccreditationController {
       email,
       eventSlug,
       participantId,
+    );
+  }
+
+  @Get('v1/event-producer/:eventSlug/accreditation/historic-participants')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get accreditation historic' })
+  @ApiResponse({
+    type: LastAccreditedParticipantsResponse,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  @ApiQuery({
+    name: 'page',
+    type: String,
+    required: false,
+    example: '1',
+  })
+  @ApiQuery({
+    name: 'perPage',
+    type: String,
+    required: false,
+    example: '10',
+  })
+  async lastAccreditedParticipants(
+    @Request() req: any,
+    @Query('page') page: string = '1',
+    @Query('perPage') perPage: string = '10',
+    @Param('eventSlug') eventSlug: string,
+  ): Promise<LastAccreditedParticipantsResponse> {
+    const email = req.auth.user.email;
+    return await this.eventProducerAccreditationService.lastAccreditedParticipants(
+      eventSlug,
+      email,
+      Number(page),
+      Number(perPage),
+    );
+  }
+
+  @Get('v1/event-producer/:eventSlug/accreditation/event-config')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event config' })
+  @ApiResponse({
+    type: GetEventConfigDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  async getEventConfig(
+    @Request() req: any,
+    @Param('eventSlug') eventSlug: string,
+  ): Promise<GetEventConfigDto> {
+    const email = req.auth.user.email;
+    return await this.eventProducerAccreditationService.getEventConfig(
+      eventSlug,
+      email,
+    );
+  }
+
+  @Get('v1/event-producer/:eventSlug/accreditation/check-out-all-participants')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event accreditation qrcode' })
+  @ApiResponse({
+    description: 'event accreditation qrcode',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  async checkOutInAllParticipants(
+    @Param('eventSlug') eventSlug: string,
+    @Request() req: any,
+  ) {
+    const email = req.auth.user.email;
+    return this.eventProducerAccreditationService.checkOutInAllParticipants(
+      email,
+      eventSlug,
     );
   }
 }

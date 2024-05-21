@@ -71,6 +71,45 @@ export class UserProducerValidationService {
           },
         });
 
+        const event = await this.prisma.event.findUnique({
+          where: {
+            id: eventId,
+          },
+        });
+
+        const user = await this.prisma.user.findUnique({
+          where: {
+            email: email,
+          },
+        });
+
+        if (user.id === event.userId) {
+          const response: UserValidationEmailResponseDto = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            dateBirth: user.dateBirth,
+            profilePhoto: user.profilePhoto,
+            type: user.type,
+            cep: user.cep,
+            document: user.document,
+            phoneCountry: user.phoneCountry,
+            phoneNumber: user.phoneNumber,
+            street: user.street,
+            district: user.district,
+            city: user.city,
+            complement: user.complement,
+            country: user.country,
+            createdAt: user.createdAt,
+            number: user.number,
+            state: user.state,
+          };
+
+          await UserValidationEmailResponseSchema.parseAsync(response);
+
+          return response;
+        }
+
         if (!staff) {
           throw new NotFoundException('Staff not found');
         }

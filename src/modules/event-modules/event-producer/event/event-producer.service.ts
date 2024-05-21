@@ -12,6 +12,7 @@ import { generateSlug } from 'src/utils/generate-slug';
 import {
   EventDashboardResponseDto,
   GeneralDashboardResponseDto,
+  ResponseEventParticipants,
   ResponseEvents,
 } from './dto/event-producer-response.dto';
 import {
@@ -19,9 +20,14 @@ import {
   StorageServiceType,
 } from 'src/services/storage.service';
 import { randomUUID } from 'crypto';
-import { EventsResponse } from 'mailgun.js';
 import { PaginationService } from 'src/services/paginate.service';
 import { Prisma } from '@prisma/client';
+import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
+import { EventTicketCreateDto } from '../event-ticket/dto/event-ticket-producer-create.dto';
+import {
+  EventProducerUpdateDto,
+  EventProducerUpgradeDto,
+} from './dto/event-producer-update.dto';
 
 type DataItem = {
   state: string | null;
@@ -31,7 +37,7 @@ type DataItem = {
 type StateSums = {
   [key: string]: {
     count: number;
-    ticketSum: number;
+    ticketSum?: number;
   };
 };
 
@@ -42,9 +48,10 @@ export class EventProducerService {
     private readonly userProducerValidationService: UserProducerValidationService,
     private readonly storageService: StorageService,
     private readonly paginationService: PaginationService,
+    private readonly eventTicketProducerService: EventTicketProducerService,
   ) {}
 
-  async createEvent(email: string, body: EventCreateDto): Promise<string> {
+  async createEvent(email: string, body: EventCreateDto): Promise<object> {
     try {
       const {
         category,
@@ -58,6 +65,7 @@ export class EventProducerService {
         subtitle,
         title,
         eventTickets,
+        eventPublic,
       } = body;
 
       const slug = generateSlug(title);
@@ -85,14 +93,14 @@ export class EventProducerService {
       let cost = 0;
 
       const factor = eventConfig.printAutomatic
-        ? 1
+        ? 2
         : 0 +
           (eventConfig.credentialType === 'QRCODE'
             ? 1
             : eventConfig.credentialType === 'FACIAL_IN_SITE'
-              ? 2
+              ? 3
               : eventConfig.credentialType === 'FACIAL'
-                ? 3
+                ? 4
                 : 0);
 
       if (factor > 0 || eventConfig.limit > 20) {
@@ -108,6 +116,7 @@ export class EventProducerService {
           category: category,
           subtitle: subtitle,
           location: location,
+          public: eventPublic,
           type: cost > 0 ? 'PAID_OUT' : 'FREE',
           startAt: startAt,
           endAt: endAt,
@@ -128,34 +137,97 @@ export class EventProducerService {
           eventCost: {
             create: {
               limit: eventConfig.limit,
-              status: true,
+              status: false,
               cost: cost,
-            },
-          },
-          eventTicket: {
-            createMany: {
-              data: eventTickets.map((ticket, index) => ({
-                slug: generateSlug(ticket.title),
-                sequential: index + 1,
-                title: ticket.title,
-                description: ticket.description,
-                price: ticket.price,
-                color: ticket.color,
-                guest: ticket.guestPerLink * ticket.links,
-              })),
             },
           },
         },
         include: {
-          eventTicket: true,
+          eventCost: true,
         },
       });
 
-      // console.log("Evento criado:", createdEvent);
+      for (const ticket of eventTickets) {
+        const body: EventTicketCreateDto = {
+          title: ticket.title,
+          color: ticket.color,
+          description: ticket.description,
+          price: ticket.price,
+          links: ticket.links,
+          guestPerLink: ticket.guestPerLink,
+        };
 
-      return `Evento criado com sucesso: ${slug}`;
+        await this.eventTicketProducerService.createEventTicket(
+          email,
+          createdEvent.slug,
+          body,
+        );
+      }
+
+      return {
+        id: createdEvent.id,
+        slug: createdEvent.slug,
+        eventCostid: createdEvent.eventCost[0].id,
+      };
     } catch (error) {
       console.error('Erro ao criar evento:', error);
+      throw error;
+    }
+  }
+
+  async updateEvent(email: string, slug: string, body: EventProducerUpdateDto) {
+    try {
+      const user =
+        await this.userProducerValidationService.validateUserProducerByEmail(
+          email,
+        );
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: slug,
+          userId: user.id,
+        },
+      });
+
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const {
+        category,
+        description,
+        endAt,
+        endPublishAt,
+        location,
+        eventPublic,
+        startAt,
+        startPublishAt,
+        subtitle,
+        title,
+      } = body;
+
+      await this.prisma.event.update({
+        where: {
+          id: event.id,
+        },
+        data: {
+          category: category ? category : event.category,
+          description: description ? description : event.description,
+          endAt: endAt ? endAt : event.endAt,
+          endPublishAt: endPublishAt ? endPublishAt : event.endPublishAt,
+          location: location ? location : event.location,
+          public: eventPublic ? eventPublic : event.public,
+          startAt: startAt ? startAt : event.startAt,
+          startPublishAt: startPublishAt
+            ? startPublishAt
+            : event.startPublishAt,
+          subtitle: subtitle ? subtitle : event.subtitle,
+          title: title ? title : event.title,
+        },
+      });
+
+      return `Event updated successfully`;
+    } catch (error) {
       throw error;
     }
   }
@@ -178,6 +250,7 @@ export class EventProducerService {
         include: {
           eventTicket: {
             include: {
+              eventTicketGuest: true,
               EventParticipant: {
                 include: {
                   user: true,
@@ -187,55 +260,235 @@ export class EventProducerService {
                 },
               },
             },
+            orderBy: {
+              createdAt: 'desc',
+            },
+          },
+          eventParticipant: {
+            include: {
+              user: {
+                include: {
+                  userSocials: {
+                    where: {
+                      username: { not: '' },
+                    },
+                  },
+                  userFacials: {
+                    orderBy: {
+                      createdAt: 'desc',
+                    },
+                  },
+                },
+              },
+              eventParticipantHistoric: true,
+              eventTicket: true,
+            },
+            orderBy: {
+              createdAt: 'desc',
+            },
           },
           eventConfig: true,
+          EventStaff: {
+            orderBy: {
+              id: 'desc',
+            },
+          },
+          eventTerm: true,
         },
       });
 
-      const participants = event.eventTicket.map((ticket) => {
-        if (ticket) {
-          ticket.EventParticipant.map((participant) => {
-            return {
-              id: participant.id,
-              name: participant.user.name,
-              status: participant.eventParticipantHistoric[0].status,
-              ticketName: ticket.title,
-            };
-          });
-        } else {
-          return null;
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const tickets = [];
+      const totalTickets = event.eventTicket ? event.eventTicket.length : 0;
+      let totalTicketsUsed = 0;
+      let links = 0;
+      const participantsCheckIn = [];
+      const participantsState = [];
+      const participants = [];
+      const staffs = [];
+      const hourCounts: { [key: string]: number } = {};
+
+      event.EventStaff.map((staff) => {
+        staffs.push({
+          id: staff.id,
+          email: staff.email,
+        });
+      });
+
+      event.eventTicket.map((ticket) => {
+        if (ticket.status === 'PART_FULL' || ticket.status === 'FULL') {
+          totalTicketsUsed += 1;
         }
       });
 
-      const tickets = event.eventTicket.map((ticket) => {
-        return {
-          id: ticket.id,
-          name: ticket.title,
-          status: ticket.status,
-          guest: ticket.guest,
-          participantsCount: ticket.EventParticipant.length,
-        };
+      event.eventParticipant.map((participant) => {
+        participantsState.push({
+          state: participant.user.state,
+        });
+
+        participants.push({
+          id: participant.id,
+          name: participant.user.name,
+          status:
+            participant.eventParticipantHistoric.length > 0
+              ? participant.eventParticipantHistoric[0].status
+              : null,
+          ticketName: participant.eventTicket.title,
+          facial:
+            participant.user.userFacials.length > 0
+              ? participant.user.userFacials[0].path
+              : null,
+          email: participant.user.email,
+          userNetwork:
+            participant.user.userSocials.length > 0
+              ? participant.user.userSocials[0].username
+              : null,
+        });
+
+        participant.eventParticipantHistoric.map((historic) => {
+          if (historic.status === 'CHECK_IN') {
+            participantsCheckIn.push({
+              id: historic.eventParticipantId,
+              status: historic.status,
+            });
+          }
+
+          const hour = new Date(historic.createdAt).getHours();
+          const day = new Date(historic.createdAt).getDay();
+
+          // Atualiza as contagens por hora
+          if (hourCounts[`${day}-${hour}`]) {
+            hourCounts[`${day}-${hour}`] += 1;
+          } else {
+            hourCounts[`${day}-${hour}`] = 1;
+          }
+        });
       });
+
+      const hourlyCountsArray = Object.values(hourCounts);
+
+      event.eventTicket.map((ticket) => {
+        let linksUsed = 0;
+
+        links += ticket.guest;
+
+        ticket.eventTicketGuest.map((link) => {
+          if (link.status === 'FULL') {
+            linksUsed += 1;
+          }
+        });
+        const enableLinks = ticket.eventTicketGuest.filter(
+          (link) => link.status !== 'FULL',
+        );
+        tickets.push({
+          id: ticket.id,
+          title: ticket.title,
+          price: ticket.price,
+          linksUsed: `${ticket.eventTicketGuest.length - linksUsed}/${ticket.eventTicketGuest.length}`,
+          guestPerLink:
+            ticket.eventTicketGuest.length > 0
+              ? ticket.eventTicketGuest[0].invite
+              : 0,
+          link: enableLinks.length > 0 ? enableLinks[0].id : null,
+        });
+      });
+
+      const stateSums: StateSums = participantsState.reduce(
+        (acc: StateSums, item: DataItem) => {
+          const state = item.state === null ? 'não definido' : item.state;
+          if (acc[state]) {
+            acc[state].count += 1;
+          } else {
+            acc[state] = {
+              count: 1,
+            };
+          }
+          return acc;
+        },
+        {},
+      );
+
+      const sortedStates = Object.entries(stateSums).sort(
+        (a, b) => b[1].count - a[1].count,
+      );
+
+      const topStatesCount = 4;
+      const topStates = sortedStates.slice(0, topStatesCount);
+      const otherStates = sortedStates.slice(topStatesCount);
+
+      const topStatesResult: StateSums = {};
+      topStates.forEach(([state, { count }]) => {
+        topStatesResult[state] = { count };
+      });
+
+      const othersCount = otherStates.reduce(
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        (sum, [_, { count }]) => sum + count,
+        0,
+      );
+      if (othersCount > 0) {
+        topStatesResult['outros'] = { count: othersCount };
+      }
+
+      const uniqueArray = Array.from(
+        new Map(participantsCheckIn.map((item) => [item.id, item])).values(),
+      );
+
+      const resultArray = Object.entries(topStatesResult).map(
+        ([state, { count }]) => ({
+          state,
+          count,
+        }),
+      );
 
       const response: EventDashboardResponseDto = {
         id: event.id,
         title: event.title,
+        slug: event.slug,
+        photo: event.photo,
+        category: event.category,
+        description: event.description,
+        endAt: event.endAt,
+        endPublishAt: event.endPublishAt,
+        eventPublic: event.public,
+        location: event.location,
+        startAt: event.startAt,
+        haveTerm: event.eventTerm.length > 0 ? true : false,
+        startPublishAt: event.startPublishAt,
+        subtitle: event.subtitle,
         eventLimit: event.eventConfig[0].limit,
-        credentialType: event.eventConfig[0].credentialType,
-        eventParticipants: participants,
-        eventParticipantsCount: participants.length,
-        eventTickets: tickets,
+        eventPrintAutomatic: event.eventConfig[0].printAutomatic,
+        eventCredentialType: event.eventConfig[0].credentialType,
+        participants: participants,
+        credential: {
+          participantsCredentialPerHour: hourlyCountsArray,
+          participantsCheckIn: uniqueArray.length,
+          initialDate: event.startAt,
+          finalDate: event.endAt,
+        },
+        links,
+        tickets: tickets,
+        ticketsCreated: totalTickets,
+        ticketsUseds: totalTicketsUsed,
+        alreadyCheckIn: uniqueArray.length,
+        notCheckIn: event.eventParticipant.length - uniqueArray.length,
+        statesInfo: resultArray,
+        staffs,
       };
 
       return response;
     } catch (error) {
+      console.log(error);
       if (error instanceof UnauthorizedException) {
         throw error;
       }
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new ConflictException(error);
+      throw error;
     }
   }
 
@@ -245,6 +498,7 @@ export class EventProducerService {
     perPage: number,
     title?: string,
     category?: string,
+    status?: string,
   ): Promise<ResponseEvents> {
     try {
       const user =
@@ -262,6 +516,10 @@ export class EventProducerService {
 
       if (category) {
         where.category = { contains: category, mode: 'insensitive' };
+      }
+
+      if (status) {
+        where.status = status === 'ENABLE' ? 'ENABLE' : 'DISABLE';
       }
 
       const event = await this.prisma.event.findMany({
@@ -285,7 +543,10 @@ export class EventProducerService {
         return {
           id: event.id,
           title: event.title,
+          subtitle: event.subtitle,
           slug: event.slug,
+          photo: event.photo,
+          startAt: event.startAt,
         };
       });
 
@@ -479,8 +740,8 @@ export class EventProducerService {
       let totalTickets = 0;
       let totalParticipants = 0;
       let total = 0;
-      let participantsCheckIn = [];
-      let participantsState = [];
+      const participantsCheckIn = [];
+      const participantsState = [];
 
       events.map((event) => {
         totalTickets += event.eventTicket.length;
@@ -557,18 +818,24 @@ export class EventProducerService {
         total: percentage,
       };
 
-      const lastEvents = events.slice(0, 10).map((event) => {
-        let total = 0;
-        event.eventParticipant.map((participant) => {
-          total += Number(participant.eventTicket.price);
-        });
-        return {
-          id: event.id,
-          title: event.title,
-          slug: event.slug,
-          total: total,
-        };
-      });
+      const lastEvents = events
+        .map((event) => {
+          let total = 0;
+          event.eventParticipant.forEach((participant) => {
+            total += Number(participant.eventTicket.price);
+          });
+
+          if (total > 0) {
+            return {
+              id: event.id,
+              title: event.title,
+              slug: event.slug,
+              total: total,
+            };
+          }
+        })
+        .filter((event) => event !== undefined) // Filtra os eventos que foram removidos (total <= 0)
+        .slice(-10);
 
       const uniqueArray = Array.from(
         new Map(participantsCheckIn.map((item) => [item.id, item])).values(),
@@ -598,6 +865,241 @@ export class EventProducerService {
         throw error;
       }
       throw new BadRequestException(error);
+    }
+  }
+
+  async findAllParticipants(
+    email: string,
+    slug: string,
+    page: number,
+    perPage: number,
+    name?: string,
+  ): Promise<ResponseEventParticipants> {
+    try {
+      const where: Prisma.EventParticipantWhereInput = {
+        event: {
+          slug: slug,
+        },
+      };
+
+      if (name) {
+        where.user = {
+          name: {
+            contains: name,
+            mode: 'insensitive',
+          },
+        };
+      }
+
+      await this.userProducerValidationService.eventExists(slug, email);
+
+      const eventParticipants = await this.prisma.eventParticipant.findMany({
+        where,
+        include: {
+          user: {
+            include: {
+              userFacials: {
+                orderBy: { createdAt: 'desc' },
+              },
+              userSocials: {
+                where: {
+                  username: { not: '' },
+                },
+              },
+            },
+          },
+          eventParticipantHistoric: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+          },
+          eventTicket: true,
+        },
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
+      });
+
+      const totalItems = await this.prisma.eventParticipant.count({ where });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const eventParticipant = eventParticipants.map((participant) => {
+        return {
+          id: participant.id,
+          name: participant.user.name,
+          status:
+            participant.eventParticipantHistoric.length > 0
+              ? participant.eventParticipantHistoric[0].status
+              : null,
+          ticketName: participant.eventTicket.title,
+          facial:
+            participant.user.userFacials.length > 0
+              ? participant.user.userFacials[0].path
+              : null,
+          email: participant.user.email,
+          userNetwork:
+            participant.user.userSocials.length > 0
+              ? participant.user.userSocials[0].username
+              : 'Sem registro',
+        };
+      });
+
+      const response: ResponseEventParticipants = {
+        data: eventParticipant,
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async paidEventCost(eventId: string, eventCostId: number): Promise<string> {
+    try {
+      await this.prisma.eventCost.update({
+        where: {
+          id: Number(eventCostId),
+          eventId: eventId,
+        },
+        data: {
+          status: true,
+        },
+      });
+      return 'Payment successful';
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async upgradeEvent(
+    email: string,
+    slug: string,
+    body: EventProducerUpgradeDto,
+  ) {
+    try {
+      const user =
+        await this.userProducerValidationService.validateUserProducerByEmail(
+          email,
+        );
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: slug,
+          userId: user.id,
+        },
+      });
+
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const eventConfig = await this.prisma.eventConfig.findUnique({
+        where: {
+          eventId: event.id,
+        },
+      });
+
+      if (!eventConfig) {
+        throw new NotFoundException('Event config not found');
+      }
+
+      const { credentialType, limit, printAutomatic } = body;
+
+      const currentPrintFactor = eventConfig.printAutomatic ? 2 : 0;
+
+      const currentCredentialFactor =
+        eventConfig.credentialType === 'QRCODE'
+          ? 1
+          : eventConfig.credentialType === 'FACIAL_IN_SITE'
+            ? 3
+            : eventConfig.credentialType === 'FACIAL'
+              ? 4
+              : 0;
+
+      const currentFactor = currentPrintFactor + currentCredentialFactor;
+
+      const newPrintFactor = printAutomatic ? 2 : 0;
+      const newCredentialFactor =
+        credentialType === 'QRCODE'
+          ? 1
+          : credentialType === 'FACIAL_IN_SITE'
+            ? 3
+            : credentialType === 'FACIAL'
+              ? 4
+              : 0;
+
+      const newFactor = newPrintFactor + newCredentialFactor;
+
+      console.log('Current Factor', currentFactor);
+      console.log('New Factor', newFactor);
+
+      if (currentFactor > newFactor) {
+        throw new ConflictException(
+          'You cannot change the setting to a lower value',
+        );
+      }
+
+      const newValue =
+        newFactor - currentFactor == 0
+          ? limit + limit * currentFactor
+          : eventConfig.limit * (newFactor - currentFactor);
+
+      const newParticipantsValue =
+        limit > 0 && newFactor - currentFactor !== 0
+          ? (newFactor + 1) * limit
+          : 0;
+
+      const newLimit = limit + eventConfig.limit;
+
+      const total = newValue + newParticipantsValue;
+
+      console.log('novo valor', total);
+
+      await this.prisma.eventCost.create({
+        data: {
+          eventId: event.id,
+          cost: Number(total) * -1,
+          limit: limit,
+          status: true,
+        },
+      });
+
+      await this.prisma.balanceHistoric.create({
+        data: {
+          value: Number(total) * -1,
+          description: `Alteração nas configurações do evento: ${event.title}`,
+          userId: user.id,
+          status: 'RECEIVED',
+        },
+      });
+
+      const updatedEventConfig = await this.prisma.eventConfig.update({
+        where: {
+          eventId: event.id,
+        },
+        data: {
+          credentialType: credentialType,
+          limit: newLimit,
+          printAutomatic: printAutomatic,
+          event: {
+            update: {
+              type:
+                printAutomatic || credentialType !== 'VOID' || newLimit > 20
+                  ? 'PAID_OUT'
+                  : 'FREE',
+            },
+          },
+        },
+      });
+
+      return updatedEventConfig;
+    } catch (error) {
+      throw error;
     }
   }
 }

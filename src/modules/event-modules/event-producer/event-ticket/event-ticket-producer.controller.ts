@@ -27,7 +27,7 @@ import { EventTicketCreateDto } from './dto/event-ticket-producer-create.dto';
 import { EventTicketUpdateDto } from './dto/event-ticket-producer-update.dto';
 import { EventTicketsResponse } from './dto/event-ticket-producer-response.dto';
 
-@ApiTags('Event Producer')
+@ApiTags('Event Producer Tickets')
 @Controller('event-producer')
 export class EventTicketProducerController {
   constructor(

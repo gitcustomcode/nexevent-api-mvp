@@ -12,6 +12,7 @@ import { EventProducerCreateStaffDto } from './dto/event-producer-create-staff.d
 import { EventStaffsResponse } from './dto/event-producer-response-staff.dto';
 import { Prisma } from '@prisma/client';
 import { genSaltSync, hash } from 'bcrypt';
+import { EmailService } from 'src/services/email.service';
 
 @Injectable()
 export class EventProducerStaffService {
@@ -19,6 +20,7 @@ export class EventProducerStaffService {
     private readonly prisma: PrismaService,
     private readonly userProducerValidationService: UserProducerValidationService,
     private readonly paginationService: PaginationService,
+    private readonly emailService: EmailService,
   ) {}
 
   async createStaff(
@@ -39,6 +41,7 @@ export class EventProducerStaffService {
           eventId: event.id,
           email: staff.email,
           password: hashedPassword,
+          originalPassword: staff.password,
         };
       });
 
@@ -57,8 +60,38 @@ export class EventProducerStaffService {
       );
 
       if (staffsToInsert.length > 0) {
+        const staffs = staffsToInsert.map((staff) => {
+          return {
+            eventId: event.id,
+            email: staff.email,
+            password: staff.password,
+          };
+        });
+
         await this.prisma.eventStaff.createMany({
-          data: staffsToInsert,
+          data: staffs,
+        });
+
+        staffsToInsert.map(async (staff) => {
+          const data = {
+            to: staff.email,
+            name: staff.email,
+            type: 'staffGuest',
+          };
+
+          await this.emailService.sendEmail(data, {
+            description: '',
+            endDate: new Date(),
+            eventName: event.title,
+            eventSlug: event.slug,
+            invictaClub: '',
+            qrCode: '',
+            qrCodeHtml: '',
+            staffEmail: staff.email,
+            staffPassword: staff.originalPassword,
+            startDate: new Date(),
+            ticketName: '',
+          });
         });
         return `Event Staff created successfully`;
       } else {

@@ -4,6 +4,7 @@ import {
   Get,
   Patch,
   Post,
+  Query,
   Request,
   UploadedFile,
   UseGuards,
@@ -18,6 +19,7 @@ import {
   ApiInternalServerErrorResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -50,6 +52,39 @@ export class UserProducerController {
     return await this.userProducerService.createUserProducer(body);
   }
 
+  @Post('v1/user-producer/profile/upload-facial')
+  @ApiOperation({ summary: 'Upload a user facial photo' })
+  @ApiCreatedResponse({
+    description: 'user facial photo created',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiConsumes('multipart/form-data')
+  @ApiQuery({
+    name: 'email',
+    required: true,
+    type: String,
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFacialPhoto(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('email') email: string,
+  ) {
+    return await this.userProducerService.uploadFacialPhoto(email, file);
+  }
+
   @Patch('v1/user-producer/finish-register')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
@@ -69,6 +104,29 @@ export class UserProducerController {
   ): Promise<String> {
     const email = req.auth.user.email;
     return await this.userProducerService.finishSignUp(email, body);
+  }
+
+  @Patch('v1/user-producer/change-password')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Change password' })
+  @ApiResponse({
+    description: 'Password updated successfully',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiQuery({
+    name: 'password',
+    required: true,
+    type: String,
+  })
+  async updatePassword(
+    @Query('password') password: string,
+    @Request() req: any,
+  ): Promise<String> {
+    const email = req.auth.user.email;
+    return await this.userProducerService.updatePassword(email, password);
   }
 
   @Get('v1/user-producer/profile')

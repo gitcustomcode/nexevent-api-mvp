@@ -7,6 +7,7 @@ import { StorageService } from 'src/services/storage.service';
 import { ConfigModule } from '@nestjs/config';
 import variables from 'src/variables';
 import { PaginationService } from 'src/services/paginate.service';
+import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PaginationService } from 'src/services/paginate.service';
     UserProducerValidationService,
     StorageService,
     PaginationService,
+    EventTicketProducerService,
   ],
 })
 export class EventProducerModule {}

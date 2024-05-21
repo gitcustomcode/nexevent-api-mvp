@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -72,7 +73,21 @@ export class UserProducerService {
         throw new NotFoundException('User not found');
       }
 
-      const { dateBirth, document, name, phoneCountry, phoneNumber, street, district, state, city, country, number, complement, cep } = body;
+      const {
+        dateBirth,
+        document,
+        name,
+        phoneCountry,
+        phoneNumber,
+        street,
+        district,
+        state,
+        city,
+        country,
+        number,
+        complement,
+        cep,
+      } = body;
 
       await this.prisma.user.update({
         where: {
@@ -92,14 +107,39 @@ export class UserProducerService {
           number,
           complement,
           cep,
-
-
         },
       });
 
       return 'success';
     } catch (error) {
       throw new ConflictException(error);
+    }
+  }
+
+  async updatePassword(email: string, password: string) {
+    try {
+      const emailAlreadyExists =
+        await this.userProducerValidationService.findUserByEmail(email);
+
+      if (!emailAlreadyExists) {
+        throw new NotFoundException('User not found');
+      }
+
+      const salt = genSaltSync(10);
+      const hashedPassword = await hash(password, salt);
+
+      await this.prisma.user.update({
+        where: {
+          email,
+        },
+        data: {
+          password: hashedPassword,
+        },
+      });
+
+      return 'Password updated successfully';
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -171,6 +211,64 @@ export class UserProducerService {
         photoPath,
         photo.buffer,
       );
+
+      return 'Photo uploaded successfully';
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new ConflictException(error);
+    }
+  }
+
+  async uploadFacialPhoto(email: string, photo: Express.Multer.File) {
+    try {
+      const userExists =
+        await this.userProducerValidationService.findUserByEmail(email);
+
+      if (!userExists) {
+        throw new NotFoundException('User not found');
+      }
+
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+
+      if (!allowedMimeTypes.includes(photo.mimetype)) {
+        throw new BadRequestException(
+          'Only JPEG, JPG and PNG files are allowed.',
+        );
+      }
+
+      const currentDate = new Date();
+      const year = currentDate.getFullYear().toString();
+      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = currentDate.getDate().toString().padStart(2, '0');
+
+      const filename = photo.originalname;
+      const fileExtension = filename.split('.').pop();
+
+      const uniqueFilename = `${randomUUID()}.${fileExtension}`;
+
+      const filePath = `user-face/${year}/${month}/${day}/${uniqueFilename}`;
+
+      await this.storageService.uploadFile(
+        StorageServiceType.S3,
+        filePath,
+        photo.buffer,
+      );
+
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 60);
+
+      await this.prisma.userFacial.create({
+        data: {
+          userId: userExists.id,
+          path: filePath,
+          expirationDate: expiryDate,
+        },
+      });
 
       return 'Photo uploaded successfully';
     } catch (error) {

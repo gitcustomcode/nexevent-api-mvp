@@ -9,6 +9,10 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { compareSync } from 'bcrypt';
 import { PrismaService } from 'src/services/prisma.service';
+import {
+  StorageService,
+  StorageServiceType,
+} from 'src/services/storage.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 
 @Injectable()
@@ -19,6 +23,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
     private readonly userProducerValidationService: UserProducerValidationService,
   ) {
     this.jwtSecret = this.configService.get<string>('app.jwtSecret');
@@ -28,7 +33,7 @@ export class AuthService {
     try {
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
-          email,
+          email.toLowerCase(),
           password,
         );
 
@@ -78,7 +83,7 @@ export class AuthService {
 
       const staff = await this.prisma.eventStaff.findFirst({
         where: {
-          email: email,
+          email: email.toLowerCase(),
           eventId: eventExists.id,
         },
       });
@@ -106,6 +111,118 @@ export class AuthService {
         throw error;
       }
       throw new BadRequestException(error);
+    }
+  }
+
+  async validateWithFacial(userPhoto: Express.Multer.File) {
+    try {
+      const usersFacials = await this.prisma.userFacial.findMany({
+        include: {
+          user: true,
+        },
+      });
+
+      const validationPromises = usersFacials.map(async (user) => {
+        const photo = await this.storageService.getFile(
+          StorageServiceType.S3,
+          user.path,
+        );
+
+        if (!userPhoto.buffer || !photo) {
+          console.error(
+            'Uma das imagens está vazia ou não foi carregada corretamente.',
+          );
+          return false;
+        }
+
+        try {
+          const valid = await this.storageService.validateFacial(
+            userPhoto.buffer,
+            photo,
+          );
+
+          if (valid !== false && valid > 95) {
+            return {
+              id: user.user.id,
+              email: user.user.email,
+              expirationDate: user.expirationDate,
+            };
+          } else {
+            return false;
+          }
+        } catch (err) {
+          console.error(
+            `Erro ao validar facial para o usuário ${user.userId}:`,
+            err.message,
+          );
+          return false;
+        }
+      });
+
+      const results = await Promise.all(validationPromises);
+
+      // Filtrar resultados válidos
+      const validResults = results.filter((result) => result !== false);
+
+      return validResults[0];
+    } catch (error) {
+      console.error('Erro no login facial:', error.message);
+      throw error;
+    }
+  }
+
+  async loginWithFacial(
+    email: string,
+    userPhoto: Express.Multer.File,
+  ): Promise<string> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const userFacial = await this.prisma.userFacial.findMany({
+        where: {
+          userId: user.id,
+        },
+        include: {
+          user: true,
+        },
+        orderBy: {
+          id: 'desc',
+        },
+      });
+
+      const photo = await this.storageService.getFile(
+        StorageServiceType.S3,
+        userFacial[0].path,
+      );
+
+      const valid = await this.storageService.validateFacial(
+        userPhoto.buffer,
+        photo,
+      );
+
+      if (valid !== false && valid > 95) {
+        delete user.password;
+        const payload = { user: user };
+
+        const accessToken = this.jwtService.signAsync(payload, {
+          secret: this.jwtSecret,
+        });
+
+        return accessToken;
+      } else {
+        console.log('deu erro');
+        throw new ConflictException('Login with facial failed');
+      }
+    } catch (error) {
+      throw error;
     }
   }
 }

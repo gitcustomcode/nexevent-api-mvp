@@ -2,6 +2,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   EventAllResponseSchema,
   EventDashboardResponseSchema,
+  EventParticipantsResponseSchema,
   GeneralDashboardResponseSchema,
 } from '../schema/event-producer-response.schema';
 import { ApiProperty } from '@nestjs/swagger';
@@ -26,3 +27,17 @@ export class ResponseEvents {
 export class GeneralDashboardResponseDto extends createZodDto(
   GeneralDashboardResponseSchema,
 ) {}
+
+export class EventParticipantsResponseDto extends createZodDto(
+  EventParticipantsResponseSchema,
+) {}
+
+export class ResponseEventParticipants {
+  @ApiProperty({
+    type: () => EventParticipantsResponseDto,
+  })
+  data: EventParticipantsResponseDto;
+
+  @ApiProperty({ type: PaginationResponse, nullable: true })
+  pageInfo: PaginationResponse;
+}

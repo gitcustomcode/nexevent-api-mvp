@@ -12,24 +12,45 @@ import {
   StorageServiceType,
 } from 'src/services/storage.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
+import {
+  FindByQrCodeResponseDto,
+  GetEventConfigDto,
+  LastAccreditedParticipantsResponse,
+} from './dto/event-producer-accreditation-response.dto';
+import { PaginationService } from 'src/services/paginate.service';
 
 @Injectable()
 export class EventProducerAccreditationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly paginationService: PaginationService,
     private readonly userProducerValidationService: UserProducerValidationService,
   ) {}
-  async findByQrCode(userEmail: string, slug: string, qrcode: string) {
+  async findByQrCode(
+    userEmail: string,
+    slug: string,
+    qrcode: string,
+  ): Promise<FindByQrCodeResponseDto> {
     try {
       const event = await this.userProducerValidationService.eventExists(
         slug,
         userEmail,
       );
 
+      if (event.status === 'DISABLE') {
+        throw new UnauthorizedException('Event disabled');
+      }
+
       const participant = await this.findOne(event.id, null, qrcode);
 
-      return participant;
+      const response: FindByQrCodeResponseDto = {
+        id: participant.id,
+        userDocument: participant.user.document,
+        userName: participant.user.name,
+      };
+
+      return response;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
@@ -55,11 +76,16 @@ export class EventProducerAccreditationService {
         userEmail,
       );
 
+      if (event.status === 'DISABLE') {
+        throw new UnauthorizedException('Event disabled');
+      }
+
       const eventParticipants = await this.prisma.eventParticipant.findMany({
         where: {
           eventId: event.id,
         },
         select: {
+          id: true,
           qrcode: true,
           user: {
             include: {
@@ -68,10 +94,6 @@ export class EventProducerAccreditationService {
           },
         },
       });
-
-      if (eventParticipants[0].user.userFacials.length === 0) {
-        throw new NotFoundException('Participants not have a facial');
-      }
 
       const validationPromises = eventParticipants.map(async (participant) => {
         if (participant.user.userFacials.length > 0) {
@@ -86,7 +108,11 @@ export class EventProducerAccreditationService {
           );
 
           if (valid !== false && valid > 90) {
-            return participant.qrcode;
+            return {
+              id: participant.id,
+              userName: participant.user.name,
+              qrcode: participant.qrcode,
+            };
           }
         }
       });
@@ -121,6 +147,10 @@ export class EventProducerAccreditationService {
         userEmail,
       );
 
+      if (event.status === 'DISABLE') {
+        throw new UnauthorizedException('Event disabled');
+      }
+
       const participant = await this.findOne(event.id, participantId);
 
       let participantStatus: EventParticipantHistoricStatus = 'CHECK_IN';
@@ -139,6 +169,20 @@ export class EventProducerAccreditationService {
         },
       });
 
+      if (
+        event.eventConfig[0].printAutomatic === true &&
+        participant.eventParticipantHistoric.length === 0
+      ) {
+        await this.prisma.eventParticipant.update({
+          where: {
+            id: participant.id,
+          },
+          data: {
+            status: 'AWAITING_PRINT',
+          },
+        });
+      }
+
       return `The participant  ${historic.status} the event`;
     } catch (error) {
       console.log(error);
@@ -152,6 +196,39 @@ export class EventProducerAccreditationService {
         throw error;
       }
       throw new BadRequestException(error);
+    }
+  }
+
+  async rePrintParticipant(
+    userEmail: string,
+    slug: string,
+    participantId: string,
+  ) {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        slug,
+        userEmail,
+      );
+
+      if (event.status === 'DISABLE') {
+        throw new UnauthorizedException('Event disabled');
+      }
+
+      const participant = await this.findOne(event.id, participantId);
+
+      await this.prisma.eventParticipant.update({
+        where: {
+          id: participant.id,
+        },
+        data: {
+          status: 'AWAITING_PRINT',
+          isPrinted: false,
+        },
+      });
+
+      return `Print participant ${participant.id}`;
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -174,6 +251,7 @@ export class EventProducerAccreditationService {
         eventParticipantHistoric: {
           orderBy: { createdAt: 'desc' },
         },
+        user: true,
       },
     });
 
@@ -182,5 +260,149 @@ export class EventProducerAccreditationService {
     }
 
     return participant;
+  }
+
+  async lastAccreditedParticipants(
+    slug: string,
+    userEmail: string,
+    page?: number,
+    perPage?: number,
+  ): Promise<LastAccreditedParticipantsResponse> {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        slug,
+        userEmail,
+      );
+
+      const where: Prisma.EventParticipantHistoricWhereInput = {
+        eventParticipant: {
+          eventId: event.id,
+        },
+      };
+
+      const historic = await this.prisma.eventParticipantHistoric.findMany({
+        where,
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          eventParticipant: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      });
+
+      const totalItems = await this.prisma.eventParticipantHistoric.count({
+        where,
+      });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const historicFormatted = historic.map((part) => {
+        return {
+          id: part.id,
+          userName: part.eventParticipant.user.name,
+          status: part.status,
+          createdAt: part.createdAt,
+        };
+      });
+
+      const response: LastAccreditedParticipantsResponse = {
+        data: historicFormatted,
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getEventConfig(
+    slug: string,
+    userEmail: string,
+  ): Promise<GetEventConfigDto> {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        slug,
+        userEmail,
+      );
+
+      const eventConfig = await this.prisma.eventConfig.findUnique({
+        where: {
+          eventId: event.id,
+        },
+      });
+
+      const response: GetEventConfigDto = {
+        id: eventConfig.id,
+        credentialType: eventConfig.credentialType,
+        printAutomatic: eventConfig.printAutomatic,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async checkOutInAllParticipants(userEmail: string, slug: string) {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        slug,
+        userEmail,
+      );
+
+      if (event.status === 'DISABLE') {
+        throw new UnauthorizedException('Event disabled');
+      }
+
+      const participants = await this.prisma.eventParticipant.findMany({
+        where: {
+          eventId: event.id,
+        },
+        include: {
+          eventParticipantHistoric: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+          },
+          user: true,
+        },
+      });
+      const participantsFormatted = [];
+
+      participants.map((participant) => {
+        if (
+          participant.eventParticipantHistoric.length > 0 &&
+          participant.eventParticipantHistoric[0].status === 'CHECK_IN'
+        ) {
+          participantsFormatted.push({
+            eventParticipantId: participant.id,
+            status: 'CHECK_OUT',
+          });
+        }
+      });
+
+      if (participantsFormatted.length === 0) {
+        return `Not have participants to check out`;
+      }
+
+      await this.prisma.eventParticipantHistoric.createMany({
+        data: participantsFormatted,
+      });
+
+      return `All participants checked out`;
+    } catch (error) {
+      throw error;
+    }
   }
 }

@@ -6,6 +6,7 @@ import { EventProducerAccreditationService } from './event-producer-accreditatio
 import { StorageService } from 'src/services/storage.service';
 import { ConfigModule } from '@nestjs/config';
 import variables from 'src/variables';
+import { PaginationService } from 'src/services/paginate.service';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import variables from 'src/variables';
     PrismaService,
     StorageService,
     UserProducerValidationService,
+    PaginationService,
   ],
 })
 export class EventProducerAccreditationModule {}
