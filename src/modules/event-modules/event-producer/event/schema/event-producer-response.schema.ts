@@ -9,7 +9,17 @@ export const EventDashboardResponseSchema = z.object({
   id: z.string(),
   title: z.string(),
   slug: z.string(),
+  category: z.string(),
+  subtitle: z.string(),
+  description: z.string(),
+  location: z.string(),
+  eventPublic: z.boolean(),
+  startAt: z.date(),
+  endAt: z.date(),
+  startPublishAt: z.date(),
+  endPublishAt: z.date(),
   photo: z.string(),
+  haveTerm: z.boolean(),
   eventLimit: z.number(),
   participants: z.array(
     z.object({

@@ -8,6 +8,7 @@ import { ConfigService } from 'aws-sdk';
 import { ConfigModule } from '@nestjs/config';
 import variables from 'src/variables';
 import { EmailService } from 'src/services/email.service';
+import { ClickSignApiService } from 'src/services/click-sign.service';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { EmailService } from 'src/services/email.service';
     UserParticipantValidationService,
     StorageService,
     EmailService,
+    ClickSignApiService,
   ],
 })
 export class EventParticipantModule {}

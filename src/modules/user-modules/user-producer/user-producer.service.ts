@@ -116,6 +116,33 @@ export class UserProducerService {
     }
   }
 
+  async updatePassword(email: string, password: string) {
+    try {
+      const emailAlreadyExists =
+        await this.userProducerValidationService.findUserByEmail(email);
+
+      if (!emailAlreadyExists) {
+        throw new NotFoundException('User not found');
+      }
+
+      const salt = genSaltSync(10);
+      const hashedPassword = await hash(password, salt);
+
+      await this.prisma.user.update({
+        where: {
+          email,
+        },
+        data: {
+          password: hashedPassword,
+        },
+      });
+
+      return 'Password updated successfully';
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async findOneUserProducer(email: string): Promise<UserProducerResponseDto> {
     try {
       const user =

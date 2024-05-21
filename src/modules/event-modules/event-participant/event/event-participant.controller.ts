@@ -26,14 +26,26 @@ import {
   EventParticipantCreateNetworksDto,
 } from './dto/event-participant-create.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ParticipantTicketDto } from './dto/event-participant-response.dto';
+import {
+  FindEventInfoDto,
+  ParticipantTicketDto,
+} from './dto/event-participant-response.dto';
+import { ClickSignApiService } from 'src/services/click-sign.service';
 
 @ApiTags('Event Participant')
 @Controller('event-participant')
 export class EventParticipantController {
   constructor(
     private readonly eventParticipantService: EventParticipantService,
+    private readonly clickSignApiService: ClickSignApiService,
   ) {}
+
+  @Get('v1/test/sobre/test')
+  async test() {
+    return await this.clickSignApiService.sendEmail(
+      'd721ff19-e4fd-46da-9c84-633f4a805124',
+    );
+  }
 
   @Post('v1/event-participant/:eventTicketLinkId/create-participant')
   @ApiOperation({ summary: 'Create event' })
@@ -145,5 +157,23 @@ export class EventParticipantController {
   })
   async participantTicket(@Param('participantId') participantId: string) {
     return await this.eventParticipantService.participantTicket(participantId);
+  }
+
+  @Get('v1/event-participant/:eventTicketLinkId/event-info')
+  @ApiOperation({ summary: 'Get event information' })
+  @ApiResponse({
+    type: FindEventInfoDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventTicketLinkId',
+    required: true,
+    type: String,
+  })
+  async findEventInfo(
+    @Param('eventTicketLinkId') eventTicketLinkId: string,
+  ): Promise<FindEventInfoDto> {
+    return await this.eventParticipantService.findEventInfo(eventTicketLinkId);
   }
 }

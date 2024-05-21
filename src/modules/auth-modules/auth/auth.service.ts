@@ -33,7 +33,7 @@ export class AuthService {
     try {
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
-          email,
+          email.toLowerCase(),
           password,
         );
 
@@ -83,7 +83,7 @@ export class AuthService {
 
       const staff = await this.prisma.eventStaff.findFirst({
         where: {
-          email: email,
+          email: email.toLowerCase(),
           eventId: eventExists.id,
         },
       });
@@ -142,7 +142,11 @@ export class AuthService {
           );
 
           if (valid !== false && valid > 95) {
-            return user.user.email;
+            return {
+              id: user.user.id,
+              email: user.user.email,
+              expirationDate: user.expirationDate,
+            };
           } else {
             return false;
           }
@@ -163,6 +167,54 @@ export class AuthService {
       return validResults[0];
     } catch (error) {
       console.error('Erro no login facial:', error.message);
+      throw error;
+    }
+  }
+
+  async loginWithFacial(
+    email: string,
+    userPhoto: Express.Multer.File,
+  ): Promise<string> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const userFacial = await this.prisma.userFacial.findFirst({
+        where: {
+          userId: user.id,
+        },
+      });
+
+      const photo = await this.storageService.getFile(
+        StorageServiceType.S3,
+        userFacial.path,
+      );
+
+      const valid = await this.storageService.validateFacial(
+        userPhoto.buffer,
+        photo,
+      );
+
+      if (valid !== false && valid > 95) {
+        delete user.password;
+        const payload = { user: user };
+
+        const accessToken = this.jwtService.signAsync(payload, {
+          secret: this.jwtSecret,
+        });
+
+        return accessToken;
+      } else {
+        throw new ConflictException('Login with facial failed');
+      }
+    } catch (error) {
       throw error;
     }
   }

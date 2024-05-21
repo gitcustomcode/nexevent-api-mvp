@@ -26,7 +26,7 @@ export class EventTicketProducerService {
     userEmail: string,
     eventSlug: string,
     body: EventTicketCreateDto,
-  ): Promise<String> {
+  ): Promise<string> {
     try {
       const { color, description, guestPerLink, links, price, title } = body;
       const slug = generateSlug(title);
@@ -85,7 +85,7 @@ export class EventTicketProducerService {
     eventSlug: string,
     eventTicketId: string,
     body: EventTicketUpdateDto,
-  ): Promise<String> {
+  ): Promise<string> {
     try {
       const { color, description, guests, price, title } = body;
 

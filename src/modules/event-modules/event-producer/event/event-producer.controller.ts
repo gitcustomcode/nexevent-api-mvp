@@ -35,6 +35,10 @@ import {
   ResponseEvents,
 } from './dto/event-producer-response.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  EventProducerUpdateDto,
+  EventProducerUpgradeDto,
+} from './dto/event-producer-update.dto';
 
 @ApiTags('Event Producer')
 @Controller('event-producer')
@@ -56,6 +60,7 @@ export class EventProducerController {
   })
   async createEvent(@Body() body: EventCreateDto, @Request() req: any) {
     const email = req.auth.user.email;
+    console.log(EventCreateDto);
     return this.eventProducerService.createEvent(email, body);
   }
 
@@ -247,7 +252,7 @@ export class EventProducerController {
     return this.eventProducerService.generalDashboard(email);
   }
 
-  @Get('v1/event-producer/:slug/participans/find-all')
+  @Get('v1/event-producer/:slug/participants/find-all')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Get general dashboard' })
@@ -322,5 +327,55 @@ export class EventProducerController {
     @Query('eventCostId') eventCostId: number,
   ): Promise<string> {
     return this.eventProducerService.paidEventCost(eventId, eventCostId);
+  }
+
+  @Patch('v1/event-producer/:slug/update-event/')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Update event' })
+  @ApiResponse({
+    description: 'Update successful',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'slug',
+    required: true,
+    type: String,
+  })
+  @ApiBody({
+    type: EventProducerUpdateDto,
+  })
+  async updateEvent(
+    @Request() req: any,
+    @Param('slug') slug: string,
+    @Body() body: EventProducerUpdateDto,
+  ): Promise<string> {
+    const email = req.auth.user.email;
+    return this.eventProducerService.updateEvent(email, slug, body);
+  }
+
+  @Patch('v1/event-producer/:slug/upgrade-event/')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Upgrade event' })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'slug',
+    required: true,
+    type: String,
+  })
+  @ApiBody({
+    type: EventProducerUpgradeDto,
+  })
+  async upgradeEvent(
+    @Request() req: any,
+    @Param('slug') slug: string,
+    @Body() body: EventProducerUpgradeDto,
+  ) {
+    const email = req.auth.user.email;
+    return this.eventProducerService.upgradeEvent(email, slug, body);
   }
 }

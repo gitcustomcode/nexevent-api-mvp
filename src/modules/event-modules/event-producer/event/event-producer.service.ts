@@ -20,11 +20,14 @@ import {
   StorageServiceType,
 } from 'src/services/storage.service';
 import { randomUUID } from 'crypto';
-import { EventsResponse } from 'mailgun.js';
 import { PaginationService } from 'src/services/paginate.service';
 import { Prisma } from '@prisma/client';
 import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
 import { EventTicketCreateDto } from '../event-ticket/dto/event-ticket-producer-create.dto';
+import {
+  EventProducerUpdateDto,
+  EventProducerUpgradeDto,
+} from './dto/event-producer-update.dto';
 
 type DataItem = {
   state: string | null;
@@ -62,6 +65,7 @@ export class EventProducerService {
         subtitle,
         title,
         eventTickets,
+        eventPublic,
       } = body;
 
       const slug = generateSlug(title);
@@ -112,6 +116,7 @@ export class EventProducerService {
           category: category,
           subtitle: subtitle,
           location: location,
+          public: eventPublic,
           type: cost > 0 ? 'PAID_OUT' : 'FREE',
           startAt: startAt,
           endAt: endAt,
@@ -166,6 +171,63 @@ export class EventProducerService {
       };
     } catch (error) {
       console.error('Erro ao criar evento:', error);
+      throw error;
+    }
+  }
+
+  async updateEvent(email: string, slug: string, body: EventProducerUpdateDto) {
+    try {
+      const user =
+        await this.userProducerValidationService.validateUserProducerByEmail(
+          email,
+        );
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: slug,
+          userId: user.id,
+        },
+      });
+
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const {
+        category,
+        description,
+        endAt,
+        endPublishAt,
+        location,
+        eventPublic,
+        startAt,
+        startPublishAt,
+        subtitle,
+        title,
+      } = body;
+
+      await this.prisma.event.update({
+        where: {
+          id: event.id,
+        },
+        data: {
+          category: category ? category : event.category,
+          description: description ? description : event.description,
+          endAt: endAt ? endAt : event.endAt,
+          endPublishAt: endPublishAt ? endPublishAt : event.endPublishAt,
+          location: location ? location : event.location,
+          public: eventPublic ? eventPublic : event.public,
+          startAt: startAt ? startAt : event.startAt,
+          startPublishAt: startPublishAt
+            ? startPublishAt
+            : event.startPublishAt,
+          subtitle: subtitle ? subtitle : event.subtitle,
+          title: title ? title : event.title,
+        },
+      });
+
+      return `Event updated successfully`;
+    } catch (error) {
       throw error;
     }
   }
@@ -226,7 +288,12 @@ export class EventProducerService {
             },
           },
           eventConfig: true,
-          EventStaff: true,
+          EventStaff: {
+            orderBy: {
+              id: 'desc',
+            },
+          },
+          eventTerm: true,
         },
       });
 
@@ -235,11 +302,11 @@ export class EventProducerService {
       }
 
       const tickets = [];
-      let totalTickets = event.eventTicket ? event.eventTicket.length : 0;
+      const totalTickets = event.eventTicket ? event.eventTicket.length : 0;
       let totalTicketsUsed = 0;
       let links = 0;
-      let participantsCheckIn = [];
-      let participantsState = [];
+      const participantsCheckIn = [];
+      const participantsState = [];
       const participants = [];
       const staffs = [];
       const hourCounts: { [key: string]: number } = {};
@@ -358,6 +425,7 @@ export class EventProducerService {
       });
 
       const othersCount = otherStates.reduce(
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         (sum, [_, { count }]) => sum + count,
         0,
       );
@@ -381,6 +449,16 @@ export class EventProducerService {
         title: event.title,
         slug: event.slug,
         photo: event.photo,
+        category: event.category,
+        description: event.description,
+        endAt: event.endAt,
+        endPublishAt: event.endPublishAt,
+        eventPublic: event.public,
+        location: event.location,
+        startAt: event.startAt,
+        haveTerm: event.eventTerm.length > 0 ? true : false,
+        startPublishAt: event.startPublishAt,
+        subtitle: event.subtitle,
         eventLimit: event.eventConfig[0].limit,
         participants: participants,
         credential: {
@@ -418,9 +496,9 @@ export class EventProducerService {
     perPage: number,
     title?: string,
     category?: string,
+    status?: string,
   ): Promise<ResponseEvents> {
     try {
-      console.log(page, perPage);
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
           email,
@@ -436,6 +514,10 @@ export class EventProducerService {
 
       if (category) {
         where.category = { contains: category, mode: 'insensitive' };
+      }
+
+      if (status) {
+        where.status = status === 'ENABLE' ? 'ENABLE' : 'DISABLE';
       }
 
       const event = await this.prisma.event.findMany({
@@ -655,8 +737,8 @@ export class EventProducerService {
       let totalTickets = 0;
       let totalParticipants = 0;
       let total = 0;
-      let participantsCheckIn = [];
-      let participantsState = [];
+      const participantsCheckIn = [];
+      const participantsState = [];
 
       events.map((event) => {
         totalTickets += event.eventTicket.length;
@@ -886,6 +968,133 @@ export class EventProducerService {
         },
       });
       return 'Payment successful';
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async upgradeEvent(
+    email: string,
+    slug: string,
+    body: EventProducerUpgradeDto,
+  ) {
+    try {
+      const user =
+        await this.userProducerValidationService.validateUserProducerByEmail(
+          email,
+        );
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: slug,
+          userId: user.id,
+        },
+      });
+
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const eventConfig = await this.prisma.eventConfig.findUnique({
+        where: {
+          eventId: event.id,
+        },
+      });
+
+      if (!eventConfig) {
+        throw new NotFoundException('Event config not found');
+      }
+
+      const { credentialType, limit, printAutomatic } = body;
+
+      const currentPrintFactor = eventConfig.printAutomatic ? 2 : 0;
+
+      const currentCredentialFactor =
+        eventConfig.credentialType === 'QRCODE'
+          ? 1
+          : eventConfig.credentialType === 'FACIAL_IN_SITE'
+            ? 3
+            : eventConfig.credentialType === 'FACIAL'
+              ? 4
+              : 0;
+
+      const currentFactor = currentPrintFactor + currentCredentialFactor;
+
+      const newPrintFactor = printAutomatic ? 2 : 0;
+      const newCredentialFactor =
+        credentialType === 'QRCODE'
+          ? 1
+          : credentialType === 'FACIAL_IN_SITE'
+            ? 3
+            : credentialType === 'FACIAL'
+              ? 4
+              : 0;
+
+      const newFactor = newPrintFactor + newCredentialFactor;
+
+      console.log('Current Factor', currentFactor);
+      console.log('New Factor', newFactor);
+
+      if (currentFactor > newFactor) {
+        throw new ConflictException(
+          'You cannot change the setting to a lower value',
+        );
+      }
+
+      const newValue =
+        newFactor - currentFactor == 0
+          ? limit + limit * currentFactor
+          : eventConfig.limit * (newFactor - currentFactor);
+
+      const newParticipantsValue =
+        limit > 0 && newFactor - currentFactor !== 0
+          ? (newFactor + 1) * limit
+          : 0;
+
+      const newLimit = limit + eventConfig.limit;
+
+      const total = newValue + newParticipantsValue;
+
+      console.log('novo valor', total);
+
+      await this.prisma.eventCost.create({
+        data: {
+          eventId: event.id,
+          cost: Number(total) * -1,
+          limit: limit,
+          status: true,
+        },
+      });
+
+      await this.prisma.balanceHistoric.create({
+        data: {
+          value: Number(total) * -1,
+          description: `Alteração nas configurações do evento: ${event.title}`,
+          userId: user.id,
+          status: 'RECEIVED',
+        },
+      });
+
+      const updatedEventConfig = await this.prisma.eventConfig.update({
+        where: {
+          eventId: event.id,
+        },
+        data: {
+          credentialType: credentialType,
+          limit: newLimit,
+          printAutomatic: printAutomatic,
+          event: {
+            update: {
+              type:
+                printAutomatic || credentialType !== 'VOID' || newLimit > 20
+                  ? 'PAID_OUT'
+                  : 'FREE',
+            },
+          },
+        },
+      });
+
+      return updatedEventConfig;
     } catch (error) {
       throw error;
     }
