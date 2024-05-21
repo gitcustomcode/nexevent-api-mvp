@@ -353,4 +353,56 @@ export class EventProducerAccreditationService {
       throw error;
     }
   }
+
+  async checkOutInAllParticipants(userEmail: string, slug: string) {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        slug,
+        userEmail,
+      );
+
+      if (event.status === 'DISABLE') {
+        throw new UnauthorizedException('Event disabled');
+      }
+
+      const participants = await this.prisma.eventParticipant.findMany({
+        where: {
+          eventId: event.id,
+        },
+        include: {
+          eventParticipantHistoric: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+          },
+          user: true,
+        },
+      });
+      const participantsFormatted = [];
+
+      participants.map((participant) => {
+        if (
+          participant.eventParticipantHistoric.length > 0 &&
+          participant.eventParticipantHistoric[0].status === 'CHECK_IN'
+        ) {
+          participantsFormatted.push({
+            eventParticipantId: participant.id,
+            status: 'CHECK_OUT',
+          });
+        }
+      });
+
+      if (participantsFormatted.length === 0) {
+        return `Not have participants to check out`;
+      }
+
+      await this.prisma.eventParticipantHistoric.createMany({
+        data: participantsFormatted,
+      });
+
+      return `All participants checked out`;
+    } catch (error) {
+      throw error;
+    }
+  }
 }

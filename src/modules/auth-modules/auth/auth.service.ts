@@ -186,15 +186,21 @@ export class AuthService {
         throw new NotFoundException('User not found');
       }
 
-      const userFacial = await this.prisma.userFacial.findFirst({
+      const userFacial = await this.prisma.userFacial.findMany({
         where: {
           userId: user.id,
+        },
+        include: {
+          user: true,
+        },
+        orderBy: {
+          id: 'desc',
         },
       });
 
       const photo = await this.storageService.getFile(
         StorageServiceType.S3,
-        userFacial.path,
+        userFacial[0].path,
       );
 
       const valid = await this.storageService.validateFacial(
@@ -212,6 +218,7 @@ export class AuthService {
 
         return accessToken;
       } else {
+        console.log('deu erro');
         throw new ConflictException('Login with facial failed');
       }
     } catch (error) {

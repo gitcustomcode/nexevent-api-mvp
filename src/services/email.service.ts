@@ -20,6 +20,9 @@ export type GeneratorEmailParticipant = {
   startDate: Date;
   endDate: Date;
   invictaClub: string;
+  eventSlug: string;
+  staffEmail: string;
+  staffPassword: string;
 };
 
 @Injectable()
@@ -92,6 +95,17 @@ export class EmailService {
         generatorEmailParticipant.eventName +
         ' | ' +
         generatorEmailParticipant.ticketName;
+    } else if (type == 'staffGuest') {
+      html = await fs
+        .readFileSync('src/templates/emails/staff/invite.html', 'utf-8')
+        .replace('[EVENTNAME]', generatorEmailParticipant.eventName)
+        .replace('[STAFFEMAIL]', generatorEmailParticipant.staffEmail)
+        .replace('[STAFFPASSWORD]', generatorEmailParticipant.staffPassword)
+        .replaceAll('[EVENTSLUG]', generatorEmailParticipant.eventSlug);
+
+      subject =
+        '[NEX EVENT] Acesso para credenciar o evento: ' +
+        generatorEmailParticipant.eventName;
     } else {
       throw new NotFoundException('Type of email not found!');
     }

@@ -27,7 +27,9 @@ import {
 } from './dto/event-participant-create.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  FindAllPublicEvents,
   FindEventInfoDto,
+  FindOnePublicEventsDto,
   ParticipantTicketDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
@@ -45,6 +47,66 @@ export class EventParticipantController {
     return await this.clickSignApiService.sendEmail(
       'd721ff19-e4fd-46da-9c84-633f4a805124',
     );
+  }
+
+  @Get('v1/event-participant/find-all-events-public')
+  @ApiOperation({ summary: 'Get all events public' })
+  @ApiResponse({
+    type: FindAllPublicEvents,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiQuery({
+    name: 'page',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'perPage',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'title',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    type: String,
+  })
+  async findAllPublicEvents(
+    @Query('page') page: string = '1',
+    @Query('perPage') perPage: string = '10',
+    @Query('title') title?: string,
+    @Query('category') category?: string,
+  ): Promise<FindAllPublicEvents> {
+    return await this.eventParticipantService.findAllPublicEvents(
+      Number(page),
+      Number(perPage),
+      title,
+      category,
+    );
+  }
+
+  @Get('v1/event-participant/:slug/find-one-event-public')
+  @ApiOperation({ summary: 'Get one event public' })
+  @ApiResponse({
+    type: FindOnePublicEventsDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'slug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  async findOnePublicEvent(
+    @Param('slug') slug: string,
+  ): Promise<FindOnePublicEventsDto> {
+    return await this.eventParticipantService.findOnePublicEvent(slug);
   }
 
   @Post('v1/event-participant/:eventTicketLinkId/create-participant')

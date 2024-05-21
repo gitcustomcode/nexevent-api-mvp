@@ -460,6 +460,8 @@ export class EventProducerService {
         startPublishAt: event.startPublishAt,
         subtitle: event.subtitle,
         eventLimit: event.eventConfig[0].limit,
+        eventPrintAutomatic: event.eventConfig[0].printAutomatic,
+        eventCredentialType: event.eventConfig[0].credentialType,
         participants: participants,
         credential: {
           participantsCredentialPerHour: hourlyCountsArray,
@@ -541,6 +543,7 @@ export class EventProducerService {
         return {
           id: event.id,
           title: event.title,
+          subtitle: event.subtitle,
           slug: event.slug,
           photo: event.photo,
           startAt: event.startAt,

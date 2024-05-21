@@ -23,7 +23,7 @@ export class ClickSignApiService {
       signer: {
         email: email,
         phone_number: phone_number,
-        auths: ['api'],
+        auths: ['email'],
         name: name,
         documentation: documentation,
         birthday: birthday,
@@ -118,30 +118,7 @@ export class ClickSignApiService {
   }
 
   async sendEmail(key: string) {
-    const url = 'https://sandbox.clicksign.com/api/v1/notifications';
-    const accessToken = '88cf1793-9582-482a-a925-d8fb19788011'; // Substitua pelo seu access_token
-
-    const data = {
-      request_signature_key: 'ccfa28ae-28ba-4172-b226-55b39cfad53e',
-      message: `Prezado João,\nPor favor assine o documento.\n\nQualquer dúvida estou à disposição.\n\nAtenciosamente,\nGuilherme Alvez`,
-      url: 'https://www.example.com/abc',
-    };
-
-    axios
-      .post(`${url}?access_token=${accessToken}`, data, {
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-      })
-      .then((response) => {
-        console.log('Response:', response.data);
-      })
-      .catch((error) => {
-        console.error(
-          'Error:',
-          error.response ? error.response.data : error.message,
-        );
-      });
+    const apiToken: string =
+      '1afe3ab0-d4ae-4910-8868-e9da668cd2a726896b9e-b5c3-40ca-9bfd-560f8132f799';
   }
 }

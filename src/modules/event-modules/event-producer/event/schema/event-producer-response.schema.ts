@@ -21,6 +21,8 @@ export const EventDashboardResponseSchema = z.object({
   photo: z.string(),
   haveTerm: z.boolean(),
   eventLimit: z.number(),
+  eventPrintAutomatic: z.boolean(),
+  eventCredentialType: z.nativeEnum(CredentialType),
   participants: z.array(
     z.object({
       id: z.string(),
@@ -71,6 +73,7 @@ export const EventAllResponseSchema = z.array(
   z.object({
     id: z.string(),
     title: z.string(),
+    subtitle: z.string(),
     slug: z.string(),
     photo: z.string(),
     startAt: z.date(),
