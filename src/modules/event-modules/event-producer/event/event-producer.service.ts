@@ -293,7 +293,11 @@ export class EventProducerService {
               id: 'desc',
             },
           },
-          eventTerm: true,
+          eventTerm: {
+            include: {
+              term: true,
+            },
+          },
         },
       });
 
@@ -477,6 +481,13 @@ export class EventProducerService {
         notCheckIn: event.eventParticipant.length - uniqueArray.length,
         statesInfo: resultArray,
         staffs,
+        eventTerm: {
+          id: event.eventTerm[0].id,
+          termId: event.eventTerm[0].termId,
+          termName: event.eventTerm[0].term.name,
+          signature: event.eventTerm[0].signature,
+          termPath: event.eventTerm[0].term.path,
+        },
       };
 
       return response;

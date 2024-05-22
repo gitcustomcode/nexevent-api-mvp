@@ -67,6 +67,13 @@ export const EventDashboardResponseSchema = z.object({
       email: z.string(),
     }),
   ),
+  eventTerm: z.object({
+    id: z.number(),
+    termId: z.string(),
+    termName: z.string(),
+    termPath: z.string(),
+    signature: z.boolean(),
+  }),
 });
 
 export const EventAllResponseSchema = z.array(
