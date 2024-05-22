@@ -9,7 +9,7 @@ import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerCreateDto } from './dto/user-producer-create.dto';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { AuthService } from 'src/modules/auth-modules/auth/auth.service';
-import { genSaltSync, hash } from 'bcrypt';
+import { compareSync, genSaltSync, hash } from 'bcrypt';
 import { UserProducerFinishSignUpDto } from './dto/user-producer-finish-sign-up.dto';
 import { UserProducerResponseDto } from './dto/user-producer-response.dto';
 import { randomUUID } from 'crypto';
@@ -124,17 +124,44 @@ export class UserProducerService {
     }
   }
 
-  async updatePassword(email: string, password: string) {
+  async updatePassword(
+    email: string,
+    oldPassword: string,
+    newPassword: string,
+  ) {
     try {
-      const emailAlreadyExists =
-        await this.userProducerValidationService.findUserByEmail(email);
+      const emailAlreadyExists = await this.prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
 
       if (!emailAlreadyExists) {
         throw new NotFoundException('User not found');
       }
 
+      const passwordOldValid = compareSync(
+        newPassword,
+        emailAlreadyExists.password,
+      );
+
+      if (passwordOldValid) {
+        throw new BadRequestException('Incorrect password');
+      }
+
+      const passwordNewValid = compareSync(
+        newPassword,
+        emailAlreadyExists.password,
+      );
+
+      if (passwordNewValid) {
+        throw new BadRequestException(
+          'The new password cannot be the same as the old one',
+        );
+      }
+
       const salt = genSaltSync(10);
-      const hashedPassword = await hash(password, salt);
+      const hashedPassword = await hash(newPassword, salt);
 
       await this.prisma.user.update({
         where: {

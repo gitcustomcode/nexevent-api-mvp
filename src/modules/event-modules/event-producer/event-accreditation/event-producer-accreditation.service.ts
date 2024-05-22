@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -39,7 +40,7 @@ export class EventProducerAccreditationService {
       );
 
       if (event.status === 'DISABLE') {
-        throw new UnauthorizedException('Event disabled');
+        throw new ForbiddenException('Event disabled');
       }
 
       const participant = await this.findOne(event.id, null, qrcode);
@@ -68,7 +69,7 @@ export class EventProducerAccreditationService {
       );
 
       if (event.status === 'DISABLE') {
-        throw new UnauthorizedException('Event disabled');
+        throw new ForbiddenException('Event disabled');
       }
 
       const eventParticipants = await this.prisma.eventParticipant.findMany({
@@ -130,7 +131,7 @@ export class EventProducerAccreditationService {
       );
 
       if (event.status === 'DISABLE') {
-        throw new UnauthorizedException('Event disabled');
+        throw new ForbiddenException('Event disabled');
       }
 
       const participant = await this.findOne(event.id, participantId);
@@ -183,7 +184,7 @@ export class EventProducerAccreditationService {
       );
 
       if (event.status === 'DISABLE') {
-        throw new UnauthorizedException('Event disabled');
+        throw new ForbiddenException('Event disabled');
       }
 
       const participant = await this.findOne(event.id, participantId);
@@ -334,7 +335,7 @@ export class EventProducerAccreditationService {
       );
 
       if (event.status === 'DISABLE') {
-        throw new UnauthorizedException('Event disabled');
+        throw new ForbiddenException('Event disabled');
       }
 
       const participants = await this.prisma.eventParticipant.findMany({
