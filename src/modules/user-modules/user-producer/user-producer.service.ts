@@ -17,6 +17,7 @@ import {
   StorageService,
   StorageServiceType,
 } from 'src/services/storage.service';
+import { validateCPF } from 'src/utils/cpf-validator';
 
 @Injectable()
 export class UserProducerService {
@@ -88,6 +89,11 @@ export class UserProducerService {
         complement,
         cep,
       } = body;
+
+      const documentValid = validateCPF(document);
+      if (!documentValid) {
+        throw new BadRequestException('Invalid CPF document');
+      }
 
       await this.prisma.user.update({
         where: {

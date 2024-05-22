@@ -30,6 +30,7 @@ import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
 import { Prisma } from '@prisma/client';
 import { PaginationService } from 'src/services/paginate.service';
+import { validateCPF } from 'src/utils/cpf-validator';
 
 @Injectable()
 export class EventParticipantService {
