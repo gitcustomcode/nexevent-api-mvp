@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { PrismaService } from 'src/services/prisma.service';
 import { StorageService } from 'src/services/storage.service';
+import { FaceValidationService } from 'src/services/face-validation.service';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { StorageService } from 'src/services/storage.service';
     JwtService,
     StorageService,
     PrismaService,
+    FaceValidationService,
   ],
 })
 export class AuthModule {}
