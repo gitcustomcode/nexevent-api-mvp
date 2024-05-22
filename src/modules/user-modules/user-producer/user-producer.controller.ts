@@ -117,16 +117,26 @@ export class UserProducerController {
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
   @ApiQuery({
-    name: 'password',
+    name: 'oldPassword',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'newPassword',
     required: true,
     type: String,
   })
   async updatePassword(
-    @Query('password') password: string,
+    @Query('oldPassword') oldPassword: string,
+    @Query('newPassword') newPassword: string,
     @Request() req: any,
   ): Promise<String> {
     const email = req.auth.user.email;
-    return await this.userProducerService.updatePassword(email, password);
+    return await this.userProducerService.updatePassword(
+      email,
+      oldPassword,
+      newPassword,
+    );
   }
 
   @Get('v1/user-producer/profile')

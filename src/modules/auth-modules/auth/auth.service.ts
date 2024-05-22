@@ -88,7 +88,7 @@ export class AuthService {
       const passwordValid = compareSync(password, staff.password);
 
       if (!passwordValid) {
-        throw new UnauthorizedException('Invalid password');
+        throw new BadRequestException('Invalid password');
       }
 
       delete staff.password;

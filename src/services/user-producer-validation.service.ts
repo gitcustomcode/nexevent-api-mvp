@@ -154,7 +154,7 @@ export class UserProducerValidationService {
         const passwordValid = compareSync(password, user.password);
 
         if (!passwordValid) {
-          throw new UnauthorizedException('Invalid password');
+          throw new ForbiddenException('Invalid password');
         }
 
         return response;

@@ -68,6 +68,12 @@ export class EventProducerService {
         eventPublic,
       } = body;
 
+      if (startAt < endAt) {
+        throw new BadRequestException(
+          'O horário de início não pode ser menor que o horário de término',
+        );
+      }
+
       const slug = generateSlug(title);
 
       const user = await this.userProducerValidationService.eventNameExists(
