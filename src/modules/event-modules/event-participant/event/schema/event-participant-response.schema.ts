@@ -42,6 +42,7 @@ export const FindOnePublicEventsSchema = z.object({
     z.object({
       id: z.string(),
       ticketName: z.string(),
+      description: z.string(),
       price: z.number(),
     }),
   ),

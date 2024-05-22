@@ -481,13 +481,6 @@ export class EventProducerService {
 
       return response;
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
       throw error;
     }
   }
@@ -557,13 +550,7 @@ export class EventProducerService {
 
       return response;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new ConflictException(error);
+      throw error;
     }
   }
 
@@ -653,17 +640,7 @@ export class EventProducerService {
 
       return 'Event terms created successfully';
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -709,10 +686,7 @@ export class EventProducerService {
 
       return response;
     } catch (error) {
-      console.log(`Error uploading file document and term: ${error}`);
-      throw new ConflictException(
-        `Error uploading file document and term: ${error}`,
-      );
+      throw error;
     }
   }
 
@@ -855,16 +829,7 @@ export class EventProducerService {
 
       return response;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 

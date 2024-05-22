@@ -58,10 +58,7 @@ export class AuthService {
 
       return accessToken;
     } catch (error) {
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new UnauthorizedException(error);
+      throw error;
     }
   }
 
@@ -104,13 +101,7 @@ export class AuthService {
 
       return accessToken;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -166,7 +157,6 @@ export class AuthService {
 
       return validResults[0];
     } catch (error) {
-      console.error('Erro no login facial:', error.message);
       throw error;
     }
   }
