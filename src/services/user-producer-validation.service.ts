@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -53,7 +54,7 @@ export class UserProducerValidationService {
 
       return null;
     } catch (error) {
-      throw new ConflictException(error);
+      throw error;
     }
   }
 
@@ -165,18 +166,12 @@ export class UserProducerValidationService {
         !user.phoneCountry ||
         !user.phoneNumber
       ) {
-        throw new UnauthorizedException('Finish your registration');
+        throw new ForbiddenException('Finish your registration');
       }
 
       return response;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new ConflictException(error);
+      throw error;
     }
   }
 

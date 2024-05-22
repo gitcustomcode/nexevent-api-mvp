@@ -110,7 +110,7 @@ export class StorageService {
       await this.s3.putObject(uploadParams).promise();
     } catch (error) {
       console.log(`Error: ${error}`);
-      throw new ConflictException(`Error: ${error}`);
+      throw error;
     }
   }
 }

@@ -114,17 +114,7 @@ export class EventParticipantService {
         requestSignatureKey: eventParticipant.requestSignatureKey,
       };
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -205,17 +195,7 @@ export class EventParticipantService {
         participantStatus: participantUpdated.status,
       };
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -277,17 +257,7 @@ export class EventParticipantService {
         participantStatus: participantUpdated.status,
       };
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -478,6 +448,7 @@ export class EventParticipantService {
             id: ticket.id,
             title: ticket.title,
             price: Number(ticket.price),
+            description: ticket.description,
           };
         }),
       };

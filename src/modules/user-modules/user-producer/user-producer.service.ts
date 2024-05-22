@@ -57,7 +57,7 @@ export class UserProducerService {
 
       return token;
     } catch (error) {
-      throw new ConflictException(error);
+      throw error;
     }
   }
 
@@ -112,7 +112,7 @@ export class UserProducerService {
 
       return 'success';
     } catch (error) {
-      throw new ConflictException(error);
+      throw error;
     }
   }
 
@@ -170,13 +170,7 @@ export class UserProducerService {
 
       return response;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new ConflictException(error);
+      throw error;
     }
   }
 
@@ -214,13 +208,7 @@ export class UserProducerService {
 
       return 'Photo uploaded successfully';
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new ConflictException(error);
+      throw error;
     }
   }
 
@@ -272,13 +260,7 @@ export class UserProducerService {
 
       return 'Photo uploaded successfully';
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new ConflictException(error);
+      throw error;
     }
   }
 }

@@ -149,7 +149,7 @@ export class EmailService {
       await mg.messages.create(this.DOMAIN, message);
     } catch (error) {
       console.error(`Error sending email: ${error.message}`, error.stack);
-      throw new Error(`Failed to send email: ${error.message}`);
+      throw error;
     }
   }
 }
