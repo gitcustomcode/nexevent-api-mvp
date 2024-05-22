@@ -97,6 +97,11 @@ export class UserProducerService {
         throw new BadRequestException('Invalid CPF document');
       }
 
+      const validName = name.trim().split(' ');
+      if (validName.length < 2) {
+        throw new BadRequestException('Please provide a complete name');
+      }
+
       await this.prisma.user.update({
         where: {
           email,

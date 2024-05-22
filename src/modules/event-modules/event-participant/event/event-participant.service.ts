@@ -492,7 +492,6 @@ export class EventParticipantService {
       if (termSignatorie) {
         return termSignatorie;
       }
-
       const clickSignResponse = await this.clickSignApiService.createSigner(
         user.email,
         user.phoneNumber,
