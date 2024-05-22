@@ -454,6 +454,22 @@ export class EventProducerService {
         }),
       );
 
+      let eventTerm = {
+        id: null,
+        termId: null,
+        termName: null,
+        signature: false,
+        termPath: null,
+      };
+
+      if (event.eventTerm.length > 0) {
+        eventTerm.id = event.eventTerm[0].id;
+        eventTerm.termId = event.eventTerm[0].termId;
+        eventTerm.signature = event.eventTerm[0].signature;
+        eventTerm.termPath = event.eventTerm[0].term.path;
+        eventTerm.termName = event.eventTerm[0].term.name;
+      }
+
       const response: EventDashboardResponseDto = {
         id: event.id,
         title: event.title,
@@ -487,13 +503,7 @@ export class EventProducerService {
         notCheckIn: event.eventParticipant.length - uniqueArray.length,
         statesInfo: resultArray,
         staffs,
-        eventTerm: {
-          id: event.eventTerm[0].id,
-          termId: event.eventTerm[0].termId,
-          termName: event.eventTerm[0].term.name,
-          signature: event.eventTerm[0].signature,
-          termPath: event.eventTerm[0].term.path,
-        },
+        eventTerm,
       };
 
       return response;
