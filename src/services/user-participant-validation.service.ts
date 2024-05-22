@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -7,6 +8,7 @@ import { PrismaService } from './prisma.service';
 import { UserEventParticipantCreateDto } from 'src/dtos/user-validation-response.dto';
 import { randomUUID } from 'crypto';
 import { EventParticipantStatus } from '@prisma/client';
+import { validateCPF } from 'src/utils/cpf-validator';
 
 @Injectable()
 export class UserParticipantValidationService {
@@ -31,6 +33,12 @@ export class UserParticipantValidationService {
 
       return userCreated;
     }
+    if (body.document) {
+      const documentValid = validateCPF(body.document);
+      if (!documentValid) {
+        throw new BadRequestException('Invalid CPF document');
+      }
+    }
 
     return user;
   }
@@ -49,6 +57,12 @@ export class UserParticipantValidationService {
       phoneNumber,
       state,
     } = body;
+
+    const documentValid = validateCPF(document);
+
+    if (!documentValid) {
+      throw new BadRequestException('Invalid CPF document');
+    }
 
     const user = await this.prisma.user.create({
       data: {
