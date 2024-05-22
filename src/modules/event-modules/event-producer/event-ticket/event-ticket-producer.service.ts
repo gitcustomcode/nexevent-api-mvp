@@ -131,7 +131,11 @@ export class EventTicketProducerService {
         where,
         include: {
           EventParticipant: true,
-          eventTicketGuest: true,
+          eventTicketGuest: {
+            include: {
+              eventParticipant: true,
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -163,6 +167,9 @@ export class EventTicketProducerService {
               return {
                 id: link.id,
                 status: link.status,
+                limit: link.invite,
+                used: link.eventParticipant.length,
+                limitUsed: `${link.eventParticipant.length}/${link.invite}`,
               };
             }),
           };
