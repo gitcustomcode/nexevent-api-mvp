@@ -13,6 +13,9 @@ export const EventTicketDashboardResponseSchema = z.array(
       z.object({
         id: z.string(),
         status: z.nativeEnum(EventTicketLinkStatus),
+        limit: z.number(),
+        used: z.number(),
+        limitUsed: z.string(),
       }),
     ),
   }),
