@@ -18,6 +18,7 @@ import {
   StorageServiceType,
 } from 'src/services/storage.service';
 import { validateCPF } from 'src/utils/cpf-validator';
+import { FaceValidationService } from 'src/services/face-validation.service';
 
 @Injectable()
 export class UserProducerService {
@@ -26,6 +27,7 @@ export class UserProducerService {
     private readonly userProducerValidationService: UserProducerValidationService,
     private readonly storageService: StorageService,
     private readonly authService: AuthService,
+    private readonly faceValidationService: FaceValidationService,
   ) {}
 
   async createUserProducer(body: UserProducerCreateDto): Promise<String> {
@@ -232,6 +234,14 @@ export class UserProducerService {
       if (!allowedMimeTypes.includes(photo.mimetype)) {
         throw new BadRequestException(
           'Only JPEG, JPG and PNG files are allowed.',
+        );
+      }
+
+      const res = await this.faceValidationService.validateWithFacial(photo);
+
+      if (res && res.email !== userExists.email) {
+        throw new BadRequestException(
+          `This face is already associated with other participant`,
         );
       }
 
