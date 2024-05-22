@@ -20,11 +20,15 @@ import {
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { FaceValidationService } from 'src/services/face-validation.service';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private readonly faceValidationService: FaceValidationService,
+  ) {}
 
   @Get('v1/auth/login')
   @ApiOperation({
@@ -108,7 +112,7 @@ export class AuthController {
   })
   @UseInterceptors(FileInterceptor('file'))
   async validateWithFacial(@UploadedFile() file: Express.Multer.File) {
-    return await this.authService.validateWithFacial(file);
+    return await this.faceValidationService.validateWithFacial(file);
   }
 
   @Post('v1/auth/login-with-facial')

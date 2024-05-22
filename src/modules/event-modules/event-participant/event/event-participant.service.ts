@@ -31,6 +31,7 @@ import * as mime from 'mime-types';
 import { Prisma } from '@prisma/client';
 import { PaginationService } from 'src/services/paginate.service';
 import { validateCPF } from 'src/utils/cpf-validator';
+import { FaceValidationService } from 'src/services/face-validation.service';
 
 @Injectable()
 export class EventParticipantService {
@@ -41,6 +42,7 @@ export class EventParticipantService {
     private readonly emailService: EmailService,
     private readonly clickSignApiService: ClickSignApiService,
     private readonly paginationService: PaginationService,
+    private readonly faceValidationService: FaceValidationService,
   ) {}
 
   async createParticipant(
@@ -134,6 +136,14 @@ export class EventParticipantService {
       if (!allowedMimeTypes.includes(photo.mimetype)) {
         throw new BadRequestException(
           'Only JPEG, JPG and PNG files are allowed.',
+        );
+      }
+
+      const res = await this.faceValidationService.validateWithFacial(photo);
+
+      if (res && res.email !== participantExists.user.email) {
+        throw new BadRequestException(
+          `This face is already associated with other participant`,
         );
       }
 

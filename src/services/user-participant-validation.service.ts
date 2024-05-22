@@ -9,38 +9,50 @@ import { UserEventParticipantCreateDto } from 'src/dtos/user-validation-response
 import { randomUUID } from 'crypto';
 import { EventParticipantStatus } from '@prisma/client';
 import { validateCPF } from 'src/utils/cpf-validator';
+import { z } from 'nestjs-zod/z';
+import { validateEmail } from 'src/utils/email-validator';
 
 @Injectable()
 export class UserParticipantValidationService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findUserByEmail(email: string, body: UserEventParticipantCreateDto) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        email: email,
-      },
-      include: {
-        userFacials: {
-          orderBy: { expirationDate: 'desc' },
-        },
-        userSocials: true,
-        userHobbie: true,
-      },
-    });
+    try {
+      const isEmail = validateEmail(email);
 
-    if (!user) {
-      const userCreated = await this.createUserEventParticipant(email, body);
-
-      return userCreated;
-    }
-    if (body.document) {
-      const documentValid = validateCPF(body.document);
-      if (!documentValid) {
-        throw new BadRequestException('Invalid CPF document');
+      if (!isEmail) {
+        throw new BadRequestException('Invalid email');
       }
-    }
 
-    return user;
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email: email,
+        },
+        include: {
+          userFacials: {
+            orderBy: { expirationDate: 'desc' },
+          },
+          userSocials: true,
+          userHobbie: true,
+        },
+      });
+
+      if (!user) {
+        const userCreated = await this.createUserEventParticipant(email, body);
+
+        return userCreated;
+      }
+      if (body.document) {
+        const documentValid = validateCPF(body.document);
+        if (!documentValid) {
+          throw new BadRequestException('Invalid CPF document');
+        }
+      }
+
+      return user;
+    } catch (error) {
+      throw error;
+    }
   }
 
   async createUserEventParticipant(
