@@ -29,7 +29,7 @@ export class OtpService {
   async forgotPassword(email: string): Promise<string> {
     try {
       const user =
-        await this.userProducerValidationService.findUserByEmail(email);
+        await this.userProducerValidationService.findUserByEmail(email.toLowerCase());
 
       if (!user) {
         throw new NotFoundException('User not found');
@@ -56,7 +56,7 @@ export class OtpService {
       }
 
       const data = {
-        to: email,
+        to: email.toLowerCase(),
         name: user.name,
         type: 'forgotPassword',
         code: otpCod.toString(),
@@ -69,7 +69,7 @@ export class OtpService {
         userId: OTPData.userId,
         type: OTPData.type,
         otpId: OTPData.id,
-        userEmail: user.email,
+        userEmail: user.email.toLowerCase(),
       };
 
       const encoded = await this.cryptoPassword.encode(JSON.stringify(details));
@@ -107,7 +107,7 @@ export class OtpService {
         otpId: result.id,
         type: result.type,
         number: result.number,
-        userEmail: decoded.userEmail,
+        userEmail: decoded.userEmail.toLowerCase(),
       };
 
       const encoded = await this.cryptoPassword.encode(JSON.stringify(details));
@@ -131,7 +131,7 @@ export class OtpService {
       }
 
       const user = await this.userProducerValidationService.findUserByEmail(
-        decoded.userEmail,
+        decoded.userEmail.toLowerCase(),
       );
 
       if (!user) {
@@ -159,7 +159,7 @@ export class OtpService {
         data: { verified: true },
       });
 
-      return await this.authService.login(userUpdated.email, password);
+      return await this.authService.login(userUpdated.email.toLowerCase(), password);
     } catch (error) {
       throw error;
     }
