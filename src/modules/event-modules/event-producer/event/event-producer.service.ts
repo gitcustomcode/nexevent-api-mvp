@@ -28,6 +28,11 @@ import {
   EventProducerUpdateDto,
   EventProducerUpgradeDto,
 } from './dto/event-producer-update.dto';
+import {
+  StateSumsFunc,
+  getMaxParticipantsState,
+  getMaxSalesState,
+} from 'src/utils/test';
 
 type DataItem = {
   state: string | null;
@@ -765,8 +770,8 @@ export class EventProducerService {
         });
       });
 
-      const stateSums: StateSums = participantsState.reduce(
-        (acc: StateSums, item: DataItem) => {
+      const stateSums: StateSumsFunc = participantsState.reduce(
+        (acc: StateSumsFunc, item: DataItem) => {
           const state = item.state === null ? 'não definido' : item.state;
           if (acc[state]) {
             acc[state].count += 1;
@@ -782,41 +787,25 @@ export class EventProducerService {
         {},
       );
 
-      // Passo 2: Encontrar o estado com a maior quantidade de participantes
-      let maxState: string | null = null;
-      let maxCount = 0;
+      const { state: maxParticipantsState, count: maxParticipantsCount } =
+        getMaxParticipantsState(stateSums);
 
-      for (const [state, { count }] of Object.entries(stateSums)) {
-        if (count > maxCount) {
-          maxCount = count;
-          maxState = state;
-        }
-      }
+      const percentage = (
+        (maxParticipantsCount / participantsState.length) *
+        100
+      ).toFixed(2);
 
-      // Passo 3: Calcular a porcentagem de participantes daquele estado
-      const percentage = ((maxCount / participantsState.length) * 100).toFixed(
-        2,
-      );
-
-      // Passo 4: Calcular a soma dos valores dos ingressos de cada estado
-      const ticketSums: { [key: string]: number } = {};
-      for (const [state, { ticketSum }] of Object.entries(stateSums)) {
-        ticketSums[state] = ticketSum;
-      }
-
-      const bigSaleForState = {
-        state: '',
-        total: 0,
-      };
-
-      if (maxState) {
-        bigSaleForState.state = maxState;
-        bigSaleForState.total = ticketSums[maxState];
-      }
+      const { state: maxSalesState, total: maxSalesTotal } =
+        getMaxSalesState(stateSums);
 
       const bigParticipantsForState = {
-        state: maxState,
+        state: maxParticipantsState,
         total: percentage,
+      };
+
+      const bigSaleForState = {
+        state: maxSalesState,
+        total: maxSalesTotal,
       };
 
       const lastEvents = events
