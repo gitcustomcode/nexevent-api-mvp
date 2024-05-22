@@ -68,9 +68,9 @@ export class EventProducerService {
         eventPublic,
       } = body;
 
-      if (startAt < endAt) {
+      if (startAt > endAt) {
         throw new BadRequestException(
-          'O horário de início não pode ser menor que o horário de término',
+          'O horário de início não pode ser maior que o horário de término',
         );
       }
 
