@@ -57,8 +57,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd /var/www/html/nexevent/api-dev
-            echo 'Ndlu#081180$br' | sudo -S -v
-            sudo git pull
+            git pull
 
       - name: Deploy - nexevent-api-dev
         uses: appleboy/ssh-action@master
