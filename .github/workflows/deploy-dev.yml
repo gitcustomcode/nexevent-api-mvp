@@ -57,9 +57,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd /var/www/html/nexevent/api-dev
-            git config --global --add safe.directory /var/www/html/nexevent/api-dev
-            git checkout development
-            git pull
+            ./step2.sh
 
       - name: Deploy - nexevent-api-dev
         uses: appleboy/ssh-action@master
