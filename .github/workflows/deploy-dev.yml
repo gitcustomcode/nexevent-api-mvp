@@ -49,12 +49,12 @@ jobs:
       - name: Migration Run - nexevent-api-dev
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          passphrase: asd#12345@
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT }}
+          host: '168.228.80.29'
+          username: 'gitcustom'
+          key: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCSf7i7KVLc0p9FMr5RfMJUsnuqoyT0vpR+IPue4iZ+/zqtEKEkUD7eQPj0NgxxShOaTkPFMAq0ZXY6jaRiG/SRCE2lnMblMXroaobEG28HO3F/GeJmrMYbkxOxFByFsCTDOcY6XvekYIDj8fcDzag/7llMnIdWg/3cdr/iK7U94U1LDbC28Q1D/Kqr7OaDP7z6K/UPdI3w/MIGzdHr0iCK2sg7wKvXTA3ioQWiPFPKjxzgOzqySIwplACHtVY4tFWMrrmbsH5FHwPZxviDfbS8aDMRauC9SjSJrEsUmWRfVs2MBpafyZGy5q/t7tSyxTYdlKUox+84vlJ6lVaYD58asaVtx8comCY/4kfQ5JPrRt/DONUBIIpiiGmZB3Ni0hmoD14807W3fH5B8IZQVnhDqu444nNTCdT3yO9YVXcXzHzni+XzALoEwIi5kWxDqYXGAkasdu5WdJ0wgT9x0g3vNIfg5COGK0Y1Mg3EMpt7Xc3hxlnBtAGm218Q1K2FDOU= gitcustom@invicta'
+          passphrase: 'asd#12345@'
+          password: 'Ndlu#081180$br'
+          port: '2280'
           script: |
             cd /var/www/html/nexevent/api-dev
             ./step2.sh
