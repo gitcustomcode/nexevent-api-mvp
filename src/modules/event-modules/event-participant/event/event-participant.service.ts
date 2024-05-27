@@ -52,7 +52,7 @@ export class EventParticipantService {
   ) {
     try {
       const user = await this.userParticipantValidationService.findUserByEmail(
-        userEmail,
+        userEmail.toLowerCase(),
         body,
       );
 
@@ -493,7 +493,7 @@ export class EventParticipantService {
         return termSignatorie;
       }
       const clickSignResponse = await this.clickSignApiService.createSigner(
-        user.email,
+        user.email.toLowerCase(),
         user.phoneNumber,
         user.name,
         user.document,
@@ -596,7 +596,7 @@ export class EventParticipantService {
       const qrCodeBase64 = await QRCode.toDataURL(eventParticipant.qrcode);
 
       const data = {
-        to: email,
+        to: email.toLowerCase(),
         name: name,
         type: 'sendEmailParticipantQRcode',
       };

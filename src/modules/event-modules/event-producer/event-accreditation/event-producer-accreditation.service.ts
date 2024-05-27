@@ -36,7 +36,7 @@ export class EventProducerAccreditationService {
     try {
       const event = await this.userProducerValidationService.eventExists(
         slug,
-        userEmail,
+        userEmail.toLowerCase(),
       );
 
       if (event.status === 'DISABLE') {

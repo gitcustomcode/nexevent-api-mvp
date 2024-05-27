@@ -33,7 +33,7 @@ export class EventTicketProducerService {
 
       const { event, sequential } =
         await this.userProducerValidationService.validateUserEventTicket(
-          userEmail,
+          userEmail.toLowerCase(),
           eventSlug,
           guestPerLink * links,
           slug,
@@ -84,7 +84,7 @@ export class EventTicketProducerService {
 
       const { event } =
         await this.userProducerValidationService.validateUserEventTicket(
-          userEmail,
+          userEmail.toLowerCase(),
           eventSlug,
           guests,
           slug !== null ? slug : null,
@@ -120,7 +120,7 @@ export class EventTicketProducerService {
     try {
       const event = await this.userProducerValidationService.eventExists(
         eventSlug,
-        userEmail,
+        userEmail.toLowerCase(),
       );
 
       const where: Prisma.EventTicketWhereInput = {

@@ -28,7 +28,7 @@ export class EventNetworksProducerService {
     try {
       const event = await this.userProducerValidationService.eventExists(
         slug,
-        userEmail,
+        userEmail.toLowerCase(),
       );
 
       const eventNetworksFormatted = body.map((network) => {
@@ -65,7 +65,7 @@ export class EventNetworksProducerService {
     try {
       const event = await this.userProducerValidationService.eventExists(
         slug,
-        userEmail,
+        userEmail.toLowerCase(),
       );
       const where: Prisma.EventNetworkWhereInput = {
         eventId: event.id,

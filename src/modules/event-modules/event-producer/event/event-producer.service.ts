@@ -82,7 +82,7 @@ export class EventProducerService {
       const slug = generateSlug(title);
 
       const user = await this.userProducerValidationService.eventNameExists(
-        email,
+        email.toLowerCase(),
         slug,
       );
 
@@ -190,7 +190,7 @@ export class EventProducerService {
     try {
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
-          email,
+          email.toLowerCase(),
         );
 
       const event = await this.prisma.event.findUnique({
@@ -250,7 +250,7 @@ export class EventProducerService {
     try {
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
-          email,
+          email.toLowerCase(),
         );
 
       const event = await this.prisma.event.findUnique({
@@ -329,7 +329,7 @@ export class EventProducerService {
       event.EventStaff.map((staff) => {
         staffs.push({
           id: staff.id,
-          email: staff.email,
+          email: staff.email.toLowerCase(),
         });
       });
 
@@ -528,7 +528,7 @@ export class EventProducerService {
     try {
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
-          email,
+          email.toLowerCase(),
         );
 
       const where: Prisma.EventWhereInput = {
@@ -591,7 +591,9 @@ export class EventProducerService {
     eventId: string,
     file: Express.Multer.File,
   ): Promise<string> {
-    await this.userProducerValidationService.validateUserProducerByEmail(email);
+    await this.userProducerValidationService.validateUserProducerByEmail(
+      email.toLowerCase(),
+    );
     const currentDate = new Date();
     const year = currentDate.getFullYear().toString();
     const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
@@ -633,7 +635,7 @@ export class EventProducerService {
   ): Promise<string> {
     try {
       await this.userProducerValidationService.validateUserProducerByEmail(
-        email,
+        email.toLowerCase(),
       );
 
       const event = await this.prisma.event.findUnique({
@@ -724,8 +726,9 @@ export class EventProducerService {
 
   async generalDashboard(email: string): Promise<GeneralDashboardResponseDto> {
     try {
-      const user =
-        await this.userProducerValidationService.findUserByEmail(email);
+      const user = await this.userProducerValidationService.findUserByEmail(
+        email.toLowerCase(),
+      );
 
       const events = await this.prisma.event.findMany({
         where: {
@@ -872,7 +875,10 @@ export class EventProducerService {
         };
       }
 
-      await this.userProducerValidationService.eventExists(slug, email);
+      await this.userProducerValidationService.eventExists(
+        slug,
+        email.toLowerCase(),
+      );
 
       const eventParticipants = await this.prisma.eventParticipant.findMany({
         where,
@@ -921,7 +927,7 @@ export class EventProducerService {
             participant.user.userFacials.length > 0
               ? participant.user.userFacials[0].path
               : null,
-          email: participant.user.email,
+          email: participant.user.email.toLowerCase(),
           userNetwork:
             participant.user.userSocials.length > 0
               ? participant.user.userSocials[0].username
@@ -965,7 +971,7 @@ export class EventProducerService {
     try {
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
-          email,
+          email.toLowerCase(),
         );
 
       const event = await this.prisma.event.findUnique({

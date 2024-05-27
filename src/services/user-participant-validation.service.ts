@@ -18,7 +18,7 @@ export class UserParticipantValidationService {
 
   async findUserByEmail(email: string, body: UserEventParticipantCreateDto) {
     try {
-      const isEmail = validateEmail(email);
+      const isEmail = validateEmail(email.toLowerCase());
 
       if (!isEmail) {
         throw new BadRequestException('Invalid email');
@@ -26,7 +26,7 @@ export class UserParticipantValidationService {
 
       const user = await this.prisma.user.findUnique({
         where: {
-          email: email,
+          email: email.toLowerCase(),
         },
         include: {
           userFacials: {
@@ -38,7 +38,10 @@ export class UserParticipantValidationService {
       });
 
       if (!user) {
-        const userCreated = await this.createUserEventParticipant(email, body);
+        const userCreated = await this.createUserEventParticipant(
+          email.toLowerCase(),
+          body,
+        );
 
         return userCreated;
       }
@@ -84,7 +87,7 @@ export class UserParticipantValidationService {
 
     const user = await this.prisma.user.create({
       data: {
-        email,
+        email: email.toLowerCase(),
         cep,
         country,
         dateBirth,

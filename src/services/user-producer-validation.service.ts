@@ -68,7 +68,7 @@ export class UserProducerValidationService {
         const staff = await this.prisma.eventStaff.findFirst({
           where: {
             eventId,
-            email,
+            email: email.toLowerCase(),
           },
         });
 
@@ -80,7 +80,7 @@ export class UserProducerValidationService {
 
         const user = await this.prisma.user.findUnique({
           where: {
-            email: email,
+            email: email.toLowerCase(),
           },
         });
 
@@ -119,7 +119,7 @@ export class UserProducerValidationService {
       }
       const user = await this.prisma.user.findUnique({
         where: {
-          email: email,
+          email: email.toLowerCase(),
         },
       });
 
@@ -186,7 +186,11 @@ export class UserProducerValidationService {
       },
     });
 
-    await this.validateUserProducerByEmail(userEmail, null, event.id);
+    await this.validateUserProducerByEmail(
+      userEmail.toLowerCase(),
+      null,
+      event.id,
+    );
 
     if (!event) {
       throw new NotFoundException('Event not found');
@@ -196,7 +200,7 @@ export class UserProducerValidationService {
   }
 
   async eventNameExists(userEmail: string, slug: string) {
-    const user = await this.validateUserProducerByEmail(userEmail);
+    const user = await this.validateUserProducerByEmail(userEmail.toLowerCase());
 
     const eventExists = await this.prisma.event.findUnique({
       where: {
@@ -217,7 +221,7 @@ export class UserProducerValidationService {
     ticketGuest: number,
     slug?: string,
   ) {
-    const event = await this.eventExists(eventSlug, userEmail);
+    const event = await this.eventExists(eventSlug, userEmail.toLowerCase());
 
     if (slug) {
       const ticketExists = await this.prisma.eventTicket.findUnique({

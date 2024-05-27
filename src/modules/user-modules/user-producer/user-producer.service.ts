@@ -35,7 +35,9 @@ export class UserProducerService {
       const { confirmPassword, email, password } = body;
 
       const emailAlreadyExists =
-        await this.userProducerValidationService.findUserByEmail(email);
+        await this.userProducerValidationService.findUserByEmail(
+          email.toLowerCase(),
+        );
 
       if (emailAlreadyExists) {
         throw new ConflictException('Email already exists');
@@ -50,7 +52,7 @@ export class UserProducerService {
 
       const createUser = await this.prisma.user.create({
         data: {
-          email,
+          email: email.toLowerCase(),
           password: hashedPassword,
           type: 'PRODUCER',
         },
