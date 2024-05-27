@@ -57,7 +57,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd /var/www/html/nexevent/api-dev
-            ./step2.sh
+            sudo git pull
 
       - name: Deploy - nexevent-api-dev
         uses: appleboy/ssh-action@master
