@@ -8,7 +8,10 @@ import {
   subYears,
 } from 'date-fns';
 
-export function validateBirth(dateBirth: string) {
+export function validateBirth(
+  dateBirth: string,
+  eighteenthBirthdayValidation: boolean,
+) {
   const parsedDate = parse(dateBirth, 'yyyy-MM-dd', new Date());
 
   if (!isValid(parsedDate)) {
@@ -25,10 +28,11 @@ export function validateBirth(dateBirth: string) {
   if (isBefore(parsedDate, oldestAllowedDate)) {
     throw new UnprocessableEntityException('Date is too far in the past');
   }
-
-  const eighteenthBirthday = addYears(parsedDate, 18);
-  if (!isAfter(now, eighteenthBirthday)) {
-    throw new UnprocessableEntityException('Must be at least 18 years old');
+  if (eighteenthBirthdayValidation) {
+    const eighteenthBirthday = addYears(parsedDate, 18);
+    if (!isAfter(now, eighteenthBirthday)) {
+      throw new UnprocessableEntityException('Must be at least 18 years old');
+    }
   }
 
   return;

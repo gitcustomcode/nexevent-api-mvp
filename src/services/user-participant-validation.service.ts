@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { UserEventParticipantCreateDto } from 'src/dtos/user-validation-response.dto';
@@ -11,6 +12,7 @@ import { EventParticipantStatus } from '@prisma/client';
 import { validateCPF } from 'src/utils/cpf-validator';
 import { z } from 'nestjs-zod/z';
 import { validateEmail } from 'src/utils/email-validator';
+import { validateBirth } from 'src/utils/date-validator';
 
 @Injectable()
 export class UserParticipantValidationService {
@@ -73,16 +75,18 @@ export class UserParticipantValidationService {
       state,
     } = body;
 
-    const documentValid = validateCPF(document);
+    validateBirth(dateBirth, false);
 
-    if (!documentValid) {
-      throw new BadRequestException('Invalid CPF document');
+    if (country === 'Brasil' || phoneCountry === '55') {
+      const documentValid = validateCPF(document);
+      if (!documentValid) {
+        throw new UnprocessableEntityException('Invalid CPF document');
+      }
     }
-
     const validName = name.trim().split(' ');
 
     if (validName.length < 2) {
-      throw new BadRequestException('Please provide a complete name');
+      throw new UnprocessableEntityException('Please provide a complete name');
     }
 
     const user = await this.prisma.user.create({
