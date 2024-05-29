@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerCreateDto } from './dto/user-producer-create.dto';
@@ -19,6 +20,15 @@ import {
 } from 'src/services/storage.service';
 import { validateCPF } from 'src/utils/cpf-validator';
 import { FaceValidationService } from 'src/services/face-validation.service';
+import {
+  addYears,
+  isAfter,
+  isBefore,
+  isValid,
+  parse,
+  subYears,
+} from 'date-fns';
+import { validateBirth } from 'src/utils/date-validator';
 
 @Injectable()
 export class UserProducerService {
@@ -71,10 +81,10 @@ export class UserProducerService {
     body: UserProducerFinishSignUpDto,
   ): Promise<String> {
     try {
-      const emailAlreadyExists =
+      const emailExists =
         await this.userProducerValidationService.findUserByEmail(email);
 
-      if (!emailAlreadyExists) {
+      if (!emailExists) {
         throw new NotFoundException('User not found');
       }
 
@@ -94,14 +104,18 @@ export class UserProducerService {
         cep,
       } = body;
 
+      validateBirth(dateBirth);
+
       const documentValid = validateCPF(document);
       if (!documentValid) {
-        throw new BadRequestException('Invalid CPF document');
+        throw new UnprocessableEntityException('Invalid CPF document');
       }
 
       const validName = name.trim().split(' ');
       if (validName.length < 2) {
-        throw new BadRequestException('Please provide a complete name');
+        throw new UnprocessableEntityException(
+          'Please provide a complete name',
+        );
       }
 
       await this.prisma.user.update({
@@ -148,11 +162,11 @@ export class UserProducerService {
       }
 
       const passwordOldValid = compareSync(
-        newPassword,
+        oldPassword,
         emailAlreadyExists.password,
       );
 
-      if (passwordOldValid) {
+      if (!passwordOldValid) {
         throw new BadRequestException('Incorrect password');
       }
 
