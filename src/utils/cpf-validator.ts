@@ -1,18 +1,14 @@
 export function validateCPF(cpf: string) {
-  // Remove caracteres não numéricos
   cpf = cpf.replace(/[^\d]/g, '');
 
-  // Verifica se o CPF tem 11 dígitos
   if (cpf.length !== 11) {
     return false;
   }
 
-  // Verifica se todos os dígitos são iguais (ex: 111.111.111-11)
   if (/^(\d)\1+$/.test(cpf)) {
     return false;
   }
 
-  // Validação dos dígitos verificadores
   const calcCheckDigit = (cpf, factor) => {
     let total = 0;
     for (let i = 0; i < factor - 1; i++) {
