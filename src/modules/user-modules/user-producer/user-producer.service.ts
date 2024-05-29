@@ -104,11 +104,13 @@ export class UserProducerService {
         cep,
       } = body;
 
-      validateBirth(dateBirth);
+      validateBirth(dateBirth, true);
 
-      const documentValid = validateCPF(document);
-      if (!documentValid) {
-        throw new UnprocessableEntityException('Invalid CPF document');
+      if (country === 'Brasil' || phoneCountry === '55') {
+        const documentValid = validateCPF(document);
+        if (!documentValid) {
+          throw new UnprocessableEntityException('Invalid CPF document');
+        }
       }
 
       const validName = name.trim().split(' ');
