@@ -4,7 +4,6 @@ import {
   Param,
   Post,
   Query,
-  Request,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -54,9 +53,7 @@ export class AuthController {
   async login(
     @Query('userEmail') userEmail: string,
     @Query('userPassword') userPassword: string,
-    @Request() req: any,
   ): Promise<String> {
-    console.log(req.socket.remoteAddress);
     return await this.authService.login(userEmail, userPassword);
   }
 
