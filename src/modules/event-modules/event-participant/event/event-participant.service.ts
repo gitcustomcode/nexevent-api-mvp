@@ -12,6 +12,7 @@ import { UserParticipantValidationService } from 'src/services/user-participant-
 import {
   EventParticipantCreateDto,
   EventParticipantCreateNetworksDto,
+  EventTicketSellDto,
 } from './dto/event-participant-create.dto';
 import {
   StorageService,
@@ -24,12 +25,18 @@ import {
   FindAllPublicEvents,
   FindEventInfoDto,
   FindOnePublicEventsDto,
+  ListTickets,
+  ListTicketsDto,
   ParticipantTicketDto,
+  EventTicketInfoDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
 import { Prisma } from '@prisma/client';
 import { PaginationService } from 'src/services/paginate.service';
+import { FaceValidationService } from 'src/services/face-validation.service';
+import { StripeService } from 'src/services/stripe.service';
+import { CheckoutSessionEventParticipantDto } from 'src/dtos/stripe.dto';
 
 @Injectable()
 export class EventParticipantService {
@@ -40,6 +47,8 @@ export class EventParticipantService {
     private readonly emailService: EmailService,
     private readonly clickSignApiService: ClickSignApiService,
     private readonly paginationService: PaginationService,
+    private readonly faceValidationService: FaceValidationService,
+    private readonly stripe: StripeService,
   ) {}
 
   async createParticipant(
@@ -49,7 +58,7 @@ export class EventParticipantService {
   ) {
     try {
       const user = await this.userParticipantValidationService.findUserByEmail(
-        userEmail,
+        userEmail.toLowerCase(),
         body,
       );
 
@@ -95,6 +104,7 @@ export class EventParticipantService {
         data: {
           eventId: event.id,
           eventTicketLinkId: eventTicketLink.id,
+          eventTicketPriceId: 'ALTERAR ESSA CARALHA DEPOIS',
           eventTicketId: eventTicketLink.eventTicket.id,
           qrcode,
           sequential: sequential + 1,
@@ -114,17 +124,7 @@ export class EventParticipantService {
         requestSignatureKey: eventParticipant.requestSignatureKey,
       };
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -143,6 +143,14 @@ export class EventParticipantService {
       if (!allowedMimeTypes.includes(photo.mimetype)) {
         throw new BadRequestException(
           'Only JPEG, JPG and PNG files are allowed.',
+        );
+      }
+
+      const res = await this.faceValidationService.validateWithFacial(photo);
+
+      if (res && res.email !== participantExists.user.email) {
+        throw new BadRequestException(
+          `This face is already associated with other participant`,
         );
       }
 
@@ -205,17 +213,7 @@ export class EventParticipantService {
         participantStatus: participantUpdated.status,
       };
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -277,17 +275,7 @@ export class EventParticipantService {
         participantStatus: participantUpdated.status,
       };
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -348,7 +336,7 @@ export class EventParticipantService {
       const response: ParticipantTicketDto = {
         id: participant.id,
         ticketName: participant.eventTicket.title,
-        price: Number(participant.eventTicket.price),
+        price: 10,
         eventName: participant.event.title,
         qrcode: participant.qrcode,
         startAt: participant.event.startAt,
@@ -461,6 +449,7 @@ export class EventParticipantService {
         },
         include: {
           eventTicket: true,
+          eventConfig: true,
         },
       });
 
@@ -473,16 +462,174 @@ export class EventParticipantService {
         description: event.description,
         startAt: event.startAt,
         endAt: event.endAt,
+        longitude: event.longitude,
+        latitude: event.latitude,
+        location: event.location,
         ticket: event.eventTicket.map((ticket) => {
           return {
             id: ticket.id,
             title: ticket.title,
-            price: Number(ticket.price),
+            price: 10,
+            description: ticket.description,
           };
         }),
+        config: {
+          credentialType: event.eventConfig[0].credentialType,
+          participantNetworks: event.eventConfig[0].participantNetworks,
+        },
       };
 
       return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async listTickets(
+    userId: string,
+    page: number,
+    perPage: number,
+  ): Promise<ListTickets> {
+    try {
+      const where: Prisma.EventParticipantWhereInput = {
+        userId,
+      };
+
+      const events = await this.prisma.eventParticipant.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
+        include: {
+          event: true,
+        },
+      });
+
+      const totalItems = await this.prisma.eventParticipant.count({ where });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const eventsFormatted: ListTicketsDto = events.map((event) => {
+        return {
+          eventSlug: event.event.slug,
+          eventDescription: event.event.description,
+          eventTitle: event.event.title,
+          eventPhoto: event.event.photo,
+          eventStartAt: event.event.startAt,
+        };
+      });
+
+      const response: ListTickets = {
+        data: eventsFormatted,
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async eventTicketInfo(
+    userId: string,
+    eventSlug: string,
+  ): Promise<EventTicketInfoDto> {
+    try {
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: eventSlug,
+        },
+      });
+
+      const eventParticipant = await this.prisma.eventParticipant.findFirst({
+        where: {
+          userId,
+          eventId: event.id,
+        },
+        include: {
+          event: true,
+          eventTicket: true,
+        },
+      });
+
+      const response: EventTicketInfoDto = {
+        eventDescription: eventParticipant.event.description,
+        eventParticipantId: eventParticipant.id,
+        eventParticipantQrcode: eventParticipant.qrcode,
+        eventPhoto: eventParticipant.event.photo,
+        eventStartAt: eventParticipant.event.startAt,
+        eventTitle: eventParticipant.event.title,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async eventTicketSell(
+    userId: string,
+    body: EventTicketSellDto,
+  ): Promise<string> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+
+      if (!user) throw new NotFoundException('User not found');
+
+      const { eventSlug, eventTickets } = body;
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: eventSlug,
+        },
+      });
+
+      if (!event) throw new NotFoundException('Event not found');
+
+      const lineItems: CheckoutSessionEventParticipantDto = [];
+
+      eventTickets.forEach(async (ticket) => {
+        const ticketExist = await this.prisma.eventTicket.findUnique({
+          where: {
+            id: ticket.ticketId,
+            eventId: event.id,
+          },
+          include: {
+            eventTicketPrice: true,
+          },
+        });
+
+        if (!ticketExist) throw new NotFoundException('Ticket not found');
+
+        lineItems.push({
+          //ALTERAR ISSO DEPOIS TAMBEM
+          price: ticketExist.eventTicketPrice[0].stripePriceId,
+          quantity: ticket.ticketQuantity,
+        });
+      });
+
+      const session =
+        await this.stripe.checkoutSessionEventParticipant(lineItems);
+
+      await this.prisma.balanceHistoric.create({
+        data: {
+          userId: userId,
+          paymentId: session.id,
+          value: Number(session.value / 100),
+        },
+      });
+
+      return session.url;
     } catch (error) {
       throw error;
     }
@@ -510,9 +657,8 @@ export class EventParticipantService {
       if (termSignatorie) {
         return termSignatorie;
       }
-
       const clickSignResponse = await this.clickSignApiService.createSigner(
-        user.email,
+        user.email.toLowerCase(),
         user.phoneNumber,
         user.name,
         user.document,
@@ -615,7 +761,7 @@ export class EventParticipantService {
       const qrCodeBase64 = await QRCode.toDataURL(eventParticipant.qrcode);
 
       const data = {
-        to: email,
+        to: email.toLowerCase(),
         name: name,
         type: 'sendEmailParticipantQRcode',
       };

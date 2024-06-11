@@ -21,13 +21,19 @@ import {
 } from 'src/services/storage.service';
 import { randomUUID } from 'crypto';
 import { PaginationService } from 'src/services/paginate.service';
-import { Prisma } from '@prisma/client';
+import { EventType, Prisma } from '@prisma/client';
 import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
 import { EventTicketCreateDto } from '../event-ticket/dto/event-ticket-producer-create.dto';
 import {
   EventProducerUpdateDto,
   EventProducerUpgradeDto,
 } from './dto/event-producer-update.dto';
+import {
+  StateSumsFunc,
+  getMaxParticipantsState,
+  getMaxSalesState,
+} from 'src/utils/test';
+import { StripeService } from 'src/services/stripe.service';
 
 type DataItem = {
   state: string | null;
@@ -49,6 +55,7 @@ export class EventProducerService {
     private readonly storageService: StorageService,
     private readonly paginationService: PaginationService,
     private readonly eventTicketProducerService: EventTicketProducerService,
+    private readonly stripe: StripeService,
   ) {}
 
   async createEvent(email: string, body: EventCreateDto): Promise<object> {
@@ -62,16 +69,32 @@ export class EventProducerService {
         location,
         startAt,
         startPublishAt,
-        subtitle,
         title,
         eventTickets,
         eventPublic,
+        latitude,
+        longitude,
+        description,
+        sellOnThePlatform,
+        taxToClient,
       } = body;
+
+      if (startAt > endAt) {
+        throw new BadRequestException(
+          'O horário de início não pode ser maior que o horário de término',
+        );
+      }
+
+      if (location === 'DEFINED' && (!latitude || !longitude)) {
+        throw new BadRequestException(
+          'É necessário informar latitude e longitude para o local definido',
+        );
+      }
 
       const slug = generateSlug(title);
 
       const user = await this.userProducerValidationService.eventNameExists(
-        email,
+        email.toLowerCase(),
         slug,
       );
 
@@ -90,21 +113,24 @@ export class EventProducerService {
         };
       });
 
-      let cost = 0;
+      let stripeCheckoutUrl = null;
+      let eventLimit = 20;
+      let eventType: EventType = 'FREE';
 
-      const factor = eventConfig.printAutomatic
-        ? 2
-        : 0 +
-          (eventConfig.credentialType === 'QRCODE'
-            ? 1
-            : eventConfig.credentialType === 'FACIAL_IN_SITE'
-              ? 3
-              : eventConfig.credentialType === 'FACIAL'
-                ? 4
-                : 0);
+      eventTickets.map((ticket) => {
+        eventLimit += ticket.guests;
+      });
 
-      if (factor > 0 || eventConfig.limit > 20) {
-        cost = eventConfig.limit - 20 + eventConfig.limit * factor;
+      if (!taxToClient && eventLimit > 20) {
+        const checkoutSession = await this.stripe.checkoutSessionEventProducer(
+          eventLimit,
+          eventConfig.printAutomatic,
+          eventConfig.credentialType,
+        );
+        eventType = 'PAID_OUT';
+        stripeCheckoutUrl = checkoutSession;
+      } else {
+        eventType = 'PASSED_CLIENT';
       }
 
       const createdEvent = await this.prisma.event.create({
@@ -113,15 +139,20 @@ export class EventProducerService {
           slug: slug,
           sequential: sequential + 1,
           title: title,
+          description: description,
           category: category,
-          subtitle: subtitle,
           location: location,
           public: eventPublic,
-          type: cost > 0 ? 'PAID_OUT' : 'FREE',
+          type: eventType,
           startAt: startAt,
           endAt: endAt,
           startPublishAt: startPublishAt,
           endPublishAt: endPublishAt,
+          latitude: latitude,
+          longitude: longitude,
+          sellOnThePlatform: sellOnThePlatform,
+          checkoutUrl: stripeCheckoutUrl,
+          paymentStatus: 'unpaid',
           eventSchedule: {
             createMany: {
               data: eventScheduleFormatted,
@@ -131,19 +162,9 @@ export class EventProducerService {
             create: {
               printAutomatic: eventConfig.printAutomatic,
               credentialType: eventConfig.credentialType,
-              limit: eventConfig.limit,
+              limit: eventLimit,
             },
           },
-          eventCost: {
-            create: {
-              limit: eventConfig.limit,
-              status: false,
-              cost: cost,
-            },
-          },
-        },
-        include: {
-          eventCost: true,
         },
       });
 
@@ -153,8 +174,12 @@ export class EventProducerService {
           color: ticket.color,
           description: ticket.description,
           price: ticket.price,
-          links: ticket.links,
-          guestPerLink: ticket.guestPerLink,
+          links: 1,
+          guestPerLink: ticket.guests,
+          passOnFee: ticket.passOnFee,
+          startAt: ticket.startAt,
+          endAt: ticket.endAt,
+          ticketReferersTitle: ticket.ticketReferersTitle,
         };
 
         await this.eventTicketProducerService.createEventTicket(
@@ -167,7 +192,7 @@ export class EventProducerService {
       return {
         id: createdEvent.id,
         slug: createdEvent.slug,
-        eventCostid: createdEvent.eventCost[0].id,
+        stripeCheckoutUrl: stripeCheckoutUrl,
       };
     } catch (error) {
       console.error('Erro ao criar evento:', error);
@@ -179,7 +204,7 @@ export class EventProducerService {
     try {
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
-          email,
+          email.toLowerCase(),
         );
 
       const event = await this.prisma.event.findUnique({
@@ -202,9 +227,16 @@ export class EventProducerService {
         eventPublic,
         startAt,
         startPublishAt,
-        subtitle,
         title,
+        latitude,
+        longitude,
       } = body;
+
+      if (location === 'DEFINED' && (!latitude || !longitude)) {
+        throw new BadRequestException(
+          'É necessário informar latitude e longitude para o local definido',
+        );
+      }
 
       await this.prisma.event.update({
         where: {
@@ -221,8 +253,9 @@ export class EventProducerService {
           startPublishAt: startPublishAt
             ? startPublishAt
             : event.startPublishAt,
-          subtitle: subtitle ? subtitle : event.subtitle,
           title: title ? title : event.title,
+          latitude: latitude ? latitude : event.latitude,
+          longitude: longitude ? longitude : event.longitude,
         },
       });
 
@@ -239,7 +272,7 @@ export class EventProducerService {
     try {
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
-          email,
+          email.toLowerCase(),
         );
 
       const event = await this.prisma.event.findUnique({
@@ -250,6 +283,7 @@ export class EventProducerService {
         include: {
           eventTicket: {
             include: {
+              eventTicketPrice: true,
               eventTicketGuest: true,
               EventParticipant: {
                 include: {
@@ -293,7 +327,11 @@ export class EventProducerService {
               id: 'desc',
             },
           },
-          eventTerm: true,
+          eventTerm: {
+            include: {
+              term: true,
+            },
+          },
         },
       });
 
@@ -314,15 +352,15 @@ export class EventProducerService {
       event.EventStaff.map((staff) => {
         staffs.push({
           id: staff.id,
-          email: staff.email,
+          email: staff.email.toLowerCase(),
         });
       });
 
-      event.eventTicket.map((ticket) => {
+      /*   event.eventTicket.map((ticket) => {
         if (ticket.status === 'PART_FULL' || ticket.status === 'FULL') {
           totalTicketsUsed += 1;
         }
-      });
+      }); */
 
       event.eventParticipant.map((participant) => {
         participantsState.push({
@@ -373,7 +411,7 @@ export class EventProducerService {
       event.eventTicket.map((ticket) => {
         let linksUsed = 0;
 
-        links += ticket.guest;
+        //links += ticket.guest;
 
         ticket.eventTicketGuest.map((link) => {
           if (link.status === 'FULL') {
@@ -384,9 +422,10 @@ export class EventProducerService {
           (link) => link.status !== 'FULL',
         );
         tickets.push({
+          //alterar esse merda
           id: ticket.id,
           title: ticket.title,
-          price: ticket.price,
+          price: 10,
           linksUsed: `${ticket.eventTicketGuest.length - linksUsed}/${ticket.eventTicketGuest.length}`,
           guestPerLink:
             ticket.eventTicketGuest.length > 0
@@ -444,6 +483,22 @@ export class EventProducerService {
         }),
       );
 
+      let eventTerm = {
+        id: null,
+        termId: null,
+        termName: null,
+        signature: false,
+        termPath: null,
+      };
+
+      if (event.eventTerm.length > 0) {
+        eventTerm.id = event.eventTerm[0].id;
+        eventTerm.termId = event.eventTerm[0].termId;
+        eventTerm.signature = event.eventTerm[0].signature;
+        eventTerm.termPath = event.eventTerm[0].term.path;
+        eventTerm.termName = event.eventTerm[0].term.name;
+      }
+
       const response: EventDashboardResponseDto = {
         id: event.id,
         title: event.title,
@@ -458,7 +513,6 @@ export class EventProducerService {
         startAt: event.startAt,
         haveTerm: event.eventTerm.length > 0 ? true : false,
         startPublishAt: event.startPublishAt,
-        subtitle: event.subtitle,
         eventLimit: event.eventConfig[0].limit,
         eventPrintAutomatic: event.eventConfig[0].printAutomatic,
         eventCredentialType: event.eventConfig[0].credentialType,
@@ -477,17 +531,11 @@ export class EventProducerService {
         notCheckIn: event.eventParticipant.length - uniqueArray.length,
         statesInfo: resultArray,
         staffs,
+        eventTerm,
       };
 
       return response;
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
       throw error;
     }
   }
@@ -503,7 +551,7 @@ export class EventProducerService {
     try {
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
-          email,
+          email.toLowerCase(),
         );
 
       const where: Prisma.EventWhereInput = {
@@ -543,7 +591,6 @@ export class EventProducerService {
         return {
           id: event.id,
           title: event.title,
-          subtitle: event.subtitle,
           slug: event.slug,
           photo: event.photo,
           startAt: event.startAt,
@@ -557,13 +604,7 @@ export class EventProducerService {
 
       return response;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new ConflictException(error);
+      throw error;
     }
   }
 
@@ -572,7 +613,9 @@ export class EventProducerService {
     eventId: string,
     file: Express.Multer.File,
   ): Promise<string> {
-    await this.userProducerValidationService.validateUserProducerByEmail(email);
+    await this.userProducerValidationService.validateUserProducerByEmail(
+      email.toLowerCase(),
+    );
     const currentDate = new Date();
     const year = currentDate.getFullYear().toString();
     const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
@@ -614,7 +657,7 @@ export class EventProducerService {
   ): Promise<string> {
     try {
       await this.userProducerValidationService.validateUserProducerByEmail(
-        email,
+        email.toLowerCase(),
       );
 
       const event = await this.prisma.event.findUnique({
@@ -653,17 +696,7 @@ export class EventProducerService {
 
       return 'Event terms created successfully';
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -709,17 +742,15 @@ export class EventProducerService {
 
       return response;
     } catch (error) {
-      console.log(`Error uploading file document and term: ${error}`);
-      throw new ConflictException(
-        `Error uploading file document and term: ${error}`,
-      );
+      throw error;
     }
   }
 
   async generalDashboard(email: string): Promise<GeneralDashboardResponseDto> {
     try {
-      const user =
-        await this.userProducerValidationService.findUserByEmail(email);
+      const user = await this.userProducerValidationService.findUserByEmail(
+        email.toLowerCase(),
+      );
 
       const events = await this.prisma.event.findMany({
         where: {
@@ -746,13 +777,13 @@ export class EventProducerService {
       events.map((event) => {
         totalTickets += event.eventTicket.length;
         totalParticipants += event.eventParticipant.length;
-
+        //alterar isso tbm
         event.eventParticipant.map((participant) => {
           participantsState.push({
             state: participant.user.state,
-            ticketValue: participant.eventTicket.price,
+            // ticketValue: participant.eventTicket.price,
           });
-          total += Number(participant.eventTicket.price);
+          //total += Number(participant.eventTicket.price);
           participant.eventParticipantHistoric.map((historic) => {
             if (historic.status === 'CHECK_IN') {
               participantsCheckIn.push({
@@ -764,8 +795,8 @@ export class EventProducerService {
         });
       });
 
-      const stateSums: StateSums = participantsState.reduce(
-        (acc: StateSums, item: DataItem) => {
+      const stateSums: StateSumsFunc = participantsState.reduce(
+        (acc: StateSumsFunc, item: DataItem) => {
           const state = item.state === null ? 'não definido' : item.state;
           if (acc[state]) {
             acc[state].count += 1;
@@ -781,48 +812,33 @@ export class EventProducerService {
         {},
       );
 
-      // Passo 2: Encontrar o estado com a maior quantidade de participantes
-      let maxState: string | null = null;
-      let maxCount = 0;
+      const { state: maxParticipantsState, count: maxParticipantsCount } =
+        getMaxParticipantsState(stateSums);
 
-      for (const [state, { count }] of Object.entries(stateSums)) {
-        if (count > maxCount) {
-          maxCount = count;
-          maxState = state;
-        }
-      }
+      const percentage = (
+        (maxParticipantsCount / participantsState.length) *
+        100
+      ).toFixed(2);
 
-      // Passo 3: Calcular a porcentagem de participantes daquele estado
-      const percentage = ((maxCount / participantsState.length) * 100).toFixed(
-        2,
-      );
-
-      // Passo 4: Calcular a soma dos valores dos ingressos de cada estado
-      const ticketSums: { [key: string]: number } = {};
-      for (const [state, { ticketSum }] of Object.entries(stateSums)) {
-        ticketSums[state] = ticketSum;
-      }
-
-      const bigSaleForState = {
-        state: '',
-        total: 0,
-      };
-
-      if (maxState) {
-        bigSaleForState.state = maxState;
-        bigSaleForState.total = ticketSums[maxState];
-      }
+      const { state: maxSalesState, total: maxSalesTotal } =
+        getMaxSalesState(stateSums);
 
       const bigParticipantsForState = {
-        state: maxState,
+        state: maxParticipantsState,
         total: percentage,
+      };
+
+      const bigSaleForState = {
+        state: maxSalesState,
+        total: maxSalesTotal,
       };
 
       const lastEvents = events
         .map((event) => {
           let total = 0;
           event.eventParticipant.forEach((participant) => {
-            total += Number(participant.eventTicket.price);
+            //ALTERAR ISSO
+            // total += Number(participant.eventTicket.price);
           });
 
           if (total > 0) {
@@ -855,16 +871,7 @@ export class EventProducerService {
 
       return response;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -891,7 +898,10 @@ export class EventProducerService {
         };
       }
 
-      await this.userProducerValidationService.eventExists(slug, email);
+      await this.userProducerValidationService.eventExists(
+        slug,
+        email.toLowerCase(),
+      );
 
       const eventParticipants = await this.prisma.eventParticipant.findMany({
         where,
@@ -940,7 +950,7 @@ export class EventProducerService {
             participant.user.userFacials.length > 0
               ? participant.user.userFacials[0].path
               : null,
-          email: participant.user.email,
+          email: participant.user.email.toLowerCase(),
           userNetwork:
             participant.user.userSocials.length > 0
               ? participant.user.userSocials[0].username
@@ -954,150 +964,6 @@ export class EventProducerService {
       };
 
       return response;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async paidEventCost(eventId: string, eventCostId: number): Promise<string> {
-    try {
-      await this.prisma.eventCost.update({
-        where: {
-          id: Number(eventCostId),
-          eventId: eventId,
-        },
-        data: {
-          status: true,
-        },
-      });
-      return 'Payment successful';
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async upgradeEvent(
-    email: string,
-    slug: string,
-    body: EventProducerUpgradeDto,
-  ) {
-    try {
-      const user =
-        await this.userProducerValidationService.validateUserProducerByEmail(
-          email,
-        );
-
-      const event = await this.prisma.event.findUnique({
-        where: {
-          slug: slug,
-          userId: user.id,
-        },
-      });
-
-      if (!event) {
-        throw new NotFoundException('Event not found');
-      }
-
-      const eventConfig = await this.prisma.eventConfig.findUnique({
-        where: {
-          eventId: event.id,
-        },
-      });
-
-      if (!eventConfig) {
-        throw new NotFoundException('Event config not found');
-      }
-
-      const { credentialType, limit, printAutomatic } = body;
-
-      const currentPrintFactor = eventConfig.printAutomatic ? 2 : 0;
-
-      const currentCredentialFactor =
-        eventConfig.credentialType === 'QRCODE'
-          ? 1
-          : eventConfig.credentialType === 'FACIAL_IN_SITE'
-            ? 3
-            : eventConfig.credentialType === 'FACIAL'
-              ? 4
-              : 0;
-
-      const currentFactor = currentPrintFactor + currentCredentialFactor;
-
-      const newPrintFactor = printAutomatic ? 2 : 0;
-      const newCredentialFactor =
-        credentialType === 'QRCODE'
-          ? 1
-          : credentialType === 'FACIAL_IN_SITE'
-            ? 3
-            : credentialType === 'FACIAL'
-              ? 4
-              : 0;
-
-      const newFactor = newPrintFactor + newCredentialFactor;
-
-      console.log('Current Factor', currentFactor);
-      console.log('New Factor', newFactor);
-
-      if (currentFactor > newFactor) {
-        throw new ConflictException(
-          'You cannot change the setting to a lower value',
-        );
-      }
-
-      const newValue =
-        newFactor - currentFactor == 0
-          ? limit + limit * currentFactor
-          : eventConfig.limit * (newFactor - currentFactor);
-
-      const newParticipantsValue =
-        limit > 0 && newFactor - currentFactor !== 0
-          ? (newFactor + 1) * limit
-          : 0;
-
-      const newLimit = limit + eventConfig.limit;
-
-      const total = newValue + newParticipantsValue;
-
-      console.log('novo valor', total);
-
-      await this.prisma.eventCost.create({
-        data: {
-          eventId: event.id,
-          cost: Number(total) * -1,
-          limit: limit,
-          status: true,
-        },
-      });
-
-      await this.prisma.balanceHistoric.create({
-        data: {
-          value: Number(total) * -1,
-          description: `Alteração nas configurações do evento: ${event.title}`,
-          userId: user.id,
-          status: 'RECEIVED',
-        },
-      });
-
-      const updatedEventConfig = await this.prisma.eventConfig.update({
-        where: {
-          eventId: event.id,
-        },
-        data: {
-          credentialType: credentialType,
-          limit: newLimit,
-          printAutomatic: printAutomatic,
-          event: {
-            update: {
-              type:
-                printAutomatic || credentialType !== 'VOID' || newLimit > 20
-                  ? 'PAID_OUT'
-                  : 'FREE',
-            },
-          },
-        },
-      });
-
-      return updatedEventConfig;
     } catch (error) {
       throw error;
     }

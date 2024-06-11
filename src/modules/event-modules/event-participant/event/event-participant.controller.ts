@@ -5,11 +5,14 @@ import {
   Param,
   Post,
   Query,
+  Request,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiBody,
   ApiConsumes,
   ApiCreatedResponse,
@@ -27,12 +30,15 @@ import {
 } from './dto/event-participant-create.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  EventTicketInfoDto,
   FindAllPublicEvents,
   FindEventInfoDto,
   FindOnePublicEventsDto,
+  ListTickets,
   ParticipantTicketDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
+import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 
 @ApiTags('Event Participant')
 @Controller('event-participant')
@@ -237,5 +243,62 @@ export class EventParticipantController {
     @Param('eventTicketLinkId') eventTicketLinkId: string,
   ): Promise<FindEventInfoDto> {
     return await this.eventParticipantService.findEventInfo(eventTicketLinkId);
+  }
+
+  @Get('v1/event-participant/list-tickets')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event information' })
+  @ApiResponse({
+    type: ListTickets,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiQuery({
+    name: 'page',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'perPage',
+    required: true,
+    type: String,
+  })
+  async listTickets(
+    @Request() req: any,
+    @Query('page') page: string = '1',
+    @Query('perPage') perPage: string = '10',
+  ): Promise<ListTickets> {
+    const userId = req.auth.user.id;
+    return await this.eventParticipantService.listTickets(
+      userId,
+      Number(page),
+      Number(perPage),
+    );
+  }
+
+  @Get('v1/event-participant/:eventSlug/event-ticket-info')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event information' })
+  @ApiResponse({
+    type: EventTicketInfoDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    required: true,
+    type: String,
+  })
+  async eventTicketInfo(
+    @Request() req: any,
+    @Param('eventSlug') eventSlug: string,
+  ): Promise<EventTicketInfoDto> {
+    const userId = req.auth.user.id;
+    return await this.eventParticipantService.eventTicketInfo(
+      userId,
+      eventSlug,
+    );
   }
 }

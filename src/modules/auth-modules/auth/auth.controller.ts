@@ -20,11 +20,15 @@ import {
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { FaceValidationService } from 'src/services/face-validation.service';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private readonly faceValidationService: FaceValidationService,
+  ) {}
 
   @Get('v1/auth/login')
   @ApiOperation({
@@ -50,6 +54,22 @@ export class AuthController {
     @Query('userEmail') userEmail: string,
     @Query('userPassword') userPassword: string,
   ): Promise<String> {
+    const string = `vbvcbcv&nbsp;
+    <div><br></div><div>
+    <img src="blob:http://localhost:5173/40755f1f-d989-4098-aa78-9878c837aee7" id="Screenshot_2">
+    <img src="blob:http://localhost:5173/28e8c8d6-5c77-4e78-8eb4-f44c8ad07782" id="kueras">
+    </div><div><br></div><div>dsadsa&nbsp;
+    </div><div>dsadas&nbsp;</div><div>
+    &nbsp;sadsadsa saddad dsds</div>`;
+
+    const newSrc = 'https://example.com/img2';
+    const test = 'Screenshot_2';
+
+    const regex = new RegExp(`(<img\\s+[^>]*src=")[^"]*("[^>]*id="${test}">)`);
+    const updatedString = string.replace(regex, `$1${newSrc}$2`);
+
+    console.log(updatedString);
+
     return await this.authService.login(userEmail, userPassword);
   }
 
@@ -108,7 +128,7 @@ export class AuthController {
   })
   @UseInterceptors(FileInterceptor('file'))
   async validateWithFacial(@UploadedFile() file: Express.Multer.File) {
-    return await this.authService.validateWithFacial(file);
+    return await this.faceValidationService.validateWithFacial(file);
   }
 
   @Post('v1/auth/login-with-facial')

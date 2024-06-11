@@ -1,4 +1,4 @@
-import { CredentialType } from '@prisma/client';
+import { CredentialType, EventLocation } from '@prisma/client';
 import { z } from 'nestjs-zod/z';
 
 function parseDate(value: string): Date {
@@ -12,9 +12,10 @@ function parseDate(value: string): Date {
 export const EventProducerUpdate = z.object({
   title: z.string().nullish(),
   category: z.string().nullish(),
-  subtitle: z.string().nullish(),
   description: z.string().nullish(),
-  location: z.string().nullish(),
+  location: z.nativeEnum(EventLocation).nullish(),
+  latitude: z.string().nullish(),
+  longitude: z.string().nullish(),
   eventPublic: z.boolean().nullish(),
   startAt: z
     .string()

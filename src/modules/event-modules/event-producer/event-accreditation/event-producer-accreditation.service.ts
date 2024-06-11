@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -35,11 +36,11 @@ export class EventProducerAccreditationService {
     try {
       const event = await this.userProducerValidationService.eventExists(
         slug,
-        userEmail,
+        userEmail.toLowerCase(),
       );
 
       if (event.status === 'DISABLE') {
-        throw new UnauthorizedException('Event disabled');
+        throw new ForbiddenException('Event disabled');
       }
 
       const participant = await this.findOne(event.id, null, qrcode);
@@ -52,16 +53,7 @@ export class EventProducerAccreditationService {
 
       return response;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -77,7 +69,7 @@ export class EventProducerAccreditationService {
       );
 
       if (event.status === 'DISABLE') {
-        throw new UnauthorizedException('Event disabled');
+        throw new ForbiddenException('Event disabled');
       }
 
       const eventParticipants = await this.prisma.eventParticipant.findMany({
@@ -123,16 +115,7 @@ export class EventProducerAccreditationService {
 
       return filteredResults.length > 0 ? filteredResults[0] : false;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -148,7 +131,7 @@ export class EventProducerAccreditationService {
       );
 
       if (event.status === 'DISABLE') {
-        throw new UnauthorizedException('Event disabled');
+        throw new ForbiddenException('Event disabled');
       }
 
       const participant = await this.findOne(event.id, participantId);
@@ -185,17 +168,7 @@ export class EventProducerAccreditationService {
 
       return `The participant  ${historic.status} the event`;
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -211,7 +184,7 @@ export class EventProducerAccreditationService {
       );
 
       if (event.status === 'DISABLE') {
-        throw new UnauthorizedException('Event disabled');
+        throw new ForbiddenException('Event disabled');
       }
 
       const participant = await this.findOne(event.id, participantId);
@@ -362,7 +335,7 @@ export class EventProducerAccreditationService {
       );
 
       if (event.status === 'DISABLE') {
-        throw new UnauthorizedException('Event disabled');
+        throw new ForbiddenException('Event disabled');
       }
 
       const participants = await this.prisma.eventParticipant.findMany({

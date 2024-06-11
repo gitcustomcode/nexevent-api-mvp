@@ -1,38 +1,63 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { UserEventParticipantCreateDto } from 'src/dtos/user-validation-response.dto';
 import { randomUUID } from 'crypto';
 import { EventParticipantStatus } from '@prisma/client';
+import { validateCPF } from 'src/utils/cpf-validator';
+import { z } from 'nestjs-zod/z';
+import { validateEmail } from 'src/utils/email-validator';
+import { validateBirth } from 'src/utils/date-validator';
 
 @Injectable()
 export class UserParticipantValidationService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findUserByEmail(email: string, body: UserEventParticipantCreateDto) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        email: email,
-      },
-      include: {
-        userFacials: {
-          orderBy: { expirationDate: 'desc' },
+    try {
+      const isEmail = validateEmail(email.toLowerCase());
+
+      if (!isEmail) {
+        throw new BadRequestException('Invalid email');
+      }
+
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email: email.toLowerCase(),
         },
-        userSocials: true,
-        userHobbie: true,
-      },
-    });
+        include: {
+          userFacials: {
+            orderBy: { expirationDate: 'desc' },
+          },
+          userSocials: true,
+          userHobbie: true,
+        },
+      });
 
-    if (!user) {
-      const userCreated = await this.createUserEventParticipant(email, body);
+      if (!user) {
+        const userCreated = await this.createUserEventParticipant(
+          email.toLowerCase(),
+          body,
+        );
 
-      return userCreated;
+        return userCreated;
+      }
+      if (body.document) {
+        const documentValid = validateCPF(body.document);
+        if (!documentValid) {
+          throw new BadRequestException('Invalid CPF document');
+        }
+      }
+
+      return user;
+    } catch (error) {
+      throw error;
     }
-
-    return user;
   }
 
   async createUserEventParticipant(
@@ -50,9 +75,23 @@ export class UserParticipantValidationService {
       state,
     } = body;
 
+    validateBirth(dateBirth, false);
+
+    if (country === 'Brasil' || phoneCountry === '55') {
+      const documentValid = validateCPF(document);
+      if (!documentValid) {
+        throw new UnprocessableEntityException('Invalid CPF document');
+      }
+    }
+    const validName = name.trim().split(' ');
+
+    if (validName.length < 2) {
+      throw new UnprocessableEntityException('Please provide a complete name');
+    }
+
     const user = await this.prisma.user.create({
       data: {
-        email,
+        email: email.toLowerCase(),
         cep,
         country,
         dateBirth,
@@ -91,8 +130,8 @@ export class UserParticipantValidationService {
 
   async updateEventTicketStatus(eventTicketId: string) {
     const eventTicket = await this.eventTicketExists(eventTicketId);
-
-    const status =
+    //ARRUMAR ESSA MERDA
+    /*  const status =
       eventTicket.guest == eventTicket.EventParticipant.length + 1
         ? 'FULL'
         : 'PART_FULL';
@@ -104,7 +143,7 @@ export class UserParticipantValidationService {
       data: {
         status: status,
       },
-    });
+    }); */
 
     return;
   }
@@ -121,8 +160,8 @@ export class UserParticipantValidationService {
     });
 
     if (
-      eventTicketLink.status === 'FULL' ||
-      eventTicketLink.eventTicket.status === 'FULL'
+      eventTicketLink.status === 'FULL'
+      //eventTicketLink.eventTicket.status === 'FULL' ALTERAR ESSA MERDA
     ) {
       throw new ConflictException('Ticket or Link already full');
     }

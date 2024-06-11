@@ -13,6 +13,7 @@ import { EventTicketUpdateDto } from './dto/event-ticket-producer-update.dto';
 import { EventTicketsResponse } from './dto/event-ticket-producer-response.dto';
 import { Prisma } from '@prisma/client';
 import { PaginationService } from 'src/services/paginate.service';
+import { StripeService } from 'src/services/stripe.service';
 
 @Injectable()
 export class EventTicketProducerService {
@@ -20,6 +21,7 @@ export class EventTicketProducerService {
     private readonly prisma: PrismaService,
     private readonly userProducerValidationService: UserProducerValidationService,
     private readonly paginationService: PaginationService,
+    private readonly stripe: StripeService,
   ) {}
 
   async createEventTicket(
@@ -28,12 +30,23 @@ export class EventTicketProducerService {
     body: EventTicketCreateDto,
   ): Promise<string> {
     try {
-      const { color, description, guestPerLink, links, price, title } = body;
+      const {
+        color,
+        description,
+        guestPerLink,
+        links,
+        price,
+        title,
+        passOnFee,
+        startAt,
+        endAt,
+        ticketReferersTitle,
+      } = body;
       const slug = generateSlug(title);
 
       const { event, sequential } =
         await this.userProducerValidationService.validateUserEventTicket(
-          userEmail,
+          userEmail.toLowerCase(),
           eventSlug,
           guestPerLink * links,
           slug,
@@ -46,6 +59,40 @@ export class EventTicketProducerService {
           invite: guestPerLink,
         });
       }
+      let ticketReferersId = null;
+      if (ticketReferersTitle) {
+        const ticketReferers = await this.prisma.eventTicket.findFirst({
+          where: {
+            eventId: event.id,
+            title: ticketReferersTitle,
+          },
+        });
+
+        if (!ticketReferers) {
+          throw new NotFoundException('Ticket referers not found');
+        }
+
+        ticketReferersId = ticketReferers.id;
+      }
+
+      let stripePriceId = null;
+
+      const printAutomatic = event.eventConfig[0].printAutomatic ? 2 : 0;
+      const credentialType = event.eventConfig[0].credentialType;
+      const credential =
+        credentialType === 'QRCODE'
+          ? 1
+          : credentialType === 'FACIAL'
+            ? 4
+            : credentialType === 'FACIAL_IN_SITE'
+              ? 3
+              : 0;
+
+      let newPrice = passOnFee ? price + printAutomatic + credential : price;
+      if (price > 0) {
+        const stripePrice = await this.stripe.createProduct(title, newPrice);
+        stripePriceId = stripePrice.id;
+      }
 
       await this.prisma.eventTicket.create({
         data: {
@@ -54,9 +101,6 @@ export class EventTicketProducerService {
           eventId: event.id,
           title,
           description,
-          price,
-          color,
-          guest: guestPerLink * links,
           eventTicketGuest: {
             createMany: {
               data: eventLinks,
@@ -67,16 +111,7 @@ export class EventTicketProducerService {
 
       return 'Ticket created successfully';
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -93,7 +128,7 @@ export class EventTicketProducerService {
 
       const { event } =
         await this.userProducerValidationService.validateUserEventTicket(
-          userEmail,
+          userEmail.toLowerCase(),
           eventSlug,
           guests,
           slug !== null ? slug : null,
@@ -108,25 +143,12 @@ export class EventTicketProducerService {
           slug,
           title,
           description,
-          price,
-          color,
-          guest: guests,
         },
       });
 
       return 'Ticket updated successfully';
     } catch (error) {
-      console.log(error);
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -139,7 +161,7 @@ export class EventTicketProducerService {
     try {
       const event = await this.userProducerValidationService.eventExists(
         eventSlug,
-        userEmail,
+        userEmail.toLowerCase(),
       );
 
       const where: Prisma.EventTicketWhereInput = {
@@ -150,7 +172,11 @@ export class EventTicketProducerService {
         where,
         include: {
           EventParticipant: true,
-          eventTicketGuest: true,
+          eventTicketGuest: {
+            include: {
+              eventParticipant: true,
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -175,13 +201,16 @@ export class EventTicketProducerService {
             id: ticket.id,
             title: ticket.title,
             status: ticket.status,
-            price: Number(ticket.price),
-            guest: ticket.guest,
+            price: 10,
+            guest: 10,
             participantsCount: ticket.EventParticipant.length,
             links: ticket.eventTicketGuest.map((link) => {
               return {
                 id: link.id,
                 status: link.status,
+                limit: link.invite,
+                used: link.eventParticipant.length,
+                limitUsed: `${link.eventParticipant.length}/${link.invite}`,
               };
             }),
           };
@@ -192,16 +221,7 @@ export class EventTicketProducerService {
 
       return response;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 }

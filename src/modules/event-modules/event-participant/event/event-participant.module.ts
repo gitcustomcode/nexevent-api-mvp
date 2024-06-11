@@ -10,6 +10,8 @@ import variables from 'src/variables';
 import { EmailService } from 'src/services/email.service';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import { PaginationService } from 'src/services/paginate.service';
+import { FaceValidationService } from 'src/services/face-validation.service';
+import { StripeService } from 'src/services/stripe.service';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { PaginationService } from 'src/services/paginate.service';
     EmailService,
     ClickSignApiService,
     PaginationService,
+    FaceValidationService,
+    StripeService,
   ],
 })
 export class EventParticipantModule {}

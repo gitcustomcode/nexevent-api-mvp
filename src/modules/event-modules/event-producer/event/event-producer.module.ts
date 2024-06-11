@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import variables from 'src/variables';
 import { PaginationService } from 'src/services/paginate.service';
 import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
+import { StripeService } from 'src/services/stripe.service';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { EventTicketProducerService } from '../event-ticket/event-ticket-produce
     UserProducerValidationService,
     StorageService,
     PaginationService,
+    StripeService,
     EventTicketProducerService,
   ],
 })

@@ -6,6 +6,7 @@ import { UserProducerValidationService } from 'src/services/user-producer-valida
 import { AuthService } from 'src/modules/auth-modules/auth/auth.service';
 import { ConfigService } from '@nestjs/config';
 import { StorageService } from 'src/services/storage.service';
+import { FaceValidationService } from 'src/services/face-validation.service';
 
 @Module({
   controllers: [UserProducerController],
@@ -16,6 +17,7 @@ import { StorageService } from 'src/services/storage.service';
     AuthService,
     ConfigService,
     StorageService,
+    FaceValidationService,
   ],
 })
 export class UserProducerModule {}

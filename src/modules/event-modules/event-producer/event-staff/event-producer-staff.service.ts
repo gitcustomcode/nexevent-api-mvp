@@ -31,7 +31,7 @@ export class EventProducerStaffService {
     try {
       const event = await this.userProducerValidationService.eventExists(
         eventSlug,
-        userEmail,
+        userEmail.toLowerCase(),
       );
 
       const staffsFormattedPromises = body.map(async (staff) => {
@@ -39,7 +39,7 @@ export class EventProducerStaffService {
         const hashedPassword = await hash(staff.password, salt);
         return {
           eventId: event.id,
-          email: staff.email,
+          email: staff.email.toLowerCase(),
           password: hashedPassword,
           originalPassword: staff.password,
         };
@@ -56,14 +56,14 @@ export class EventProducerStaffService {
       const existingEmails = new Set(staffsExists.map((staff) => staff.email));
 
       const staffsToInsert = staffsFormatted.filter(
-        (staff) => !existingEmails.has(staff.email),
+        (staff) => !existingEmails.has(staff.email.toLowerCase()),
       );
 
       if (staffsToInsert.length > 0) {
         const staffs = staffsToInsert.map((staff) => {
           return {
             eventId: event.id,
-            email: staff.email,
+            email: staff.email.toLowerCase(),
             password: staff.password,
           };
         });
@@ -74,7 +74,7 @@ export class EventProducerStaffService {
 
         staffsToInsert.map(async (staff) => {
           const data = {
-            to: staff.email,
+            to: staff.email.toLowerCase(),
             name: staff.email,
             type: 'staffGuest',
           };
@@ -87,7 +87,7 @@ export class EventProducerStaffService {
             invictaClub: '',
             qrCode: '',
             qrCodeHtml: '',
-            staffEmail: staff.email,
+            staffEmail: staff.email.toLowerCase(),
             staffPassword: staff.originalPassword,
             startDate: new Date(),
             ticketName: '',
@@ -99,16 +99,7 @@ export class EventProducerStaffService {
         return 'Nenhum novo staff para inserir.';
       }
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -121,7 +112,7 @@ export class EventProducerStaffService {
     try {
       const event = await this.userProducerValidationService.eventExists(
         eventSlug,
-        userEmail,
+        userEmail.toLowerCase(),
       );
 
       const where: Prisma.EventStaffWhereInput = {
@@ -146,7 +137,7 @@ export class EventProducerStaffService {
         data: eventStaffs.map((staff) => {
           return {
             id: staff.id,
-            email: staff.email,
+            email: staff.email.toLowerCase(),
           };
         }),
 
@@ -155,16 +146,7 @@ export class EventProducerStaffService {
 
       return response;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -178,7 +160,7 @@ export class EventProducerStaffService {
     try {
       const event = await this.userProducerValidationService.eventExists(
         eventSlug,
-        userEmail,
+        userEmail.toLowerCase(),
       );
 
       const staffExists = await this.prisma.eventStaff.findUnique({
@@ -191,7 +173,7 @@ export class EventProducerStaffService {
       if (staffEmail) {
         const staffEmailExists = await this.prisma.eventStaff.findFirst({
           where: {
-            email: staffEmail,
+            email: staffEmail.toLowerCase(),
             eventId: event.id,
           },
         });
@@ -214,7 +196,9 @@ export class EventProducerStaffService {
           eventId: event.id,
         },
         data: {
-          email: staffEmail ? staffEmail : staffExists.email,
+          email: staffEmail
+            ? staffEmail.toLowerCase()
+            : staffExists.email.toLowerCase(),
           password:
             hashedPassword !== null ? hashedPassword : staffExists.password,
         },
@@ -222,16 +206,7 @@ export class EventProducerStaffService {
 
       return `Staff updated successfully`;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 
@@ -243,7 +218,7 @@ export class EventProducerStaffService {
     try {
       const event = await this.userProducerValidationService.eventExists(
         eventSlug,
-        userEmail,
+        userEmail.toLowerCase(),
       );
 
       await this.prisma.eventStaff.delete({
@@ -255,16 +230,7 @@ export class EventProducerStaffService {
 
       return `Staff deleted successfully`;
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException(error);
+      throw error;
     }
   }
 }
