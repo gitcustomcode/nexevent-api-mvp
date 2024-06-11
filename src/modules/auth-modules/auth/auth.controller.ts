@@ -54,6 +54,22 @@ export class AuthController {
     @Query('userEmail') userEmail: string,
     @Query('userPassword') userPassword: string,
   ): Promise<String> {
+    const string = `vbvcbcv&nbsp;
+    <div><br></div><div>
+    <img src="blob:http://localhost:5173/40755f1f-d989-4098-aa78-9878c837aee7" id="Screenshot_2">
+    <img src="blob:http://localhost:5173/28e8c8d6-5c77-4e78-8eb4-f44c8ad07782" id="kueras">
+    </div><div><br></div><div>dsadsa&nbsp;
+    </div><div>dsadas&nbsp;</div><div>
+    &nbsp;sadsadsa saddad dsds</div>`;
+
+    const newSrc = 'https://example.com/img2';
+    const test = 'Screenshot_2';
+
+    const regex = new RegExp(`(<img\\s+[^>]*src=")[^"]*("[^>]*id="${test}">)`);
+    const updatedString = string.replace(regex, `$1${newSrc}$2`);
+
+    console.log(updatedString);
+
     return await this.authService.login(userEmail, userPassword);
   }
 

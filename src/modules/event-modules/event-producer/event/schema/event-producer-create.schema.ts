@@ -1,4 +1,4 @@
-import { CredentialType } from '@prisma/client';
+import { CredentialType, EventLocation } from '@prisma/client';
 import { z } from 'nestjs-zod/z';
 
 function parseDate(value: string): Date {
@@ -11,7 +11,7 @@ function parseDate(value: string): Date {
 
 export const EventCreateSchema = z.object({
   title: z.string().describe('Event name'),
-  subtitle: z.string().describe('Event subtitle'),
+  description: z.string().describe('Event description'),
   eventPublic: z.boolean().default(true).describe('Event public'),
   startAt: z
     .string()
@@ -34,7 +34,12 @@ export const EventCreateSchema = z.object({
     .default(new Date().toDateString())
     .describe('Event publish end date'),
   category: z.string().describe('Event category'),
-  location: z.string().describe('Event location'),
+  location: z.nativeEnum(EventLocation).describe('Event location type'),
+  latitude: z.string().nullish(),
+  longitude: z.string().nullish(),
+  sellOnThePlatform: z.boolean(),
+  taxToClient: z.boolean(),
+
   eventSchedule: z.array(
     z.object({
       date: z.string().describe('Event schedule day'),
@@ -43,19 +48,23 @@ export const EventCreateSchema = z.object({
       description: z.string().describe('Event schedule description'),
     }),
   ),
+
   eventConfig: z.object({
     printAutomatic: z.boolean(),
     credentialType: z.nativeEnum(CredentialType),
-    limit: z.number(),
   }),
+
   eventTickets: z.array(
     z.object({
       title: z.string().describe('Ticket title'),
       description: z.string().describe('Ticket description'),
       price: z.number().describe('Ticket price'),
       color: z.string().describe('Ticket color'),
-      links: z.number().describe('Ticket links generate'),
-      guestPerLink: z.number().describe('Ticket link guest per link'),
+      guests: z.number().describe('Ticket guest limit'),
+      startAt: z.date().describe('Ticket start selling'),
+      endAt: z.date().describe('Ticket end selling'),
+      ticketReferersTitle: z.string().nullish(),
+      passOnFee: z.boolean(),
     }),
   ),
 });
