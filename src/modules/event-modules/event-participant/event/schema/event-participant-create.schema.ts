@@ -21,3 +21,13 @@ export const EventParticipantCreateNetworksSchema = z.array(
     username: z.string().describe('User network name'),
   }),
 );
+
+export const EventTicketSellSchema = z.object({
+  eventSlug: z.string(),
+  eventTickets: z.array(
+    z.object({
+      ticketId: z.string(),
+      ticketQuantity: z.number(),
+    }),
+  ),
+});

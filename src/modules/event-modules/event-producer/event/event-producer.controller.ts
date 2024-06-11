@@ -302,33 +302,6 @@ export class EventProducerController {
     );
   }
 
-  @Patch('v1/event-producer/:eventId/payment/')
-  @ApiBearerAuth()
-  @UseGuards(AuthUserGuard)
-  @ApiOperation({ summary: 'Payment event' })
-  @ApiResponse({
-    description: 'Payment successful',
-    type: String,
-  })
-  @ApiBadRequestResponse({ description: 'Bad request' })
-  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
-  @ApiParam({
-    name: 'eventId',
-    required: true,
-    type: String,
-  })
-  @ApiQuery({
-    name: 'eventCostId',
-    required: true,
-    type: Number,
-  })
-  async paidEventCost(
-    @Param('eventId') eventId: string,
-    @Query('eventCostId') eventCostId: number,
-  ): Promise<string> {
-    return this.eventProducerService.paidEventCost(eventId, eventCostId);
-  }
-
   @Patch('v1/event-producer/:slug/update-event/')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
@@ -354,28 +327,5 @@ export class EventProducerController {
   ): Promise<string> {
     const email = req.auth.user.email;
     return this.eventProducerService.updateEvent(email, slug, body);
-  }
-
-  @Patch('v1/event-producer/:slug/upgrade-event/')
-  @ApiBearerAuth()
-  @UseGuards(AuthUserGuard)
-  @ApiOperation({ summary: 'Upgrade event' })
-  @ApiBadRequestResponse({ description: 'Bad request' })
-  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
-  @ApiParam({
-    name: 'slug',
-    required: true,
-    type: String,
-  })
-  @ApiBody({
-    type: EventProducerUpgradeDto,
-  })
-  async upgradeEvent(
-    @Request() req: any,
-    @Param('slug') slug: string,
-    @Body() body: EventProducerUpgradeDto,
-  ) {
-    const email = req.auth.user.email;
-    return this.eventProducerService.upgradeEvent(email, slug, body);
   }
 }

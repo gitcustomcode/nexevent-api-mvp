@@ -55,6 +55,7 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "sdk-node-typescript-zapsign": "^1.0.3",
+    "stripe": "^15.9.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^4.6.3",
     "uuid": "^9.0.1"

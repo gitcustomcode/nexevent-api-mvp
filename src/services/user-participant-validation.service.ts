@@ -130,8 +130,8 @@ export class UserParticipantValidationService {
 
   async updateEventTicketStatus(eventTicketId: string) {
     const eventTicket = await this.eventTicketExists(eventTicketId);
-
-    const status =
+    //ARRUMAR ESSA MERDA
+    /*  const status =
       eventTicket.guest == eventTicket.EventParticipant.length + 1
         ? 'FULL'
         : 'PART_FULL';
@@ -143,7 +143,7 @@ export class UserParticipantValidationService {
       data: {
         status: status,
       },
-    });
+    }); */
 
     return;
   }
@@ -160,8 +160,8 @@ export class UserParticipantValidationService {
     });
 
     if (
-      eventTicketLink.status === 'FULL' ||
-      eventTicketLink.eventTicket.status === 'FULL'
+      eventTicketLink.status === 'FULL'
+      //eventTicketLink.eventTicket.status === 'FULL' ALTERAR ESSA MERDA
     ) {
       throw new ConflictException('Ticket or Link already full');
     }
