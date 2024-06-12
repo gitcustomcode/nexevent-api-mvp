@@ -104,8 +104,8 @@ export class EventParticipantService {
         data: {
           eventId: event.id,
           eventTicketLinkId: eventTicketLink.id,
-          eventTicketPriceId: 'ALTERAR ESSA CARALHA DEPOIS',
-          eventTicketId: eventTicketLink.eventTicket.id,
+          eventTicketPriceId: eventTicketLink.eventTicketPriceId,
+          eventTicketId: eventTicketLink.eventTicketId,
           qrcode,
           sequential: sequential + 1,
           userId: user.id,
