@@ -283,6 +283,8 @@ model EventTicket {
   sequential  Int
   title       String
   description String?
+  isPrivate   Boolean           @default(false) @map("is_private")
+  isFree      Boolean           @default(false) @map("is_free")
   status      EventTicketStatus @default(ENABLE)
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
@@ -301,7 +303,6 @@ model EventTicketPrice {
   eventTicketId  String                 @map("event_ticket_id")
   stripePriceId  String?                @map("stripe_price_id")
   status         EventTicketPriceStatus @default(ENABLE)
-  isFree         Boolean                @default(false) @map("is_free")
   isPromotion    Boolean                @default(false) @map("is_promotion")
   batch          Int //lote
   guests         Int

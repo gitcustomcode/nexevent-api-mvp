@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { EventTicketCreateDto } from './dto/event-ticket-producer-create.dto';
@@ -14,6 +8,7 @@ import { EventTicketsResponse } from './dto/event-ticket-producer-response.dto';
 import { Prisma } from '@prisma/client';
 import { PaginationService } from 'src/services/paginate.service';
 import { StripeService } from 'src/services/stripe.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class EventTicketProducerService {
@@ -30,83 +25,104 @@ export class EventTicketProducerService {
     body: EventTicketCreateDto,
   ): Promise<string> {
     try {
-      const {
-        color,
-        description,
-        guestPerLink,
-        links,
-        price,
-        title,
-        passOnFee,
-        startAt,
-        endAt,
-        ticketReferersTitle,
-      } = body;
+      const { description, title, isFree, isPrivate, eventTicketPrices } = body;
       const slug = generateSlug(title);
+      const ticketId = randomUUID();
 
       const { event, sequential } =
         await this.userProducerValidationService.validateUserEventTicket(
           userEmail.toLowerCase(),
           eventSlug,
-          guestPerLink * links,
           slug,
         );
 
-      const eventLinks = [];
+      const eventLinks: Prisma.EventTicketLinkCreateManyInput[] = [];
+      const eventTicketPricesArr: Prisma.EventTicketPriceCreateManyInput[] = [];
 
-      for (let i = 0; i < links; i++) {
-        eventLinks.push({
-          invite: guestPerLink,
-        });
-      }
-      let ticketReferersId = null;
-      if (ticketReferersTitle) {
-        const ticketReferers = await this.prisma.eventTicket.findFirst({
-          where: {
-            eventId: event.id,
-            title: ticketReferersTitle,
-          },
-        });
+      if (isFree === false) {
+        const printAutomatic = event.eventConfig[0].printAutomatic ? 2 : 0;
+        const credentialType = event.eventConfig[0].credentialType;
+        const credential =
+          credentialType === 'QRCODE'
+            ? 1
+            : credentialType === 'FACIAL'
+              ? 4
+              : credentialType === 'FACIAL_IN_SITE'
+                ? 3
+                : 0;
 
-        if (!ticketReferers) {
-          throw new NotFoundException('Ticket referers not found');
-        }
+        await Promise.all(
+          eventTicketPrices.map(async (ticketPrice) => {
+            let newPrice = ticketPrice.passOnFee
+              ? ticketPrice.price + printAutomatic + credential
+              : ticketPrice.price;
 
-        ticketReferersId = ticketReferers.id;
-      }
+            const currency = ticketPrice.currency;
 
-      let stripePriceId = null;
+            if (
+              currency === 'brl' ||
+              currency === 'usd' ||
+              currency === 'eur'
+            ) {
+              if (ticketPrice.price > 0) {
+                const newTitle = `${title} - Lote ${ticketPrice.batch} ${ticketPrice.isPromotion ? 'Promoção' : ''}`;
 
-      const printAutomatic = event.eventConfig[0].printAutomatic ? 2 : 0;
-      const credentialType = event.eventConfig[0].credentialType;
-      const credential =
-        credentialType === 'QRCODE'
-          ? 1
-          : credentialType === 'FACIAL'
-            ? 4
-            : credentialType === 'FACIAL_IN_SITE'
-              ? 3
-              : 0;
+                const stripePrice = await this.stripe.createProduct(
+                  newTitle,
+                  newPrice,
+                  currency.toUpperCase(),
+                );
 
-      let newPrice = passOnFee ? price + printAutomatic + credential : price;
-      if (price > 0) {
-        const stripePrice = await this.stripe.createProduct(title, newPrice);
-        stripePriceId = stripePrice.id;
+                eventTicketPricesArr.push({
+                  eventTicketId: ticketId,
+                  batch: ticketPrice.batch,
+                  guests: ticketPrice.guests,
+                  guestBonus: ticketPrice.guestBonus,
+                  price: newPrice,
+                  isPromotion: ticketPrice.isPromotion,
+                  passOnFee: ticketPrice.passOnFee,
+                  endPublishAt: ticketPrice.endPublishAt,
+                  startPublishAt: ticketPrice.startPublishAt,
+                  stripePriceId: stripePrice.id.toString(),
+                });
+              }
+            } else {
+              throw new UnprocessableEntityException(`Currency not accepted`);
+            }
+          }),
+        );
+      } else {
+        await Promise.all(
+          eventTicketPrices.map(async (ticketPrice) => {
+            eventTicketPricesArr.push({
+              eventTicketId: ticketId,
+              batch: ticketPrice.batch,
+              guests: ticketPrice.guests,
+              guestBonus: ticketPrice.guestBonus,
+              price: ticketPrice.price,
+              isPromotion: ticketPrice.isPromotion,
+              passOnFee: ticketPrice.passOnFee,
+              endPublishAt: ticketPrice.endPublishAt,
+              startPublishAt: ticketPrice.startPublishAt,
+              stripePriceId: null,
+            });
+          }),
+        );
       }
 
       await this.prisma.eventTicket.create({
         data: {
+          id: ticketId,
           slug,
           sequential,
           eventId: event.id,
           title,
           description,
-          eventTicketGuest: {
-            createMany: {
-              data: eventLinks,
-            },
-          },
         },
+      });
+
+      await this.prisma.eventTicketPrice.createMany({
+        data: eventTicketPricesArr,
       });
 
       return 'Ticket created successfully';
@@ -130,7 +146,6 @@ export class EventTicketProducerService {
         await this.userProducerValidationService.validateUserEventTicket(
           userEmail.toLowerCase(),
           eventSlug,
-          guests,
           slug !== null ? slug : null,
         );
 
