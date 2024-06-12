@@ -1,9 +1,6 @@
-import {
-  BadRequestException,
-  ConflictException,
+import {  BadRequestException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { EventParticipantStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -18,9 +15,6 @@ import {
   StorageService,
   StorageServiceType,
 } from 'src/services/storage.service';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { EmailService } from 'src/services/email.service';
-import * as QRCode from 'qrcode';
 import {
   FindAllPublicEvents,
   FindEventInfoDto,
@@ -44,7 +38,6 @@ export class EventParticipantService {
     private readonly prisma: PrismaService,
     private readonly userParticipantValidationService: UserParticipantValidationService,
     private readonly storageService: StorageService,
-    private readonly emailService: EmailService,
     private readonly clickSignApiService: ClickSignApiService,
     private readonly paginationService: PaginationService,
     private readonly faceValidationService: FaceValidationService,
@@ -599,21 +592,16 @@ export class EventParticipantService {
       const lineItems: CheckoutSessionEventParticipantDto = [];
 
       eventTickets.forEach(async (ticket) => {
-        const ticketExist = await this.prisma.eventTicket.findUnique({
+        const ticketPriceExist = await this.prisma.eventTicketPrice.findUnique({
           where: {
-            id: ticket.ticketId,
-            eventId: event.id,
-          },
-          include: {
-            eventTicketPrice: true,
+            id: ticket.ticketPriceId,
           },
         });
 
-        if (!ticketExist) throw new NotFoundException('Ticket not found');
+        if (!ticketPriceExist) throw new NotFoundException('Ticket not found');
 
         lineItems.push({
-          //ALTERAR ISSO DEPOIS TAMBEM
-          price: ticketExist.eventTicketPrice[0].stripePriceId,
+          price: ticketPriceExist.stripePriceId,
           quantity: ticket.ticketQuantity,
         });
       });
@@ -717,73 +705,5 @@ export class EventParticipantService {
     } catch (error) {
       throw error;
     }
-  }
-
-  @Cron(CronExpression.EVERY_30_SECONDS, {
-    name: 'eventParticipantSendEmails',
-  })
-  async sendCronEmail() {
-    const eventParticipants = await this.prisma.eventParticipant.findMany({
-      where: {
-        sendEmailAt: null,
-      },
-      take: 1,
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-            document: true,
-          },
-        },
-        event: {
-          select: {
-            title: true,
-            startAt: true,
-            endAt: true,
-            description: true,
-          },
-        },
-        eventTicket: {
-          select: {
-            title: true,
-          },
-        },
-      },
-    });
-
-    eventParticipants.forEach(async (eventParticipant) => {
-      const { user, event, eventTicket } = eventParticipant;
-      const { name, email } = user;
-      const { startAt, endAt, description, title: nameEvent } = event;
-      const { title: nameTicket } = eventTicket;
-
-      const qrCodeBase64 = await QRCode.toDataURL(eventParticipant.qrcode);
-
-      const data = {
-        to: email.toLowerCase(),
-        name: name,
-        type: 'sendEmailParticipantQRcode',
-      };
-
-      this.emailService.sendEmail(data, {
-        eventName: nameEvent,
-        ticketName: nameTicket,
-        description: description,
-        startDate: startAt,
-        endDate: endAt,
-        qrCodeHtml: qrCodeBase64,
-        qrCode: eventParticipant.qrcode,
-        invictaClub: '',
-        eventSlug: '',
-        staffEmail: '',
-        staffPassword: '',
-      });
-
-      await this.prisma.eventParticipant.update({
-        where: { id: eventParticipant.id },
-        data: { sendEmailAt: new Date() },
-      });
-    });
   }
 }
