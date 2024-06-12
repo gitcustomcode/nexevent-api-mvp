@@ -79,7 +79,7 @@ export class UserProducerService {
   async finishSignUp(
     email: string,
     body: UserProducerFinishSignUpDto,
-  ): Promise<String> {
+  ): Promise<string> {
     try {
       const emailExists =
         await this.userProducerValidationService.findUserByEmail(email);

@@ -1,0 +1,39 @@
+# EditorConfig ajuda a manter estilos de codificação consistentes entre diferentes editores e IDEs
+root = true
+
+# Aplicar configurações padrão a todos os arquivos
+[*]
+end_of_line = cr
+insert_final_newline = true
+charset = utf-8
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = true
+
+# Aplicar configurações específicas para arquivos TypeScript
+[*.ts]
+end_of_line = cr
+
+# Aplicar configurações específicas para arquivos JSON
+[*.json]
+indent_style = space
+indent_size = 2
+
+# Aplicar configurações específicas para arquivos YAML
+[*.yaml]
+indent_style = space
+indent_size = 2
+
+# Aplicar configurações específicas para arquivos Markdown
+[*.md]
+trim_trailing_whitespace = false
+
+# Aplicar configurações específicas para arquivos HTML
+[*.html]
+indent_style = space
+indent_size = 2
+
+# Aplicar configurações específicas para arquivos CSS e SCSS
+[*.css, *.scss]
+indent_style = space
+indent_size = 2
