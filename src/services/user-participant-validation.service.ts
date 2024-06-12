@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -111,39 +110,62 @@ export class UserParticipantValidationService {
     return user;
   }
 
-  async eventTicketExists(eventTicketId: string) {
-    const eventTicket = await this.prisma.eventTicket.findUnique({
+  async eventTicketPriceExists(eventTicketPriceId: string) {
+    const eventTicketPrice = await this.prisma.eventTicketPrice.findUnique({
       where: {
-        id: eventTicketId,
+        id: eventTicketPriceId,
+      },
+      include: {
+        EventParticipant: true,
+        eventTicket: true,
+      },
+    });
+
+    const prevBatch = await this.prisma.eventTicketPrice.findFirst({
+      where: {
+        batch: eventTicketPrice.batch - 1,
+        eventTicketId: eventTicketPrice.eventTicketId,
       },
       include: {
         EventParticipant: true,
       },
     });
 
-    if (!eventTicket) {
+    if (!eventTicketPrice) {
       throw new NotFoundException('Event Ticket not found');
     }
 
-    return eventTicket;
+    if (
+      (prevBatch.status !== 'FULL' && prevBatch.status !== 'DISABLE') ||
+      prevBatch.endPublishAt < new Date()
+    ) {
+      throw new BadRequestException('The previous batch is still available');
+    }
+
+    if (eventTicketPrice.startPublishAt > new Date()) {
+      throw new BadRequestException('The batch not available');
+    }
+
+    return eventTicketPrice;
   }
 
-  async updateEventTicketStatus(eventTicketId: string) {
-    const eventTicket = await this.eventTicketExists(eventTicketId);
-    //ARRUMAR ESSA MERDA
-    /*  const status =
-      eventTicket.guest == eventTicket.EventParticipant.length + 1
+  async updateEventTicketPriceStatus(eventTicketPriceId: string) {
+    const eventTicketPrice =
+      await this.eventTicketPriceExists(eventTicketPriceId);
+
+    const status =
+      eventTicketPrice.guests == eventTicketPrice.EventParticipant.length + 1
         ? 'FULL'
         : 'PART_FULL';
 
-    await this.prisma.eventTicket.update({
+    await this.prisma.eventTicketPrice.update({
       where: {
-        id: eventTicketId,
+        id: eventTicketPriceId,
       },
       data: {
         status: status,
       },
-    }); */
+    });
 
     return;
   }
@@ -156,12 +178,13 @@ export class UserParticipantValidationService {
       include: {
         eventParticipant: true,
         eventTicket: true,
+        eventTicketPrice: true,
       },
     });
 
     if (
-      eventTicketLink.status === 'FULL'
-      //eventTicketLink.eventTicket.status === 'FULL' ALTERAR ESSA MERDA
+      eventTicketLink.status === 'FULL' ||
+      eventTicketLink.eventTicketPrice.status === 'FULL'
     ) {
       throw new ConflictException('Ticket or Link already full');
     }
@@ -202,7 +225,7 @@ export class UserParticipantValidationService {
       },
     });
 
-    await this.updateEventTicketStatus(eventTicketLink.eventTicketId);
+    await this.updateEventTicketPriceStatus(eventTicketLink.eventTicketPriceId);
 
     return eventTicketLinkUpdated;
   }

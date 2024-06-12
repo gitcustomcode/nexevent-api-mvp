@@ -1,4 +1,5 @@
-import { Cron, CronExpression } from '@nestjs/schedule';import { PrismaService } from 'src/services/prisma.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { PrismaService } from 'src/services/prisma.service';
 import { EventParticipant, Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { dateString } from 'nestjs-zod/z';
@@ -25,6 +26,10 @@ export class EventParticipantCronService {
         },
       });
 
+    if (usersNotPaymentBy10Minutes.length == 0) {
+      return;
+    }
+
     const idsToDelete = usersNotPaymentBy10Minutes.map((user) => user.id);
 
     await this.prisma.eventParticipant.updateMany({
@@ -38,8 +43,6 @@ export class EventParticipantCronService {
       },
     });
 
-    console.log(
-      `Deleted ${idsToDelete.length} participants not paid by 10 minutes.`,
-    );
+    return;
   }
 }
