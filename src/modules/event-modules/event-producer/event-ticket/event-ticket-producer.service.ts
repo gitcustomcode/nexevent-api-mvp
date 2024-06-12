@@ -1,5 +1,4 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
-import { PrismaService } from 'src/services/prisma.service';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { EventTicketCreateDto } from './dto/event-ticket-producer-create.dto';
 import { generateSlug } from 'src/utils/generate-slug';
@@ -52,7 +51,7 @@ export class EventTicketProducerService {
                 : 0;
 
         await Promise.all(
-          eventTicketPrices.map(async (ticketPrice) => {
+          eventTicketPrices.map(async (ticketPrice, index) => {
             let newPrice = ticketPrice.passOnFee
               ? ticketPrice.price + printAutomatic + credential
               : ticketPrice.price;
@@ -78,7 +77,7 @@ export class EventTicketProducerService {
                 eventTicketPricesArr.push({
                   id: eventTicketPriceId,
                   eventTicketId: ticketId,
-                  batch: ticketPrice.batch,
+                  batch: index + 1,
                   guests: ticketPrice.guests,
                   guestBonus: ticketPrice.guestBonus,
                   price: newPrice,
@@ -104,11 +103,11 @@ export class EventTicketProducerService {
         const eventTicketPriceId = randomUUID();
 
         await Promise.all(
-          eventTicketPrices.map(async (ticketPrice) => {
+          eventTicketPrices.map(async (ticketPrice, index) => {
             eventTicketPricesArr.push({
               id: eventTicketPriceId,
               eventTicketId: ticketId,
-              batch: ticketPrice.batch,
+              batch: index + 1,
               guests: ticketPrice.guests,
               guestBonus: ticketPrice.guestBonus,
               price: ticketPrice.price,
@@ -136,6 +135,7 @@ export class EventTicketProducerService {
           eventId: event.id,
           title,
           description,
+          isPrivate,
         },
       });
 
