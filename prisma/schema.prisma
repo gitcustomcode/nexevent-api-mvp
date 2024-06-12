@@ -356,6 +356,7 @@ model EventParticipant {
   sendEmailAt         DateTime?              @map("send_email_at")
   createdAt           DateTime               @default(now()) @map("created_at")
   updatedAt           DateTime               @updatedAt @map("updated_at")
+  deletedAt           DateTime?
 
   user                     User                       @relation(fields: [userId], references: [id])
   eventTicket              EventTicket                @relation(fields: [eventTicketId], references: [id])
