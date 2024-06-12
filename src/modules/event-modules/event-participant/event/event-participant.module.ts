@@ -1,5 +1,4 @@
-import { Module } from '@nestjs/common';
-import { EventParticipantController } from './event-participant.controller';
+import { Module } from '@nestjs/common';import { EventParticipantController } from './event-participant.controller';
 import { EventParticipantService } from './event-participant.service';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserParticipantValidationService } from 'src/services/user-participant-validation.service';
@@ -25,7 +24,6 @@ import { StripeService } from 'src/services/stripe.service';
     PrismaService,
     UserParticipantValidationService,
     StorageService,
-    EmailService,
     ClickSignApiService,
     PaginationService,
     FaceValidationService,
