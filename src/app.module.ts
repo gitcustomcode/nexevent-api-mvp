@@ -13,6 +13,7 @@ import { OtpModule } from './modules/otp-modules/otp/otp.module';
 import { EventProducerAccreditationModule } from './modules/event-modules/event-producer/event-accreditation/event-producer-accreditation.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EventProducerStaffModule } from './modules/event-modules/event-producer/event-staff/event-producer-staff.module';
+import { EventParticipantCronModule } from './modules/cron-modules/event-participant-cron/event-participant-cron.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { EventProducerStaffModule } from './modules/event-modules/event-producer
     OtpModule,
     EventProducerAccreditationModule,
     EventProducerStaffModule,
+    EventParticipantCronModule,
   ],
   controllers: [],
   providers: [
