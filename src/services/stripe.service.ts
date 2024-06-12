@@ -8,11 +8,11 @@ export class StripeService {
   stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   constructor() {}
 
-  async createProduct(name: string, amount: number) {
+  async createProduct(name: string, amount: number, currency: string) {
     const product = await this.stripe.products.create({
       name,
       default_price_data: {
-        currency: 'BRL',
+        currency: currency,
         unit_amount: amount * 100,
       },
     });

@@ -91,6 +91,11 @@ export class EventProducerService {
         );
       }
 
+      if (location === 'ONLINE') {
+        eventConfig.credentialType = 'QRCODE';
+        eventConfig.printAutomatic = false;
+      }
+
       const slug = generateSlug(title);
 
       const user = await this.userProducerValidationService.eventNameExists(
@@ -116,12 +121,33 @@ export class EventProducerService {
       let stripeCheckoutUrl = null;
       let eventLimit = 20;
       let eventType: EventType = 'FREE';
+      let ticketPriceNegative = false;
+
+      const printAutomatic = eventConfig.printAutomatic ? 2 : 0;
+      const credentialType = eventConfig.credentialType;
+      const credential =
+        credentialType === 'QRCODE'
+          ? 1
+          : credentialType === 'FACIAL'
+            ? 4
+            : credentialType === 'FACIAL_IN_SITE'
+              ? 3
+              : 0;
+
+      const fee = printAutomatic + credential;
 
       eventTickets.map((ticket) => {
-        eventLimit += ticket.guests;
+        ticket.eventTicketPrices.map((ticketPrice) => {
+          eventLimit += ticketPrice.guests;
+          const price = ticketPrice.price;
+
+          if (price - fee < 0 && !ticketPrice.passOnFee) {
+            ticketPriceNegative = true;
+          }
+        });
       });
 
-      if (!taxToClient && eventLimit > 20) {
+      if ((!taxToClient && eventLimit > 20) || ticketPriceNegative) {
         const checkoutSession = await this.stripe.checkoutSessionEventProducer(
           eventLimit,
           eventConfig.printAutomatic,
@@ -171,15 +197,10 @@ export class EventProducerService {
       for (const ticket of eventTickets) {
         const body: EventTicketCreateDto = {
           title: ticket.title,
-          color: ticket.color,
           description: ticket.description,
-          price: ticket.price,
-          links: 1,
-          guestPerLink: ticket.guests,
-          passOnFee: ticket.passOnFee,
-          startAt: ticket.startAt,
-          endAt: ticket.endAt,
-          ticketReferersTitle: ticket.ticketReferersTitle,
+          isFree: ticket.isFree,
+          isPrivate: ticket.isPrivate,
+          eventTicketPrices: ticket.eventTicketPrices,
         };
 
         await this.eventTicketProducerService.createEventTicket(
