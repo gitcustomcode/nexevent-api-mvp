@@ -141,7 +141,7 @@ export class EventProducerService {
           eventLimit += ticketPrice.guests;
           const price = ticketPrice.price;
 
-          if (price - fee < 0) {
+          if (price - fee < 0 && !ticketPrice.passOnFee) {
             ticketPriceNegative = true;
           }
         });

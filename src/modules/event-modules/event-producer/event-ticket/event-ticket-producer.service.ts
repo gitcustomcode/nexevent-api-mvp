@@ -73,7 +73,10 @@ export class EventTicketProducerService {
                   currency.toUpperCase(),
                 );
 
+                const eventTicketPriceId = randomUUID();
+
                 eventTicketPricesArr.push({
+                  id: eventTicketPriceId,
                   eventTicketId: ticketId,
                   batch: ticketPrice.batch,
                   guests: ticketPrice.guests,
@@ -85,6 +88,12 @@ export class EventTicketProducerService {
                   startPublishAt: ticketPrice.startPublishAt,
                   stripePriceId: stripePrice.id.toString(),
                 });
+
+                eventLinks.push({
+                  eventTicketId: ticketId,
+                  eventTicketPriceId: eventTicketPriceId,
+                  invite: ticketPrice.guests,
+                });
               }
             } else {
               throw new UnprocessableEntityException(`Currency not accepted`);
@@ -92,9 +101,12 @@ export class EventTicketProducerService {
           }),
         );
       } else {
+        const eventTicketPriceId = randomUUID();
+
         await Promise.all(
           eventTicketPrices.map(async (ticketPrice) => {
             eventTicketPricesArr.push({
+              id: eventTicketPriceId,
               eventTicketId: ticketId,
               batch: ticketPrice.batch,
               guests: ticketPrice.guests,
@@ -105,6 +117,12 @@ export class EventTicketProducerService {
               endPublishAt: ticketPrice.endPublishAt,
               startPublishAt: ticketPrice.startPublishAt,
               stripePriceId: null,
+            });
+
+            eventLinks.push({
+              eventTicketId: ticketId,
+              eventTicketPriceId: eventTicketPriceId,
+              invite: ticketPrice.guests,
             });
           }),
         );
@@ -123,6 +141,10 @@ export class EventTicketProducerService {
 
       await this.prisma.eventTicketPrice.createMany({
         data: eventTicketPricesArr,
+      });
+
+      await this.prisma.eventTicketLink.createMany({
+        data: eventLinks,
       });
 
       return 'Ticket created successfully';
