@@ -34,6 +34,7 @@ import {
   getMaxSalesState,
 } from 'src/utils/test';
 import { StripeService } from 'src/services/stripe.service';
+import { concatTitleAndCategoryEvent } from 'src/utils/concat-title-category-event';
 
 type DataItem = {
   state: string | null;
@@ -159,6 +160,8 @@ export class EventProducerService {
         eventType = 'PASSED_CLIENT';
       }
 
+      const fullySearch = concatTitleAndCategoryEvent(title, category);
+
       const createdEvent = await this.prisma.event.create({
         data: {
           userId: user.id,
@@ -174,6 +177,7 @@ export class EventProducerService {
           endAt: endAt,
           startPublishAt: startPublishAt,
           endPublishAt: endPublishAt,
+          fullySearch: fullySearch,
           latitude: latitude,
           longitude: longitude,
           sellOnThePlatform: sellOnThePlatform,
@@ -259,6 +263,11 @@ export class EventProducerService {
         );
       }
 
+      const fullySearch = concatTitleAndCategoryEvent(
+        title ? title : event.title,
+        category ? category : event.category,
+      );
+
       await this.prisma.event.update({
         where: {
           id: event.id,
@@ -268,6 +277,7 @@ export class EventProducerService {
           description: description ? description : event.description,
           endAt: endAt ? endAt : event.endAt,
           endPublishAt: endPublishAt ? endPublishAt : event.endPublishAt,
+          fullySearch,
           location: location ? location : event.location,
           public: eventPublic ? eventPublic : event.public,
           startAt: startAt ? startAt : event.startAt,
@@ -565,8 +575,7 @@ export class EventProducerService {
     email: string,
     page: number,
     perPage: number,
-    title?: string,
-    category?: string,
+    searchable?: string,
     status?: string,
   ): Promise<ResponseEvents> {
     try {
@@ -579,12 +588,8 @@ export class EventProducerService {
         userId: user.id,
       };
 
-      if (title) {
-        where.title = { contains: title, mode: 'insensitive' };
-      }
-
-      if (category) {
-        where.category = { contains: category, mode: 'insensitive' };
+      if (searchable) {
+        where.fullySearch = { contains: searchable, mode: 'insensitive' };
       }
 
       if (status) {
