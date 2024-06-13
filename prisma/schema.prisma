@@ -285,6 +285,7 @@ model EventTicket {
   sequential  Int
   title       String
   description String?
+  guests      Int?
   isPrivate   Boolean           @default(false) @map("is_private")
   isFree      Boolean           @default(false) @map("is_free")
   status      EventTicketStatus @default(ENABLE)

@@ -347,6 +347,7 @@ export class EventProducerService {
               },
               eventParticipantHistoric: true,
               eventTicket: true,
+              eventTicketPrice: true,
             },
             orderBy: {
               createdAt: 'desc',
@@ -370,7 +371,127 @@ export class EventProducerService {
         throw new NotFoundException('Event not found');
       }
 
-      return;
+      const checkInArr = new Map<
+        string,
+        { participantId: string; status: string }
+      >();
+
+      const eventTicketsArr = new Map<
+        string,
+        { ticketId: string; price: number; title: string }
+      >();
+
+      const eventTicketPercentualSellArr = new Map<
+        string,
+        { title: string; qtd: number; limit: number }
+      >();
+
+      const salesByDayMap = new Map<string, { date: string; total: number }>();
+
+      event.eventParticipant.forEach((participant) => {
+        participant.eventParticipantHistoric.forEach((historic) => {
+          if (historic.status === 'CHECK_IN') {
+            if (!checkInArr.has(historic.eventParticipantId)) {
+              checkInArr.set(historic.eventParticipantId, {
+                participantId: historic.eventParticipantId,
+                status: historic.status,
+              });
+            }
+          }
+        });
+
+        if (eventTicketsArr.has(participant.eventTicketId)) {
+          const ticket = eventTicketsArr.get(participant.eventTicketId);
+          if (ticket) {
+            ticket.price += Number(participant.eventTicketPrice.price);
+            ticket.title = participant.eventTicket.title;
+            eventTicketsArr.set(participant.eventTicketId, ticket);
+          }
+        } else {
+          eventTicketsArr.set(participant.eventTicketId, {
+            ticketId: participant.eventTicketId,
+            price: Number(participant.eventTicketPrice.price),
+            title: participant.eventTicket.title,
+          });
+        }
+
+        if (eventTicketPercentualSellArr.has(participant.eventTicket.title)) {
+          const ticket = eventTicketPercentualSellArr.get(
+            participant.eventTicket.title,
+          );
+          if (ticket) {
+            ticket.qtd += 1;
+            eventTicketPercentualSellArr.set(
+              participant.eventTicket.title,
+              ticket,
+            );
+          }
+        } else {
+          eventTicketPercentualSellArr.set(participant.eventTicket.title, {
+            title: participant.eventTicket.title,
+            qtd: 1,
+            limit: participant.eventTicket.guests,
+          });
+        }
+
+        const createdAtDate = new Date(participant.createdAt);
+        const dateKey = createdAtDate.toISOString().split('T')[0];
+
+        const ticketPrice = Number(participant.eventTicketPrice.price);
+
+        if (salesByDayMap.has(dateKey)) {
+          const daySales = salesByDayMap.get(dateKey);
+          if (daySales) {
+            daySales.total += ticketPrice;
+          }
+        } else {
+          salesByDayMap.set(dateKey, {
+            date: dateKey,
+            total: ticketPrice,
+          });
+        }
+      });
+
+      const uniqueCheckInArr = Array.from(checkInArr.values());
+      const eventTickets = Array.from(eventTicketsArr.values());
+      const eventDiarySells = Array.from(salesByDayMap.values());
+      const eventTicketPercentualSell = Array.from(
+        eventTicketPercentualSellArr.values(),
+      ).map((ticket) => {
+        return {
+          title: ticket.title,
+          percentual: (ticket.qtd / ticket.limit) * 100,
+        };
+      });
+
+      let eventTotal = 0;
+      eventTicketsArr.forEach((ticket) => {
+        eventTotal += ticket.price;
+      });
+
+      const response: EventDashboardResponseDto = {
+        id: event.id,
+        title: event.title,
+        slug: event.slug,
+        status: event.status,
+        eventStaff: event.EventStaff.length,
+        eventViews: event.viewsCount,
+
+        eventParticipantsCount: event.eventParticipant.length,
+        eventParticipantLimitCount: event.eventConfig[0].limit,
+        eventParcitipantAccreditationsCount: uniqueCheckInArr.length,
+        eventParcitipantAccreditationsPercentual:
+          (uniqueCheckInArr.length / event.eventParticipant.length) * 100,
+
+        eventTotal: eventTotal,
+        eventTickets: eventTickets,
+
+        eventTicketPercentualSell: eventTicketPercentualSell,
+
+        eventDiarySells: eventDiarySells,
+      };
+
+      return response;
     } catch (error) {
       throw error;
     }
