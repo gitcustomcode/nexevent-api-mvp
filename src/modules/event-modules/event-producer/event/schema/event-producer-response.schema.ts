@@ -1,4 +1,5 @@
-import {  CredentialType,
+import {
+  CredentialType,
   EventParticipantHistoricStatus,
   EventStatus,
   EventTicketStatus,
@@ -16,7 +17,9 @@ export const EventDashboardResponseSchema = z.object({
   eventParticipantsCount: z.number(),
   eventParticipantLimitCount: z.number(),
   eventParcitipantAccreditationsCount: z.number(),
+  eventParcitipantAccreditationsPercentual: z.number(),
 
+  eventTotal: z.number(),
   eventTickets: z.array(
     z.object({
       id: z.string(),
@@ -34,7 +37,7 @@ export const EventDashboardResponseSchema = z.object({
 
   eventDiarySells: z.array(
     z.object({
-      date: z.date(),
+      date: z.string(),
       total: z.number(),
     }),
   ),

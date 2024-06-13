@@ -1,4 +1,5 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';import { PrismaService } from 'src/services/prisma.service';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { EventTicketCreateDto } from './dto/event-ticket-producer-create.dto';
 import { generateSlug } from 'src/utils/generate-slug';
@@ -27,6 +28,7 @@ export class EventTicketProducerService {
       const { description, title, isFree, isPrivate, eventTicketPrices } = body;
       const slug = generateSlug(title);
       const ticketId = randomUUID();
+      let ticketGuests = 0;
 
       const { event, sequential } =
         await this.userProducerValidationService.validateUserEventTicket(
@@ -74,6 +76,8 @@ export class EventTicketProducerService {
 
                 const eventTicketPriceId = randomUUID();
 
+                ticketGuests += ticketPrice.guests;
+
                 eventTicketPricesArr.push({
                   id: eventTicketPriceId,
                   eventTicketId: ticketId,
@@ -100,10 +104,9 @@ export class EventTicketProducerService {
           }),
         );
       } else {
-        const eventTicketPriceId = randomUUID();
-
         await Promise.all(
           eventTicketPrices.map(async (ticketPrice, index) => {
+            const eventTicketPriceId = randomUUID();
             eventTicketPricesArr.push({
               id: eventTicketPriceId,
               eventTicketId: ticketId,
@@ -117,7 +120,7 @@ export class EventTicketProducerService {
               startPublishAt: ticketPrice.startPublishAt,
               stripePriceId: null,
             });
-
+            ticketGuests += ticketPrice.guests;
             eventLinks.push({
               eventTicketId: ticketId,
               eventTicketPriceId: eventTicketPriceId,
@@ -136,6 +139,7 @@ export class EventTicketProducerService {
           title,
           description,
           isPrivate,
+          guests: ticketGuests,
         },
       });
 
