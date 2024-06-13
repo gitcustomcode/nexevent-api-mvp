@@ -97,6 +97,34 @@ export class EventProducerService {
         eventConfig.printAutomatic = false;
       }
 
+      eventTickets.map((ticket) => {
+        let firstBatch = null;
+        let endPublishAt = null;
+
+        ticket.eventTicketPrices.map((price) => {
+          if (price.startPublishAt >= price.endPublishAt) {
+            throw new ConflictException(
+              `A data inicial de publicação do lote ${price.batch} é maior ou igual a data final de publicação`,
+            );
+          }
+
+          if (firstBatch === null) {
+            firstBatch = price.batch;
+            endPublishAt = price.endPublishAt;
+          } else {
+            if (price.batch > firstBatch) {
+              if (new Date(price.startPublishAt) < new Date(endPublishAt)) {
+                throw new BadRequestException(
+                  `O lote ${firstBatch} tem uma data final de publicação menor à data inicial de publicação do lote ${price.batch}`,
+                );
+              }
+            }
+            firstBatch = price.batch;
+            endPublishAt = price.endPublishAt;
+          }
+        });
+      });
+
       const slug = generateSlug(title);
 
       const user = await this.userProducerValidationService.eventNameExists(
