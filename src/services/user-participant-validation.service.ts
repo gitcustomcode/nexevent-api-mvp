@@ -135,11 +135,13 @@ export class UserParticipantValidationService {
       throw new NotFoundException('Event Ticket not found');
     }
 
-    if (
-      (prevBatch.status !== 'FULL' && prevBatch.status !== 'DISABLE') ||
-      prevBatch.endPublishAt < new Date()
-    ) {
-      throw new BadRequestException('The previous batch is still available');
+    if (prevBatch) {
+      if (
+        (prevBatch.status !== 'FULL' && prevBatch.status !== 'DISABLE') ||
+        prevBatch.endPublishAt < new Date()
+      ) {
+        throw new BadRequestException('The previous batch is still available');
+      }
     }
 
     if (eventTicketPrice.startPublishAt > new Date()) {

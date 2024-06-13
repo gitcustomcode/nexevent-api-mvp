@@ -558,6 +558,7 @@ export class EventParticipantService {
         eventPhoto: eventParticipant.event.photo,
         eventStartAt: eventParticipant.event.startAt,
         eventTitle: eventParticipant.event.title,
+        eventTicketTitle: eventParticipant.eventTicket.title,
       };
 
       return response;
@@ -618,6 +619,31 @@ export class EventParticipantService {
       });
 
       return session.url;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async eventAddViewCount(eventSlug: string) {
+    try {
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: eventSlug,
+        },
+      });
+
+      if (!event) throw new NotFoundException('Event not found');
+
+      await this.prisma.event.update({
+        where: {
+          id: event.id,
+        },
+        data: {
+          viewsCount: event.viewsCount + 1,
+        },
+      });
+
+      return;
     } catch (error) {
       throw error;
     }

@@ -1,8 +1,8 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Request,
@@ -48,11 +48,11 @@ export class EventParticipantController {
     private readonly clickSignApiService: ClickSignApiService,
   ) {}
 
-  @Get('v1/test/sobre/test')
-  async test() {
-    return await this.clickSignApiService.sendEmail(
-      'd721ff19-e4fd-46da-9c84-633f4a805124',
-    );
+  @Patch('v1/event-participant/:eventSlug/increment-view-count')
+  @ApiOperation({ summary: 'increment view count' })
+  @ApiParam({ name: 'eventSlug', required: true, type: String })
+  async eventAddViewCount(@Param('eventSlug') eventSlug: string) {
+    return await this.eventParticipantService.eventAddViewCount(eventSlug);
   }
 
   @Get('v1/event-participant/find-all-events-public')
