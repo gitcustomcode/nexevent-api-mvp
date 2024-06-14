@@ -12,7 +12,7 @@ export class EventParticipantCronService {
     private readonly emailService: EmailService,
   ) {}
 
-  @Cron(CronExpression.EVERY_30_SECONDS, {
+  @Cron(CronExpression.EVERY_10_SECONDS, {
     name: 'eventParticipantsNotPaymentBy10Minutes',
   })
   async deleteParticipantsNotPaymentsBy10Minutes() {
@@ -24,28 +24,44 @@ export class EventParticipantCronService {
           createdAt: {
             lt: dateMinus10Minutes,
           },
+          deletedAt: null,
           status: {
             equals: 'AWAITING_PAYMENT',
           },
         },
       });
 
-    if (usersNotPaymentBy10Minutes.length == 0) return;
+    if (usersNotPaymentBy10Minutes.length === 0) {
+      return;
+    }
 
-    const idsToDelete = usersNotPaymentBy10Minutes.map((user) => user.id);
+    try {
+      await Promise.all(
+        usersNotPaymentBy10Minutes.map(async (user) => {
+          await this.prisma.eventTicketLink.updateMany({
+            where: {
+              eventTicketPriceId: user.eventTicketPriceId,
+              userId: user.userId,
+            },
+            data: {
+              status: 'FULL',
+            },
+          });
 
-    await this.prisma.eventParticipant.updateMany({
-      where: {
-        id: {
-          in: idsToDelete,
-        },
-      },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
-
-    return;
+          await this.prisma.eventParticipant.updateMany({
+            where: {
+              id: user.id,
+            },
+            data: {
+              deletedAt: new Date(),
+            },
+          });
+        }),
+      );
+      console.log('Cron job completed successfully');
+    } catch (error) {
+      console.error('Error in cron job:', error);
+    }
   }
 
   @Cron(CronExpression.EVERY_30_SECONDS, {

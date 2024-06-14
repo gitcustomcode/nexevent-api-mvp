@@ -77,7 +77,6 @@ export class EventProducerService {
         longitude,
         description,
         sellOnThePlatform,
-        taxToClient,
       } = body;
 
       if (startAt > endAt) {
@@ -96,6 +95,8 @@ export class EventProducerService {
         eventConfig.credentialType = 'QRCODE';
         eventConfig.printAutomatic = false;
       }
+
+      let taxToClient = false;
 
       eventTickets.map((ticket) => {
         let firstBatch = null;
@@ -122,10 +123,14 @@ export class EventProducerService {
             firstBatch = price.batch;
             endPublishAt = price.endPublishAt;
           }
+
+          if (taxToClient != price.passOnFee && taxToClient != true) {
+            taxToClient = price.passOnFee;
+          }
         });
       });
-
-      const slug = generateSlug(title);
+      const milliseconds = new Date().getTime();
+      const slug = generateSlug(`${title} ${milliseconds}`);
 
       const user = await this.userProducerValidationService.eventNameExists(
         email.toLowerCase(),
@@ -169,6 +174,8 @@ export class EventProducerService {
         ticket.eventTicketPrices.map((ticketPrice) => {
           eventLimit += ticketPrice.guests;
           const price = ticketPrice.price;
+
+          ticketPrice.passOnFee;
 
           if (price - fee < 0 && !ticketPrice.passOnFee) {
             ticketPriceNegative = true;

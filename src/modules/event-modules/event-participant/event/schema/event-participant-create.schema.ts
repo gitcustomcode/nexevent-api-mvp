@@ -1,4 +1,5 @@
-import { UserNetworkType } from '@prisma/client';import { z } from 'nestjs-zod/z';
+import { UserNetworkType } from '@prisma/client';
+import { z } from 'nestjs-zod/z';
 
 export const EventParticipantCreateSchema = z.object({
   name: z.string().describe('Event participant name'),
@@ -27,6 +28,7 @@ export const EventTicketSellSchema = z.object({
     z.object({
       ticketPriceId: z.string(),
       ticketQuantity: z.number(),
+      participant: z.string().nullish(),
     }),
   ),
 });

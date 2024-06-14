@@ -9,11 +9,13 @@ export class StripeService {
   constructor() {}
 
   async createProduct(name: string, amount: number, currency: string) {
+    let newAmount = parseFloat((amount * 100).toFixed(2));
+    console.log(newAmount);
     const product = await this.stripe.products.create({
       name,
       default_price_data: {
         currency: currency,
-        unit_amount: amount * 100,
+        unit_amount: newAmount,
       },
     });
 

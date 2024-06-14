@@ -1,4 +1,5 @@
-import {  Body,
+import {
+  Body,
   Controller,
   Get,
   Param,
@@ -73,26 +74,19 @@ export class EventParticipantController {
     type: String,
   })
   @ApiQuery({
-    name: 'title',
-    required: false,
-    type: String,
-  })
-  @ApiQuery({
-    name: 'category',
+    name: 'searchable',
     required: false,
     type: String,
   })
   async findAllPublicEvents(
     @Query('page') page: string = '1',
     @Query('perPage') perPage: string = '10',
-    @Query('title') title?: string,
-    @Query('category') category?: string,
+    @Query('searchable') searchable?: string,
   ): Promise<FindAllPublicEvents> {
     return await this.eventParticipantService.findAllPublicEvents(
       Number(page),
       Number(perPage),
-      title,
-      category,
+      searchable,
     );
   }
 

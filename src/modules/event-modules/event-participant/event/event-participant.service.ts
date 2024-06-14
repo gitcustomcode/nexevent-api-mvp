@@ -377,20 +377,16 @@ export class EventParticipantService {
   async findAllPublicEvents(
     page: number,
     perPage: number,
-    title?: string,
-    category?: string,
+    searchable?: string,
   ): Promise<FindAllPublicEvents> {
     try {
       const where: Prisma.EventWhereInput = {
         public: true,
+        status: 'ENABLE',
       };
 
-      if (title) {
-        where.title = { contains: title, mode: 'insensitive' };
-      }
-
-      if (category) {
-        where.category = { contains: category, mode: 'insensitive' };
+      if (searchable) {
+        where.fullySearch = { contains: searchable, mode: 'insensitive' };
       }
 
       const events = await this.prisma.event.findMany({
@@ -540,6 +536,8 @@ export class EventParticipantService {
         },
       });
 
+      if (!event) throw new NotFoundException('Event not found');
+
       const eventParticipant = await this.prisma.eventParticipant.findFirst({
         where: {
           userId,
@@ -550,6 +548,9 @@ export class EventParticipantService {
           eventTicket: true,
         },
       });
+
+      if (!eventParticipant)
+        throw new NotFoundException('Event participant not found');
 
       const response: EventTicketInfoDto = {
         eventDescription: eventParticipant.event.description,
@@ -588,6 +589,8 @@ export class EventParticipantService {
         },
       });
 
+      const links = [];
+
       if (!event) throw new NotFoundException('Event not found');
 
       const lineItems: CheckoutSessionEventParticipantDto = [];
@@ -597,6 +600,13 @@ export class EventParticipantService {
           where: {
             id: ticket.ticketPriceId,
           },
+          include: {
+            eventTicket: {
+              include: {
+                event: true,
+              },
+            },
+          },
         });
 
         if (!ticketPriceExist) throw new NotFoundException('Ticket not found');
@@ -605,6 +615,51 @@ export class EventParticipantService {
           price: ticketPriceExist.stripePriceId,
           quantity: ticket.ticketQuantity,
         });
+
+        if (ticket.participant === user.email) {
+          const participantExists =
+            await this.prisma.eventParticipant.findFirst({
+              where: {
+                userId,
+                eventTicketId: ticketPriceExist.eventTicketId,
+                eventTicketPriceId: ticketPriceExist.id,
+                eventId: ticketPriceExist.eventTicket.eventId,
+              },
+            });
+
+          if (!participantExists) {
+            const qrcode = randomUUID();
+
+            const sequential = await this.prisma.eventParticipant.count({
+              where: {
+                eventId: ticketPriceExist.eventTicket.eventId,
+              },
+            });
+
+            await this.prisma.eventParticipant.create({
+              data: {
+                userId,
+                eventTicketId: ticketPriceExist.eventTicketId,
+                eventTicketPriceId: ticketPriceExist.id,
+                eventId: ticketPriceExist.eventTicket.eventId,
+                qrcode,
+                sequential: sequential + 1,
+                status: 'AWAITING_PAYMENT',
+              },
+            });
+          }
+        } else {
+          const linkCreated = await this.prisma.eventTicketLink.create({
+            data: {
+              invite: ticket.ticketQuantity,
+              eventTicketId: ticketPriceExist.eventTicketId,
+              eventTicketPriceId: ticketPriceExist.id,
+              userId: user.id,
+            },
+          });
+
+          links.push(linkCreated);
+        }
       });
 
       const session =
