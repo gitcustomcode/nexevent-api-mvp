@@ -1,5 +1,4 @@
-import { CredentialType, EventLocation } from '@prisma/client';
-import { z } from 'nestjs-zod/z';
+import { CredentialType, EventLocation } from '@prisma/client';import { z } from 'nestjs-zod/z';
 import { EventTicketCreateSchema } from '../../event-ticket/schema/event-ticket-producer-create.schema';
 
 function parseDate(value: string): Date {
@@ -39,7 +38,6 @@ export const EventCreateSchema = z.object({
   latitude: z.string().nullish(),
   longitude: z.string().nullish(),
   sellOnThePlatform: z.boolean(),
-  taxToClient: z.boolean(),
 
   eventSchedule: z.array(
     z.object({

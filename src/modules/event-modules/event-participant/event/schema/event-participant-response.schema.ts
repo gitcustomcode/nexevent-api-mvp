@@ -1,5 +1,4 @@
-import { CredentialType, EventLocation } from '@prisma/client';
-import { z } from 'nestjs-zod/z';
+import { CredentialType, EventLocation } from '@prisma/client';import { z } from 'nestjs-zod/z';
 
 export const ParticipantTicketSchema = z.object({
   id: z.string(),

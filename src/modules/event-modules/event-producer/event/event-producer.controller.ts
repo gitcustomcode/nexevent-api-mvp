@@ -59,7 +59,6 @@ export class EventProducerController {
   })
   async createEvent(@Body() body: EventCreateDto, @Request() req: any) {
     const email = req.auth.user.email;
-    console.log(EventCreateDto);
     return this.eventProducerService.createEvent(email, body);
   }
 
