@@ -1,5 +1,4 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Get,
   Param,
@@ -78,15 +77,29 @@ export class EventParticipantController {
     required: false,
     type: String,
   })
+  @ApiQuery({
+    name: 'initialDate',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'finalDate',
+    required: false,
+    type: String,
+  })
   async findAllPublicEvents(
     @Query('page') page: string = '1',
     @Query('perPage') perPage: string = '10',
     @Query('searchable') searchable?: string,
+    @Query('initialDate') initialDate?: string,
+    @Query('finalDate') finalDate?: string,
   ): Promise<FindAllPublicEvents> {
     return await this.eventParticipantService.findAllPublicEvents(
       Number(page),
       Number(perPage),
       searchable,
+      initialDate,
+      finalDate,
     );
   }
 
@@ -258,16 +271,37 @@ export class EventParticipantController {
     required: true,
     type: String,
   })
+  @ApiQuery({
+    name: 'searchable',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'initialDate',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'finalDate',
+    required: false,
+    type: String,
+  })
   async listTickets(
     @Request() req: any,
     @Query('page') page: string = '1',
     @Query('perPage') perPage: string = '10',
+    @Query('searchable') searchable?: string,
+    @Query('initialDate') initialDate?: string,
+    @Query('finalDate') finalDate?: string,
   ): Promise<ListTickets> {
     const userId = req.auth.user.id;
     return await this.eventParticipantService.listTickets(
       userId,
       Number(page),
       Number(perPage),
+      searchable,
+      initialDate,
+      finalDate,
     );
   }
 

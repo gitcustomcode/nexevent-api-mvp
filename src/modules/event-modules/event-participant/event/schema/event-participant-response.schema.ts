@@ -1,4 +1,5 @@
-import { CredentialType, EventLocation } from '@prisma/client';import { z } from 'nestjs-zod/z';
+import { CredentialType, EventLocation } from '@prisma/client';
+import { z } from 'nestjs-zod/z';
 
 export const ParticipantTicketSchema = z.object({
   id: z.string(),
@@ -60,8 +61,10 @@ export const ListTicketsSchema = z.array(
     eventSlug: z.string(),
     eventPhoto: z.string(),
     eventTitle: z.string(),
-    eventDescription: z.string(),
     eventStartAt: z.date(),
+    eventLocation: z.nativeEnum(EventLocation),
+    eventLatitude: z.string(),
+    eventLongitude: z.string(),
   }),
 );
 
