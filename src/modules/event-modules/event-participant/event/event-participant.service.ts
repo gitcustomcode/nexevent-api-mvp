@@ -31,6 +31,7 @@ import { PaginationService } from 'src/services/paginate.service';
 import { FaceValidationService } from 'src/services/face-validation.service';
 import { StripeService } from 'src/services/stripe.service';
 import { CheckoutSessionEventParticipantDto } from 'src/dtos/stripe.dto';
+import { concatTitleAndCategoryEvent } from 'src/utils/concat-title-category-event';
 
 @Injectable()
 export class EventParticipantService {
@@ -93,8 +94,14 @@ export class EventParticipantService {
         signerInfo = res.clickSignResponseSigner;
       }
 
+      const fully = concatTitleAndCategoryEvent(
+        event.title,
+        eventTicketLink.eventTicket.title,
+      );
+
       const eventParticipant = await this.prisma.eventParticipant.create({
         data: {
+          fullySearch: fully,
           eventId: event.id,
           eventTicketLinkId: eventTicketLink.id,
           eventTicketPriceId: eventTicketLink.eventTicketPriceId,
@@ -378,6 +385,8 @@ export class EventParticipantService {
     page: number,
     perPage: number,
     searchable?: string,
+    initialDate?: string,
+    finalDate?: string,
   ): Promise<FindAllPublicEvents> {
     try {
       const where: Prisma.EventWhereInput = {
@@ -387,6 +396,13 @@ export class EventParticipantService {
 
       if (searchable) {
         where.fullySearch = { contains: searchable, mode: 'insensitive' };
+      }
+
+      if (initialDate && finalDate) {
+        where.startAt = {
+          gte: new Date(`${initialDate}T00:00:00.000Z`),
+          lte: new Date(`${finalDate}T23:59:59.999Z`),
+        };
       }
 
       const events = await this.prisma.event.findMany({
@@ -478,11 +494,28 @@ export class EventParticipantService {
     userId: string,
     page: number,
     perPage: number,
+    searchable?: string,
+    initialDate?: string,
+    finalDate?: string,
   ): Promise<ListTickets> {
     try {
       const where: Prisma.EventParticipantWhereInput = {
         userId,
+        deletedAt: null,
       };
+
+      if (searchable) {
+        where.fullySearch = { contains: searchable, mode: 'insensitive' };
+      }
+
+      if (initialDate && finalDate) {
+        where.event = {
+          startAt: {
+            gte: new Date(`${initialDate}T00:00:00.000Z`),
+            lte: new Date(`${finalDate}T23:59:59.999Z`),
+          },
+        };
+      }
 
       const events = await this.prisma.eventParticipant.findMany({
         where,
@@ -506,11 +539,13 @@ export class EventParticipantService {
 
       const eventsFormatted: ListTicketsDto = events.map((event) => {
         return {
-          eventSlug: event.event.slug,
-          eventDescription: event.event.description,
           eventTitle: event.event.title,
           eventPhoto: event.event.photo,
           eventStartAt: event.event.startAt,
+          eventSlug: event.event.slug,
+          eventLatitude: event.event.latitude,
+          eventLocation: event.event.location,
+          eventLongitude: event.event.longitude,
         };
       });
 
@@ -630,6 +665,11 @@ export class EventParticipantService {
           if (!participantExists) {
             const qrcode = randomUUID();
 
+            const fully = concatTitleAndCategoryEvent(
+              event.title,
+              ticketPriceExist.eventTicket.title,
+            );
+
             const sequential = await this.prisma.eventParticipant.count({
               where: {
                 eventId: ticketPriceExist.eventTicket.eventId,
@@ -645,6 +685,7 @@ export class EventParticipantService {
                 qrcode,
                 sequential: sequential + 1,
                 status: 'AWAITING_PAYMENT',
+                fullySearch: fully,
               },
             });
           }
