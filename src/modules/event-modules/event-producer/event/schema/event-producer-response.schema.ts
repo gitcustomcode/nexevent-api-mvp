@@ -1,5 +1,4 @@
-import {
-  CredentialType,
+import {  CredentialType,
   EventParticipantHistoricStatus,
   EventStatus,
   EventTicketStatus,
@@ -94,3 +93,30 @@ export const EventParticipantsResponseSchema = z.array(
     userNetwork: z.string(),
   }),
 );
+
+export const FindOneDashboardParticipantPanelSchema = z.object({
+  eventLimit: z.number(),
+  eventParticipantsCount: z.number(),
+  eventParticipantAwaitPayment: z.number(),
+
+  listParticipants: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      ticketName: z.string(),
+      checkInDate: z.date().nullable(),
+      payment: z.boolean(),
+    }),
+  ),
+
+  eventParcitipantAccreditationsCount: z.number(),
+  eventParcitipantAccreditationsPercentual: z.number(),
+  eventParticipantAccreditationsPerMinute: z.number(),
+
+  eventAverageLocation: z.array(
+    z.object({
+      region: z.string(),
+      percentage: z.number(),
+    }),
+  ),
+});

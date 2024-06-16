@@ -1,8 +1,8 @@
-import { createZodDto } from 'nestjs-zod';
-import {
+import { createZodDto } from 'nestjs-zod';import {
   EventAllResponseSchema,
   EventDashboardResponseSchema,
   EventParticipantsResponseSchema,
+  FindOneDashboardParticipantPanelSchema,
   GeneralDashboardResponseSchema,
 } from '../schema/event-producer-response.schema';
 import { ApiProperty } from '@nestjs/swagger';
@@ -13,6 +13,10 @@ export class EventDashboardResponseDto extends createZodDto(
 ) {}
 
 export class EventAllResponseDto extends createZodDto(EventAllResponseSchema) {}
+
+export class FindOneDashboardParticipantPanelDto extends createZodDto(
+  FindOneDashboardParticipantPanelSchema,
+) {}
 
 export class ResponseEvents {
   @ApiProperty({

@@ -11,6 +11,7 @@ import { EventCreateDto } from './dto/event-producer-create.dto';
 import { generateSlug } from 'src/utils/generate-slug';
 import {
   EventDashboardResponseDto,
+  FindOneDashboardParticipantPanelDto,
   GeneralDashboardResponseDto,
   ResponseEventParticipants,
   ResponseEvents,
@@ -524,6 +525,142 @@ export class EventProducerService {
         eventTicketPercentualSell: eventTicketPercentualSell,
 
         eventDiarySells: eventDiarySells,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async findOneDashboardParticipantPanel(
+    email: string,
+    slug: string,
+  ): Promise<FindOneDashboardParticipantPanelDto> {
+    try {
+      const user =
+        await this.userProducerValidationService.validateUserProducerByEmail(
+          email.toLowerCase(),
+        );
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: slug,
+          userId: user.id,
+        },
+        include: {
+          eventParticipant: {
+            include: {
+              user: {
+                include: {
+                  userSocials: {
+                    where: {
+                      username: { not: '' },
+                    },
+                  },
+                  userFacials: {
+                    orderBy: {
+                      createdAt: 'desc',
+                    },
+                  },
+                },
+              },
+              eventParticipantHistoric: true,
+              eventTicket: true,
+              eventTicketPrice: true,
+            },
+            orderBy: {
+              createdAt: 'desc',
+            },
+          },
+          eventConfig: true,
+        },
+      });
+
+      let eventParticipantsCount = 0;
+      let eventParticipantAwaitPayment = 0;
+
+      const listParticipants = new Map<
+        string,
+        {
+          participantId: string;
+          name: string;
+          ticketName: string;
+          checkInDate: Date;
+          payment: boolean;
+        }
+      >();
+
+      const checkInArr = new Map<
+        string,
+        { participantId: string; status: string }
+      >();
+
+      event.eventParticipant.forEach((participant) => {
+        if (participant.status !== 'AWAITING_PAYMENT') {
+          eventParticipantsCount += 1;
+        } else {
+          eventParticipantAwaitPayment += 1;
+        }
+
+        if (!listParticipants.has(participant.id)) {
+          listParticipants.set(participant.id, {
+            participantId: participant.id,
+            name: participant.user.name,
+            ticketName: participant.eventTicket.title,
+            checkInDate: null,
+            payment: participant.status !== 'AWAITING_PAYMENT' ? true : false,
+          });
+        }
+
+        participant.eventParticipantHistoric.forEach((historic) => {
+          if (historic.status === 'CHECK_IN') {
+            if (!checkInArr.has(historic.eventParticipantId)) {
+              checkInArr.set(historic.eventParticipantId, {
+                participantId: historic.eventParticipantId,
+                status: historic.status,
+              });
+
+              if (listParticipants.has(historic.eventParticipantId)) {
+                const existingParticipant = listParticipants.get(
+                  historic.eventParticipantId,
+                );
+                existingParticipant.checkInDate = historic.createdAt;
+                listParticipants.set(
+                  historic.eventParticipantId,
+                  existingParticipant,
+                );
+              } else {
+                listParticipants.set(historic.eventParticipantId, {
+                  participantId: historic.eventParticipantId,
+                  name: participant.user.name,
+                  ticketName: participant.eventTicket.title,
+                  checkInDate: historic.createdAt,
+                  payment:
+                    participant.status !== 'AWAITING_PAYMENT' ? true : false,
+                });
+              }
+            }
+          }
+        });
+      });
+
+      const uniqueCheckInArr = Array.from(checkInArr.values());
+      const listParticipantsArr = Array.from(listParticipants.values());
+
+      const perMinute = parseFloat((uniqueCheckInArr.length / 60).toFixed(2));
+
+      const response: FindOneDashboardParticipantPanelDto = {
+        eventLimit: event.eventConfig[0].limit,
+        eventParticipantsCount: eventParticipantsCount,
+        eventParticipantAwaitPayment: eventParticipantAwaitPayment,
+
+        listParticipants: listParticipantsArr,
+
+        eventParcitipantAccreditationsCount: uniqueCheckInArr.length,
+        eventParcitipantAccreditationsPercentual:
+          (uniqueCheckInArr.length / event.eventParticipant.length) * 100,
+        eventParticipantAccreditationsPerMinute: perMinute,
       };
 
       return response;
