@@ -165,6 +165,13 @@ model Event {
   location          EventLocation @default(UNDEFINED)
   latitude          String?
   longitude         String?
+  address           String?
+  country           String?
+  city              String?
+  state             String?
+  complement        String?
+  number            String?
+  district          String?
   checkoutUrl       String?       @map("checkout_url")
   paymentStatus     String?       @map("payment_status")
   sellOnThePlatform Boolean       @default(false) @map("sell_on_the_platform")
@@ -289,6 +296,7 @@ model EventTicket {
   guests      Int?
   isPrivate   Boolean           @default(false) @map("is_private")
   isFree      Boolean           @default(false) @map("is_free")
+  isBonus     Boolean           @default(false) @map("is_bonus")
   status      EventTicketStatus @default(ENABLE)
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
@@ -297,9 +305,30 @@ model EventTicket {
   eventTicketGuest EventTicketLink[]
   EventParticipant EventParticipant[]
   eventTicketPrice EventTicketPrice[]
+  eventTicketDays  EventTicketDay[]
+  EventTicketBonus EventTicketBonus[]
 
   @@unique([eventId, slug])
   @@map("event_tickets")
+}
+
+model EventTicketDay {
+  id            Int      @id @default(autoincrement())
+  eventTicketId String   @map("event_ticket_id")
+  date          DateTime
+
+  eventTicket EventTicket @relation(fields: [eventTicketId], references: [id])
+
+  @@map("event_ticket_days")
+}
+
+model EventTicketBonus {
+  id                    String @id @default(uuid())
+  eventTicketId         String @map("event_ticket_id")
+  qtd                   Int
+  eventTicketBonusTitle String @map("event_ticket_bonus_title")
+
+  eventTicket EventTicket @relation(fields: [eventTicketId], references: [id])
 }
 
 model EventTicketPrice {

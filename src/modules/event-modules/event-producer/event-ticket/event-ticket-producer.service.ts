@@ -1,4 +1,9 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { EventTicketCreateDto } from './dto/event-ticket-producer-create.dto';
@@ -25,10 +30,25 @@ export class EventTicketProducerService {
     body: EventTicketCreateDto,
   ): Promise<string> {
     try {
-      const { description, title, isFree, isPrivate, eventTicketPrices } = body;
+      const {
+        description,
+        title,
+        isFree,
+        isPrivate,
+        eventTicketPrices,
+        eventTicketBonuses,
+        eventTicketDays,
+        isBonus,
+      } = body;
       const slug = generateSlug(title);
       const ticketId = randomUUID();
       let ticketGuests = 0;
+
+      if (isBonus && eventTicketPrices.length > 1) {
+        throw new ConflictException(
+          'Ingressos bonus não podem ter mais de 1 valor ou lote',
+        );
+      }
 
       const { event, sequential } =
         await this.userProducerValidationService.validateUserEventTicket(
@@ -39,6 +59,21 @@ export class EventTicketProducerService {
 
       const eventLinks: Prisma.EventTicketLinkCreateManyInput[] = [];
       const eventTicketPricesArr: Prisma.EventTicketPriceCreateManyInput[] = [];
+
+      const newStartAt = new Date(event.startAt);
+      const newEndAt = new Date(event.endAt);
+
+      const eventTicketDayFormatted = eventTicketDays.map((day) => {
+        if (day.date >= newStartAt && day.date <= newEndAt) {
+          throw new ConflictException(
+            'O ingresso possui um ou mais dias que não estão no periodo do evento',
+          );
+        }
+
+        return {
+          date: day.date,
+        };
+      });
 
       if (isFree === false) {
         const printAutomatic = event.eventConfig[0].printAutomatic ? 2 : 0;
@@ -54,9 +89,15 @@ export class EventTicketProducerService {
 
         await Promise.all(
           eventTicketPrices.map(async (ticketPrice, index) => {
+            let bonusPrice = 0;
+            if (eventTicketBonuses && eventTicketBonuses.length > 0) {
+              eventTicketBonuses.map((b) => {
+                bonusPrice += (printAutomatic + credential) * b.qtd;
+              });
+            }
             let newPrice = ticketPrice.passOnFee
-              ? ticketPrice.price + printAutomatic + credential
-              : ticketPrice.price;
+              ? ticketPrice.price + printAutomatic + credential + bonusPrice
+              : ticketPrice.price + bonusPrice;
 
             const currency = ticketPrice.currency;
 
@@ -130,6 +171,20 @@ export class EventTicketProducerService {
         );
       }
 
+      const bonus = [];
+
+      if (eventTicketBonuses && eventTicketBonuses.length > 0) {
+        await Promise.all(
+          eventTicketBonuses.map(async (ticketBonus) => {
+            bonus.push({
+              eventTicketBonusTitle: ticketBonus.ticketTitle,
+              eventTicketId: ticketId,
+              qtd: ticketBonus.qtd,
+            });
+          }),
+        );
+      }
+
       await this.prisma.eventTicket.create({
         data: {
           id: ticketId,
@@ -140,6 +195,11 @@ export class EventTicketProducerService {
           description,
           isPrivate,
           guests: ticketGuests,
+          eventTicketDays: {
+            createMany: {
+              data: eventTicketDayFormatted,
+            },
+          },
         },
       });
 
@@ -147,9 +207,17 @@ export class EventTicketProducerService {
         data: eventTicketPricesArr,
       });
 
-      await this.prisma.eventTicketLink.createMany({
-        data: eventLinks,
-      });
+      if (bonus.length > 0) {
+        await this.prisma.eventTicketBonus.createMany({
+          data: bonus,
+        });
+      }
+
+      if (eventLinks.length > 0) {
+        await this.prisma.eventTicketLink.createMany({
+          data: eventLinks,
+        });
+      }
 
       return 'Ticket created successfully';
     } catch (error) {
