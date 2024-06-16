@@ -1,4 +1,5 @@
-import {  Body,
+import {
+  Body,
   Controller,
   Get,
   Param,
@@ -27,6 +28,7 @@ import { EventParticipantService } from './event-participant.service';
 import {
   EventParticipantCreateDto,
   EventParticipantCreateNetworksDto,
+  EventTicketSellDto,
 } from './dto/event-participant-create.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -328,5 +330,18 @@ export class EventParticipantController {
       userId,
       eventSlug,
     );
+  }
+
+  @Post('v1/event-participant/event-ticket-buy')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiBody({
+    type: EventTicketSellDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  async eventTicketSell(@Request() req: any, @Body() body: EventTicketSellDto) {
+    const userId = req.auth.user.id;
+    return await this.eventParticipantService.eventTicketSell(userId, body);
   }
 }

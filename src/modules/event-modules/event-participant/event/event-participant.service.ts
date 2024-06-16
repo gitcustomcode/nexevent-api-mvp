@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -398,10 +399,14 @@ export class EventParticipantService {
         where.fullySearch = { contains: searchable, mode: 'insensitive' };
       }
 
-      if (initialDate && finalDate) {
+      if (initialDate || finalDate) {
         where.startAt = {
-          gte: new Date(`${initialDate}T00:00:00.000Z`),
-          lte: new Date(`${finalDate}T23:59:59.999Z`),
+          gte: initialDate
+            ? new Date(`${initialDate}T00:00:00.000Z`)
+            : '1000-12-31T00:00:00.000Z',
+          lte: finalDate
+            ? new Date(`${finalDate}T23:59:59.999Z`)
+            : '3000-12-31T23:59:59.999Z',
         };
       }
 
@@ -508,11 +513,15 @@ export class EventParticipantService {
         where.fullySearch = { contains: searchable, mode: 'insensitive' };
       }
 
-      if (initialDate && finalDate) {
+      if (initialDate || finalDate) {
         where.event = {
           startAt: {
-            gte: new Date(`${initialDate}T00:00:00.000Z`),
-            lte: new Date(`${finalDate}T23:59:59.999Z`),
+            gte: initialDate
+              ? new Date(`${initialDate}T00:00:00.000Z`)
+              : '1000-12-31T00:00:00.000Z',
+            lte: finalDate
+              ? new Date(`${finalDate}T23:59:59.999Z`)
+              : '3000-12-31T23:59:59.999Z',
           },
         };
       }

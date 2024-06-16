@@ -1,4 +1,5 @@
-import {  Body,
+import {
+  Body,
   Controller,
   Get,
   Param,
@@ -29,6 +30,7 @@ import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import {
   EventAllResponseDto,
   EventDashboardResponseDto,
+  FindOneDashboardParticipantPanelDto,
   GeneralDashboardResponseDto,
   ResponseEventParticipants,
   ResponseEvents,
@@ -84,6 +86,33 @@ export class EventProducerController {
   ): Promise<EventDashboardResponseDto> {
     const email = req.auth.user.email;
     return this.eventProducerService.findOneDashboard(email, slug);
+  }
+
+  @Get('v1/event-producer/:slug/dashboard/participant-panel')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event dashboard' })
+  @ApiResponse({
+    description: 'event dashboard',
+    type: EventDashboardResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'slug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  async findOneDashboardParticipantPanel(
+    @Request() req: any,
+    @Param('slug') slug: string,
+  ): Promise<FindOneDashboardParticipantPanelDto> {
+    const email = req.auth.user.email;
+    return this.eventProducerService.findOneDashboardParticipantPanel(
+      email,
+      slug,
+    );
   }
 
   @Get('v1/event-producer/events/find-all')
