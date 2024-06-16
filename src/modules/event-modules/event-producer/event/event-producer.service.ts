@@ -78,6 +78,13 @@ export class EventProducerService {
         longitude,
         description,
         sellOnThePlatform,
+        address,
+        city,
+        complement,
+        country,
+        district,
+        number,
+        state,
       } = body;
 
       if (startAt > endAt) {
@@ -129,7 +136,22 @@ export class EventProducerService {
             taxToClient = price.passOnFee;
           }
         });
+
+        ticket.eventTicketDays.map((day) => {
+          if (day.date >= startAt && day.date <= endAt) {
+            throw new ConflictException(
+              'O ingresso possui um ou mais dias que não estão no periodo do evento',
+            );
+          }
+        });
+
+        if (ticket.isBonus && ticket.eventTicketPrices.length > 1) {
+          throw new ConflictException(
+            'Ingressos bonus não podem ter mais de 1 valor ou lote',
+          );
+        }
       });
+
       const milliseconds = new Date().getTime();
       const slug = generateSlug(`${title} ${milliseconds}`);
 
@@ -219,6 +241,13 @@ export class EventProducerService {
           sellOnThePlatform: sellOnThePlatform,
           checkoutUrl: stripeCheckoutUrl,
           paymentStatus: 'unpaid',
+          address,
+          city,
+          complement,
+          country,
+          district,
+          number,
+          state,
           eventSchedule: {
             createMany: {
               data: eventScheduleFormatted,
@@ -241,6 +270,9 @@ export class EventProducerService {
           isFree: ticket.isFree,
           isPrivate: ticket.isPrivate,
           eventTicketPrices: ticket.eventTicketPrices,
+          eventTicketBonuses: ticket.eventTicketBonuses,
+          eventTicketDays: ticket.eventTicketDays,
+          isBonus: ticket.isBonus,
         };
 
         await this.eventTicketProducerService.createEventTicket(
