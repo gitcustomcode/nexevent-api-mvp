@@ -101,8 +101,10 @@ model Otp {
 model BalanceHistoric {
   id                 String        @id @default(uuid())
   userId             String        @map("user_id")
+  eventId            String?       @map("event_id")
   eventParticipantId String?       @map("event_participant_id")
   value              Decimal       @db.Decimal(10, 2)
+  fee                Decimal?      @db.Decimal(10, 2)
   description        String?
   paymentId          String?       @map("payment_id")
   status             BalanceStatus @default(PENDING)
@@ -110,6 +112,7 @@ model BalanceHistoric {
   updatedAt          DateTime      @updatedAt @map("updated_at")
 
   eventParticipant EventParticipant? @relation(fields: [eventParticipantId], references: [id])
+  event            Event?            @relation(fields: [eventId], references: [id])
   user             User              @relation(fields: [userId], references: [id])
 
   @@map("balances_historic")
@@ -197,6 +200,7 @@ model Event {
   eventParticipant EventParticipant[]
   EventStaff       EventStaff[]
   eventPhotos      EventPhoto[]
+  BalanceHistoric  BalanceHistoric[]
 
   @@map("events")
 }
