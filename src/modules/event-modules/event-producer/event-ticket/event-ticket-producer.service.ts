@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
-import { EventTicketCreateDto } from './dto/event-ticket-producer-create.dto';
+import {
+  EventTicketCouponsDto,
+  EventTicketCreateDto,
+} from './dto/event-ticket-producer-create.dto';
 import { generateSlug } from 'src/utils/generate-slug';
 import { EventTicketUpdateDto } from './dto/event-ticket-producer-update.dto';
 import { EventTicketsResponse } from './dto/event-ticket-producer-response.dto';
@@ -329,6 +332,64 @@ export class EventTicketProducerService {
       };
 
       return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async createEventTicketCoupons(
+    userEmail: string,
+    eventSlug: string,
+    body: EventTicketCouponsDto,
+  ) {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        eventSlug,
+        userEmail.toLowerCase(),
+      );
+
+      const { code, eventTicketsId, expireAt, name, percentOff } = body;
+
+      const stripePriceIds = [];
+
+      await Promise.all(
+        eventTicketsId.map(async (ticketId) => {
+          const eventTicket = await this.prisma.eventTicket.findUnique({
+            where: {
+              id: ticketId.ticketId,
+              eventId: event.id,
+            },
+            include: {
+              eventTicketPrice: true,
+            },
+          });
+
+          eventTicket.eventTicketPrice.map((price) => {
+            stripePriceIds.push(price.stripePriceId);
+          });
+        }),
+      );
+
+      const stripe = await this.stripe.createCupom(
+        percentOff,
+        stripePriceIds,
+        code,
+        expireAt,
+      );
+
+      eventTicketsId.map(async (ticketId) => {
+        await this.prisma.eventTicketCupom.create({
+          data: {
+            code: code,
+            cupomStripeId: stripe.id,
+            expireAt: expireAt,
+            name: name,
+            eventTicketId: ticketId.ticketId,
+          },
+        });
+      });
+
+      return 'CRIOU';
     } catch (error) {
       throw error;
     }

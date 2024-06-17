@@ -311,9 +311,22 @@ model EventTicket {
   eventTicketPrice EventTicketPrice[]
   eventTicketDays  EventTicketDay[]
   EventTicketBonus EventTicketBonus[]
+  eventTicketCupom EventTicketCupom[]
 
   @@unique([eventId, slug])
   @@map("event_tickets")
+}
+
+model EventTicketCupom {
+  id            String   @id @default(uuid())
+  eventTicketId String   @map("event_ticket_id")
+  cupomStripeId String   @map("cupom_stripe_id")
+  code          String
+  name          String
+  createdAt     DateTime @default(now()) @map("created_at")
+  expireAt      DateTime @map("expire_at")
+
+  eventTicket EventTicket @relation(fields: [eventTicketId], references: [id])
 }
 
 model EventTicketDay {

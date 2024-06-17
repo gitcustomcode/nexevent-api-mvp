@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';import { CredentialType } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
+import { CredentialType } from '@prisma/client';
 import { Request } from 'express';
 import { CheckoutSessionEventParticipantDto } from 'src/dtos/stripe.dto';
 import Stripe from 'stripe';
@@ -100,6 +101,38 @@ export class StripeService {
       url: session.url,
       id: session.id,
     };
+  }
+
+  async createCupom(
+    percentOff: number,
+    appliesTo: string[],
+    code: string,
+    expireAt: Date,
+  ) {
+    const products = [];
+
+    await Promise.all(
+      appliesTo.map(async (priceId) => {
+        const product = await this.stripe.prices.retrieve(priceId);
+
+        products.push(product.product);
+      }),
+    );
+
+    const cupom = await this.stripe.coupons.create({
+      percent_off: percentOff,
+      applies_to: { products: products },
+      duration: 'repeating',
+      duration_in_months: 3,
+    });
+
+    const promotionCode = await this.stripe.promotionCodes.create({
+      coupon: cupom.id,
+      code,
+      expires_at: Math.floor(expireAt.getTime() / 1000),
+    });
+
+    return promotionCode;
   }
 
   async webhook(req: Request) {

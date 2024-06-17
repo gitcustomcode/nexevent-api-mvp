@@ -23,7 +23,7 @@ import {
 } from '@nestjs/swagger';
 import { EventTicketProducerService } from './event-ticket-producer.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
-import { EventTicketCreateDto } from './dto/event-ticket-producer-create.dto';
+import { EventTicketCouponsDto, EventTicketCreateDto } from './dto/event-ticket-producer-create.dto';
 import { EventTicketUpdateDto } from './dto/event-ticket-producer-update.dto';
 import { EventTicketsResponse } from './dto/event-ticket-producer-response.dto';
 
@@ -59,6 +59,37 @@ export class EventTicketProducerController {
   ) {
     const email = req.auth.user.email;
     return this.eventTicketProducerService.createEventTicket(
+      email,
+      eventSlug,
+      body,
+    );
+  }
+
+  @Post('v1/event-producer/:eventSlug/create-cupom')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Create event ticket cupom' })
+  @ApiCreatedResponse({
+    description: 'event ticket created',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    required: true,
+    type: String,
+  })
+  @ApiBody({
+    type: EventTicketCouponsDto,
+  })
+  async createEventTicketCoupons(
+    @Param('eventSlug') eventSlug: string,
+    @Body() body: EventTicketCouponsDto,
+    @Request() req: any,
+  ) {
+    const email = req.auth.user.email;
+    return this.eventTicketProducerService.createEventTicketCoupons(
       email,
       eventSlug,
       body,

@@ -89,8 +89,6 @@ export const EventParticipantsResponseSchema = z.array(
     status: z.nativeEnum(EventParticipantHistoricStatus),
     ticketName: z.string(),
     facial: z.string(),
-    email: z.string(),
-    userNetwork: z.string(),
     checkInDate: z.date().nullable(),
     payment: z.boolean(),
   }),
