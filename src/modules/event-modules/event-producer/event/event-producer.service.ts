@@ -36,6 +36,7 @@ import {
 } from 'src/utils/test';
 import { StripeService } from 'src/services/stripe.service';
 import { concatTitleAndCategoryEvent } from 'src/utils/concat-title-category-event';
+import { isArray } from 'class-validator';
 
 type DataItem = {
   state: string | null;
@@ -176,6 +177,7 @@ export class EventProducerService {
       });
 
       let stripeCheckoutUrl = null;
+      let stripeCheckoutValue = 0;
       let eventLimit = 20;
       let eventType: EventType = 'FREE';
       let ticketPriceNegative = false;
@@ -213,7 +215,8 @@ export class EventProducerService {
           eventConfig.credentialType,
         );
         eventType = 'PAID_OUT';
-        stripeCheckoutUrl = checkoutSession;
+        stripeCheckoutUrl = checkoutSession.sessionUrl;
+        stripeCheckoutValue = checkoutSession.value;
       } else {
         eventType = 'PASSED_CLIENT';
       }
@@ -260,6 +263,17 @@ export class EventProducerService {
               limit: eventLimit,
             },
           },
+        },
+      });
+
+      await this.prisma.balanceHistoric.create({
+        data: {
+          userId: user.id,
+          paymentId: stripeCheckoutUrl,
+          value:
+            stripeCheckoutValue > 0
+              ? Number(stripeCheckoutValue / 100).toFixed(2)
+              : stripeCheckoutValue,
         },
       });
 
@@ -678,7 +692,6 @@ export class EventProducerService {
       });
 
       const uniqueCheckInArr = Array.from(checkInArr.values());
-      const listParticipantsArr = Array.from(listParticipants.values());
 
       const perMinute = parseFloat((uniqueCheckInArr.length / 60).toFixed(2));
 
@@ -686,8 +699,6 @@ export class EventProducerService {
         eventLimit: event.eventConfig[0].limit,
         eventParticipantsCount: eventParticipantsCount,
         eventParticipantAwaitPayment: eventParticipantAwaitPayment,
-
-        listParticipants: listParticipantsArr,
 
         eventParcitipantAccreditationsCount: uniqueCheckInArr.length,
         eventParcitipantAccreditationsPercentual:
@@ -1037,6 +1048,7 @@ export class EventProducerService {
     page: number,
     perPage: number,
     name?: string,
+    ticketTitle?: [],
   ): Promise<ResponseEventParticipants> {
     try {
       const where: Prisma.EventParticipantWhereInput = {
@@ -1050,6 +1062,14 @@ export class EventProducerService {
           name: {
             contains: name,
             mode: 'insensitive',
+          },
+        };
+      }
+
+      if (ticketTitle) {
+        where.eventTicket = {
+          title: {
+            in: isArray(ticketTitle) ? ticketTitle : [ticketTitle],
           },
         };
       }

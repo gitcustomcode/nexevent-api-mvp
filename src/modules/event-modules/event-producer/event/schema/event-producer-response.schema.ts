@@ -91,6 +91,8 @@ export const EventParticipantsResponseSchema = z.array(
     facial: z.string(),
     email: z.string(),
     userNetwork: z.string(),
+    checkInDate: z.date().nullable(),
+    payment: z.boolean(),
   }),
 );
 
@@ -98,16 +100,6 @@ export const FindOneDashboardParticipantPanelSchema = z.object({
   eventLimit: z.number(),
   eventParticipantsCount: z.number(),
   eventParticipantAwaitPayment: z.number(),
-
-  listParticipants: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      ticketName: z.string(),
-      checkInDate: z.date().nullable(),
-      payment: z.boolean(),
-    }),
-  ),
 
   eventParcitipantAccreditationsCount: z.number(),
   eventParcitipantAccreditationsPercentual: z.number(),

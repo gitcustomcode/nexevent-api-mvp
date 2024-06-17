@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -773,6 +772,7 @@ export class EventParticipantService {
           userId: userId,
           paymentId: session.id,
           value: Number(session.value / 100),
+          eventId: event.id,
         },
       });
 

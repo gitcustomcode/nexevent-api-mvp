@@ -1,5 +1,4 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Get,
   Param,
@@ -94,7 +93,7 @@ export class EventProducerController {
   @ApiOperation({ summary: 'Get event dashboard' })
   @ApiResponse({
     description: 'event dashboard',
-    type: EventDashboardResponseDto,
+    type: FindOneDashboardParticipantPanelDto,
   })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
@@ -310,12 +309,18 @@ export class EventProducerController {
     type: String,
     required: false,
   })
+  @ApiQuery({
+    name: 'ticketTitle',
+    type: [String],
+    required: false,
+  })
   async findAllParticipants(
     @Request() req: any,
     @Param('slug') slug: string,
     @Query('page') page: number = 1,
     @Query('perPage') perPage: number = 10,
     @Query('name') name?: string,
+    @Query('ticketTitle') ticketTitle?: [],
   ): Promise<ResponseEventParticipants> {
     const email = req.auth.user.email;
     return this.eventProducerService.findAllParticipants(
@@ -324,6 +329,7 @@ export class EventProducerController {
       page,
       perPage,
       name,
+      ticketTitle,
     );
   }
 

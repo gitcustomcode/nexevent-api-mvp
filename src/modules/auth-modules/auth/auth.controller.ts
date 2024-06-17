@@ -1,9 +1,9 @@
-import {
-  Controller,
+import {  Controller,
   Get,
   Param,
   Post,
   Query,
+  Request,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -21,6 +21,7 @@ import {
 import { AuthService } from './auth.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FaceValidationService } from 'src/services/face-validation.service';
+import { StripeService } from 'src/services/stripe.service';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -28,7 +29,13 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private readonly faceValidationService: FaceValidationService,
+    private readonly stripe: StripeService,
   ) {}
+
+  @Post('webhook')
+  async test(@Request() req: any) {
+    await this.stripe.webhook(req);
+  }
 
   @Get('v1/auth/login')
   @ApiOperation({
@@ -54,7 +61,7 @@ export class AuthController {
     @Query('userEmail') userEmail: string,
     @Query('userPassword') userPassword: string,
   ): Promise<String> {
-    const string = `vbvcbcv&nbsp;
+    /*   const string = `vbvcbcv&nbsp;
     <div><br></div><div>
     <img src="blob:http://localhost:5173/40755f1f-d989-4098-aa78-9878c837aee7" id="Screenshot_2">
     <img src="blob:http://localhost:5173/28e8c8d6-5c77-4e78-8eb4-f44c8ad07782" id="kueras">
@@ -68,7 +75,7 @@ export class AuthController {
     const regex = new RegExp(`(<img\\s+[^>]*src=")[^"]*("[^>]*id="${test}">)`);
     const updatedString = string.replace(regex, `$1${newSrc}$2`);
 
-    console.log(updatedString);
+    console.log(updatedString); */
 
     return await this.authService.login(userEmail, userPassword);
   }
