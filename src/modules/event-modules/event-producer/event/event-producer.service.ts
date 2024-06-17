@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -22,7 +21,11 @@ import {
 } from 'src/services/storage.service';
 import { randomUUID } from 'crypto';
 import { PaginationService } from 'src/services/paginate.service';
-import { EventType, Prisma } from '@prisma/client';
+import {
+  EventParticipantHistoricStatus,
+  EventType,
+  Prisma,
+} from '@prisma/client';
 import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
 import { EventTicketCreateDto } from '../event-ticket/dto/event-ticket-producer-create.dto';
 import {
@@ -1113,26 +1116,66 @@ export class EventProducerService {
         totalItems,
       });
 
-      const eventParticipant = eventParticipants.map((participant) => {
-        return {
-          id: participant.id,
-          name: participant.user.name,
-          status:
-            participant.eventParticipantHistoric.length > 0
-              ? participant.eventParticipantHistoric[0].status
-              : null,
-          ticketName: participant.eventTicket.title,
-          facial:
-            participant.user.userFacials.length > 0
-              ? participant.user.userFacials[0].path
-              : null,
-          email: participant.user.email.toLowerCase(),
-          userNetwork:
-            participant.user.userSocials.length > 0
-              ? participant.user.userSocials[0].username
-              : 'Sem registro',
-        };
+      const listParticipants = new Map<
+        string,
+        {
+          participantId: string;
+          name: string;
+          ticketName: string;
+          facial: string | null;
+          checkInDate: Date;
+          payment: boolean;
+          email: string;
+        }
+      >();
+
+      eventParticipants.forEach((participant) => {
+        if (!listParticipants.has(participant.id)) {
+          listParticipants.set(participant.id, {
+            participantId: participant.id,
+            name: participant.user.name,
+            ticketName: participant.eventTicket.title,
+            checkInDate: null,
+            email: participant.user.email,
+            facial:
+              participant.user.userFacials.length > 0
+                ? participant.user.userFacials[0].path
+                : null,
+            payment: participant.status !== 'AWAITING_PAYMENT' ? true : false,
+          });
+        }
+
+        participant.eventParticipantHistoric.forEach((historic) => {
+          if (historic.status === 'CHECK_IN') {
+            if (listParticipants.has(historic.eventParticipantId)) {
+              const existingParticipant = listParticipants.get(
+                historic.eventParticipantId,
+              );
+              existingParticipant.checkInDate = historic.createdAt;
+              listParticipants.set(
+                historic.eventParticipantId,
+                existingParticipant,
+              );
+            } else {
+              listParticipants.set(historic.eventParticipantId, {
+                participantId: participant.id,
+                name: participant.user.name,
+                ticketName: participant.eventTicket.title,
+                checkInDate: null,
+                email: participant.user.email,
+                facial:
+                  participant.user.userFacials.length > 0
+                    ? participant.user.userFacials[0].path
+                    : null,
+                payment:
+                  participant.status !== 'AWAITING_PAYMENT' ? true : false,
+              });
+            }
+          }
+        });
       });
+
+      const eventParticipant = Array.from(listParticipants.values());
 
       const response: ResponseEventParticipants = {
         data: eventParticipant,

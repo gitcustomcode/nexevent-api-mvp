@@ -28,6 +28,18 @@ export const EventTicketBonusesSchema = z.object({
   qtd: z.number(),
 });
 
+export const EventTicketCouponsSchema = z.object({
+  code: z.string(),
+  name: z.string(),
+  expireAt: z.string().transform(parseDate),
+  eventTicketsId: z.array(
+    z.object({
+      ticketId: z.string(),
+    }),
+  ),
+  percentOff: z.number(),
+});
+
 export const EventTicketCreateSchema = z.object({
   title: z.string().describe('Ticket title'),
   description: z.string().describe('Ticket description'),
