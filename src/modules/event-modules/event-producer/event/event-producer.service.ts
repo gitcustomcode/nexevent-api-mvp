@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -473,6 +474,20 @@ export class EventProducerService {
 
       const salesByDayMap = new Map<string, { date: string; total: number }>();
 
+      event.eventTicket.forEach((ticket) => {
+        eventTicketsArr.set(ticket.id, {
+          ticketId: ticket.id,
+          price: 0,
+          title: ticket.title,
+        });
+
+        eventTicketPercentualSellArr.set(ticket.title, {
+          title: ticket.title,
+          qtd: 0,
+          limit: ticket.guests,
+        });
+      });
+
       event.eventParticipant.forEach((participant) => {
         participant.eventParticipantHistoric.forEach((historic) => {
           if (historic.status === 'CHECK_IN') {
@@ -489,15 +504,8 @@ export class EventProducerService {
           const ticket = eventTicketsArr.get(participant.eventTicketId);
           if (ticket) {
             ticket.price += Number(participant.eventTicketPrice.price);
-            ticket.title = participant.eventTicket.title;
             eventTicketsArr.set(participant.eventTicketId, ticket);
           }
-        } else {
-          eventTicketsArr.set(participant.eventTicketId, {
-            ticketId: participant.eventTicketId,
-            price: Number(participant.eventTicketPrice.price),
-            title: participant.eventTicket.title,
-          });
         }
 
         if (eventTicketPercentualSellArr.has(participant.eventTicket.title)) {
@@ -511,12 +519,6 @@ export class EventProducerService {
               ticket,
             );
           }
-        } else {
-          eventTicketPercentualSellArr.set(participant.eventTicket.title, {
-            title: participant.eventTicket.title,
-            qtd: 1,
-            limit: participant.eventTicket.guests,
-          });
         }
 
         const createdAtDate = new Date(participant.createdAt);
@@ -545,7 +547,10 @@ export class EventProducerService {
       ).map((ticket) => {
         return {
           title: ticket.title,
-          percentual: (ticket.qtd / ticket.limit) * 100,
+          percentual:
+            (ticket.qtd / ticket.limit) * 100
+              ? (ticket.qtd / ticket.limit) * 100
+              : 0,
         };
       });
 
@@ -561,6 +566,8 @@ export class EventProducerService {
         status: event.status,
         eventStaff: event.EventStaff.length,
         eventViews: event.viewsCount,
+        eventCity: event.city,
+        eventState: event.state,
 
         eventParticipantsCount: event.eventParticipant.length,
         eventParticipantLimitCount: event.eventConfig[0].limit,

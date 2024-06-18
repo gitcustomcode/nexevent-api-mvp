@@ -20,6 +20,14 @@ import {
 } from './dto/event-producer-accreditation-response.dto';
 import { PaginationService } from 'src/services/paginate.service';
 
+function isSameDay(date1: Date, date2: Date): boolean {
+  return (
+    date1.getUTCFullYear() === date2.getFullYear() &&
+    date1.getUTCMonth() === date2.getMonth() &&
+    date1.getUTCDate() === date2.getDate()
+  );
+}
+
 @Injectable()
 export class EventProducerAccreditationService {
   constructor(
@@ -135,6 +143,19 @@ export class EventProducerAccreditationService {
       }
 
       const participant = await this.findOne(event.id, participantId);
+
+      const eventTicketValidDay = await this.prisma.eventTicketDay.findMany({
+        where: {
+          eventTicketId: participant.eventTicketId,
+        },
+      });
+
+      const today = new Date();
+      const validDay = eventTicketValidDay.find((day) =>
+        isSameDay(day.date, today),
+      );
+
+      if (!validDay) throw new ConflictException(`Invalid day`);
 
       let participantStatus: EventParticipantHistoricStatus = 'CHECK_IN';
 

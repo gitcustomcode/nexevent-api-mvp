@@ -201,6 +201,7 @@ model Event {
   EventStaff       EventStaff[]
   eventPhotos      EventPhoto[]
   BalanceHistoric  BalanceHistoric[]
+  EventTicketCupom EventTicketCupom[]
 
   @@map("events")
 }
@@ -319,13 +320,16 @@ model EventTicket {
 
 model EventTicketCupom {
   id            String   @id @default(uuid())
+  eventId       String?  @map("event_id")
   eventTicketId String   @map("event_ticket_id")
   cupomStripeId String   @map("cupom_stripe_id")
   code          String
   name          String
+  percentOff    Int?     @map("percent_off")
   createdAt     DateTime @default(now()) @map("created_at")
   expireAt      DateTime @map("expire_at")
 
+  event       Event?      @relation(fields: [eventId], references: [id])
   eventTicket EventTicket @relation(fields: [eventTicketId], references: [id])
 }
 
