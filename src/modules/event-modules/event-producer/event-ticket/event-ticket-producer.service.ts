@@ -12,7 +12,11 @@ import {
 } from './dto/event-ticket-producer-create.dto';
 import { generateSlug } from 'src/utils/generate-slug';
 import { EventTicketUpdateDto } from './dto/event-ticket-producer-update.dto';
-import { EventTicketsResponse } from './dto/event-ticket-producer-response.dto';
+import {
+  EventTicketCouponDashboardDto,
+  EventTicketCouponsResponse,
+  EventTicketsResponse,
+} from './dto/event-ticket-producer-response.dto';
 import { Prisma } from '@prisma/client';
 import { PaginationService } from 'src/services/paginate.service';
 import { StripeService } from 'src/services/stripe.service';
@@ -269,6 +273,7 @@ export class EventTicketProducerService {
     eventSlug: string,
     page: number,
     perPage: number,
+    title?: string,
   ): Promise<EventTicketsResponse> {
     try {
       const event = await this.userProducerValidationService.eventExists(
@@ -280,13 +285,34 @@ export class EventTicketProducerService {
         eventId: event.id,
       };
 
+      if (title) {
+        where.title = {
+          contains: title,
+          mode: 'insensitive',
+        };
+      }
+
       const tickets = await this.prisma.eventTicket.findMany({
         where,
         include: {
-          EventParticipant: true,
+          eventTicketPrice: {
+            include: {
+              EventParticipant: true,
+            },
+          },
+          EventParticipant: {
+            include: {
+              eventTicketPrice: true,
+            },
+          },
           eventTicketGuest: {
             include: {
               eventParticipant: true,
+            },
+          },
+          event: {
+            include: {
+              eventConfig: true,
             },
           },
         },
@@ -307,26 +333,60 @@ export class EventTicketProducerService {
         totalItems,
       });
 
-      const response: EventTicketsResponse = {
-        data: tickets.map((ticket) => {
-          return {
+      const ticketsArr = [];
+
+      await Promise.all(
+        tickets.map(async (ticket) => {
+          let limit = 0;
+          let totalBrute = 0;
+          const ticketBatch = [];
+
+          ticket.eventTicketPrice.map((price) => {
+            limit += price.guests;
+
+            ticketBatch.push({
+              id: price.id,
+              batch: price.batch,
+              price: price.price,
+              sells: price.EventParticipant.length,
+              limit: price.guests,
+            });
+          });
+
+          ticket.EventParticipant.map((participant) => {
+            totalBrute += Number(participant.eventTicketPrice.price);
+          });
+
+          const printAutomatic = event.eventConfig[0].printAutomatic ? 2 : 0;
+          const credentialType = event.eventConfig[0].credentialType;
+          const credential =
+            credentialType === 'QRCODE'
+              ? 1
+              : credentialType === 'FACIAL'
+                ? 4
+                : credentialType === 'FACIAL_IN_SITE'
+                  ? 3
+                  : 0;
+
+          const tax =
+            (printAutomatic + credential) * ticket.EventParticipant.length;
+
+          ticketsArr.push({
             id: ticket.id,
             title: ticket.title,
             status: ticket.status,
-            price: 10,
-            guest: 10,
-            participantsCount: ticket.EventParticipant.length,
-            links: ticket.eventTicketGuest.map((link) => {
-              return {
-                id: link.id,
-                status: link.status,
-                limit: link.invite,
-                used: link.eventParticipant.length,
-                limitUsed: `${link.eventParticipant.length}/${link.invite}`,
-              };
-            }),
-          };
+            ticketLimit: limit,
+            price: totalBrute,
+            priceLiquid: totalBrute - tax,
+            ticketPercentualSell:
+              (ticket.EventParticipant.length / limit) * 100,
+            ticketBatch,
+          });
         }),
+      );
+
+      const response: EventTicketsResponse = {
+        data: ticketsArr,
 
         pageInfo: pagination,
       };
@@ -385,11 +445,141 @@ export class EventTicketProducerService {
             expireAt: expireAt,
             name: name,
             eventTicketId: ticketId.ticketId,
+            eventId: event.id,
+            percentOff: percentOff,
           },
         });
       });
 
       return 'CRIOU';
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async findAllEventTicketCoupons(
+    userEmail: string,
+    eventSlug: string,
+    page: number,
+    perPage: number,
+    title?: string,
+  ): Promise<EventTicketCouponsResponse> {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        eventSlug,
+        userEmail.toLowerCase(),
+      );
+
+      const where: Prisma.EventTicketCupomWhereInput = {
+        eventId: event.id,
+      };
+
+      if (title) {
+        where.name = {
+          contains: title,
+          mode: 'insensitive',
+        };
+      }
+
+      const cupons = await this.prisma.eventTicketCupom.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: Number(perPage),
+        skip: (page - 1) * perPage,
+      });
+
+      const totalItems = await this.prisma.eventTicketCupom.count({
+        where,
+      });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage,
+        totalItems,
+      });
+
+      const cuponsArr = [];
+
+      await Promise.all(
+        cupons.map(async (cupom) => {
+          const ticket = await this.prisma.eventTicket.findMany({
+            where: {
+              eventId: event.id,
+              eventTicketCupom: {
+                every: {
+                  id: cupom.id,
+                },
+              },
+            },
+          });
+
+          const ticketsArr = [];
+
+          ticket.map((t) => {
+            ticketsArr.push({
+              id: t.id,
+              title: t.title,
+            });
+          });
+
+          cuponsArr.push({
+            id: cupom.id,
+            title: cupom.name,
+            code: cupom.code,
+            percentOff: cupom.percentOff,
+            createdAt: cupom.createdAt,
+            expireAt: cupom.expireAt,
+
+            tickets: ticketsArr,
+          });
+        }),
+      );
+
+      const response: EventTicketCouponsResponse = {
+        data: cuponsArr,
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async cuponsDashboard(
+    userEmail: string,
+    eventSlug: string,
+  ): Promise<EventTicketCouponDashboardDto> {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        eventSlug,
+        userEmail.toLowerCase(),
+      );
+
+      const cupons = await this.prisma.eventTicketCupom.findMany({
+        where: {
+          eventId: event.id,
+        },
+      });
+
+      let cuponsExpired = 0;
+      const today = new Date();
+
+      cupons.forEach((cupom) => {
+        if (today > cupom.expireAt) {
+          cuponsExpired++;
+        }
+      });
+
+      const response: EventTicketCouponDashboardDto = {
+        cuponsCreated: cupons.length,
+        cuponsActives: cupons.length - cuponsExpired,
+        cuponsExpired: cuponsExpired,
+      };
+
+      return response;
     } catch (error) {
       throw error;
     }

@@ -1,5 +1,4 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Get,
   Param,
@@ -23,9 +22,16 @@ import {
 } from '@nestjs/swagger';
 import { EventTicketProducerService } from './event-ticket-producer.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
-import { EventTicketCouponsDto, EventTicketCreateDto } from './dto/event-ticket-producer-create.dto';
+import {
+  EventTicketCouponsDto,
+  EventTicketCreateDto,
+} from './dto/event-ticket-producer-create.dto';
 import { EventTicketUpdateDto } from './dto/event-ticket-producer-update.dto';
-import { EventTicketsResponse } from './dto/event-ticket-producer-response.dto';
+import {
+  EventTicketCouponDashboardDto,
+  EventTicketCouponsResponse,
+  EventTicketsResponse,
+} from './dto/event-ticket-producer-response.dto';
 
 @ApiTags('Event Producer Tickets')
 @Controller('event-producer')
@@ -159,11 +165,17 @@ export class EventTicketProducerController {
     required: true,
     type: Number,
   })
+  @ApiQuery({
+    name: 'title',
+    required: false,
+    type: String,
+  })
   async findAllEventTicket(
     @Param('eventSlug') eventSlug: string,
     @Request() req: any,
     @Query('page') page: number = 1,
     @Query('perPage') perPage: number = 10,
+    @Query('title') title?: string,
   ): Promise<EventTicketsResponse> {
     const email = req.auth.user.email;
     return this.eventTicketProducerService.findAllEventTicket(
@@ -171,6 +183,77 @@ export class EventTicketProducerController {
       eventSlug,
       page,
       perPage,
+      title,
     );
+  }
+
+  @Get('v1/event-producer/:eventSlug/get-cupons/')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event cupons' })
+  @ApiResponse({
+    description: 'event cupons',
+    type: EventTicketCouponsResponse,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: true,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'perPage',
+    required: true,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'title',
+    required: false,
+    type: String,
+  })
+  async findAllEventTicketCoupons(
+    @Param('eventSlug') eventSlug: string,
+    @Request() req: any,
+    @Query('page') page: number = 1,
+    @Query('perPage') perPage: number = 10,
+    @Query('title') title?: string,
+  ): Promise<EventTicketCouponsResponse> {
+    const email = req.auth.user.email;
+    return this.eventTicketProducerService.findAllEventTicketCoupons(
+      email,
+      eventSlug,
+      page,
+      perPage,
+      title,
+    );
+  }
+
+  @Get('v1/event-producer/:eventSlug/dashboard-cupons/')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event cupons dash' })
+  @ApiResponse({
+    description: 'event cupons dash',
+    type: EventTicketCouponDashboardDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    required: true,
+    type: String,
+  })
+  async cuponsDashboard(
+    @Param('eventSlug') eventSlug: string,
+    @Request() req: any,
+  ): Promise<EventTicketCouponDashboardDto> {
+    const email = req.auth.user.email;
+    return this.eventTicketProducerService.cuponsDashboard(email, eventSlug);
   }
 }
