@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -116,10 +117,13 @@ export class EventProducerService {
         let endPublishAt = null;
 
         ticket.eventTicketPrices.map((price) => {
-          if (price.startPublishAt >= price.endPublishAt) {
-            throw new ConflictException(
-              `A data inicial de publicação do lote ${price.batch} é maior ou igual a data final de publicação`,
-            );
+          console.log(ticket.isBonus);
+          if (ticket.isBonus === false) {
+            if (price.startPublishAt >= price.endPublishAt) {
+              throw new ConflictException(
+                `A data inicial de publicação do lote ${price.batch} é maior ou igual a data final de publicação`,
+              );
+            }
           }
 
           if (firstBatch === null) {
@@ -143,7 +147,7 @@ export class EventProducerService {
         });
 
         ticket.eventTicketDays.map((day) => {
-          if (day.date >= startAt && day.date <= endAt) {
+          if (day.date > startAt && day.date < endAt) {
             throw new ConflictException(
               'O ingresso possui um ou mais dias que não estão no periodo do evento',
             );
@@ -200,19 +204,24 @@ export class EventProducerService {
       const fee = printAutomatic + credential;
 
       eventTickets.map((ticket) => {
-        ticket.eventTicketPrices.map((ticketPrice) => {
-          eventLimit += ticketPrice.guests;
-          const price = ticketPrice.price;
+        if (ticket.isBonus === false) {
+          ticket.eventTicketPrices.map((ticketPrice) => {
+            eventLimit += ticketPrice.guests;
+            const price = ticketPrice.price;
 
-          ticketPrice.passOnFee;
+            ticketPrice.passOnFee;
 
-          if (price - fee < 0 && !ticketPrice.passOnFee) {
-            ticketPriceNegative = true;
-          }
-        });
+            if (price - fee < 0 && !ticketPrice.passOnFee) {
+              ticketPriceNegative = true;
+            }
+          });
+        }
       });
 
       if ((!taxToClient && eventLimit > 20) || ticketPriceNegative) {
+        console.log(taxToClient);
+        console.log(eventLimit);
+        console.log(ticketPriceNegative);
         const checkoutSession = await this.stripe.checkoutSessionEventProducer(
           eventLimit,
           eventConfig.printAutomatic,
