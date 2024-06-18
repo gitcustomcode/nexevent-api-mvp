@@ -37,6 +37,7 @@ import {
   FindEventInfoDto,
   FindOnePublicEventsDto,
   ListTickets,
+  NetworkParticipantDto,
   ParticipantTicketDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
@@ -55,6 +56,18 @@ export class EventParticipantController {
   @ApiParam({ name: 'eventSlug', required: true, type: String })
   async eventAddViewCount(@Param('eventSlug') eventSlug: string) {
     return await this.eventParticipantService.eventAddViewCount(eventSlug);
+  }
+
+  @Get('v1/event-participant/network/:qrcode')
+  @ApiParam({
+    name: 'qrcode',
+    required: true,
+    type: String,
+  })
+  async networkParticipant(
+    @Param('qrcode') qrcode: string,
+  ): Promise<NetworkParticipantDto> {
+    return await this.eventParticipantService.networkParticipant(qrcode);
   }
 
   @Get('v1/event-participant/find-all-events-public')
