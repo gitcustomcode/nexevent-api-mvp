@@ -7,7 +7,6 @@ export const EventTicketDashboardResponseSchema = z.array(
     status: z.nativeEnum(EventTicketStatus),
     price: z.number(),
     priceLiquid: z.number(),
-    guest: z.number(),
     participantsCount: z.number(),
     ticketLimit: z.number(),
     ticketPercentualSell: z.number(),

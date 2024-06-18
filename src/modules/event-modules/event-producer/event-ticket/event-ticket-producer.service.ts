@@ -1,5 +1,4 @@
-import {
-  ConflictException,
+import {  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -71,7 +70,7 @@ export class EventTicketProducerService {
       const newEndAt = new Date(event.endAt);
 
       const eventTicketDayFormatted = eventTicketDays.map((day) => {
-        if (day.date >= newStartAt && day.date <= newEndAt) {
+        if (day.date > newStartAt && day.date < newEndAt) {
           throw new ConflictException(
             'O ingresso possui um ou mais dias que não estão no periodo do evento',
           );
@@ -377,6 +376,7 @@ export class EventTicketProducerService {
             status: ticket.status,
             ticketLimit: limit,
             price: totalBrute,
+            participantsCount: ticket.EventParticipant.length,
             priceLiquid: totalBrute - tax,
             ticketPercentualSell:
               (ticket.EventParticipant.length / limit) * 100,
