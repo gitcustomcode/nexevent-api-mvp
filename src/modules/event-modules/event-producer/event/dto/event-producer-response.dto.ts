@@ -1,5 +1,7 @@
-import { createZodDto } from 'nestjs-zod';import {
+import { createZodDto } from 'nestjs-zod';
+import {
   EventAllResponseSchema,
+  EventDashboardPanelFinancialSchema,
   EventDashboardResponseSchema,
   EventParticipantsResponseSchema,
   FindOneDashboardParticipantPanelSchema,
@@ -16,6 +18,10 @@ export class EventAllResponseDto extends createZodDto(EventAllResponseSchema) {}
 
 export class FindOneDashboardParticipantPanelDto extends createZodDto(
   FindOneDashboardParticipantPanelSchema,
+) {}
+
+export class EventDashboardPanelFinancialDto extends createZodDto(
+  EventDashboardPanelFinancialSchema,
 ) {}
 
 export class ResponseEvents {

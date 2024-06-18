@@ -102,6 +102,7 @@ model BalanceHistoric {
   id                 String        @id @default(uuid())
   userId             String        @map("user_id")
   eventId            String?       @map("event_id")
+  eventTicketId      String?
   eventParticipantId String?       @map("event_participant_id")
   value              Decimal       @db.Decimal(10, 2)
   fee                Decimal?      @db.Decimal(10, 2)
@@ -111,6 +112,7 @@ model BalanceHistoric {
   createdAt          DateTime      @default(now()) @map("created_at")
   updatedAt          DateTime      @updatedAt @map("updated_at")
 
+  eventTicket      EventTicket?      @relation(fields: [eventTicketId], references: [id])
   eventParticipant EventParticipant? @relation(fields: [eventParticipantId], references: [id])
   event            Event?            @relation(fields: [eventId], references: [id])
   user             User              @relation(fields: [userId], references: [id])
@@ -313,6 +315,7 @@ model EventTicket {
   eventTicketDays  EventTicketDay[]
   EventTicketBonus EventTicketBonus[]
   eventTicketCupom EventTicketCupom[]
+  BalanceHistoric  BalanceHistoric[]
 
   @@unique([eventId, slug])
   @@map("event_tickets")

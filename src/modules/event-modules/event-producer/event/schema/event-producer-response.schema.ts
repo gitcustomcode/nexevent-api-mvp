@@ -1,5 +1,4 @@
-import {
-  CredentialType,
+import {  CredentialType,
   EventParticipantHistoricStatus,
   EventStatus,
   EventTicketStatus,
@@ -15,6 +14,7 @@ export const EventDashboardResponseSchema = z.object({
   eventViews: z.number(),
   eventCity: z.string(),
   eventState: z.string(),
+  startAt: z.date(),
 
   eventParticipantsCount: z.number(),
   eventParticipantLimitCount: z.number(),
@@ -110,6 +110,27 @@ export const FindOneDashboardParticipantPanelSchema = z.object({
     z.object({
       region: z.string(),
       percentage: z.number(),
+    }),
+  ),
+});
+
+export const EventDashboardPanelFinancialSchema = z.object({
+  eventTotal: z.number(),
+  eventTotalDrawee: z.number(),
+  totalDisponible: z.number(),
+
+  sellDiary: z.array(
+    z.object({
+      date: z.string(),
+      total: z.number(),
+    }),
+  ),
+
+  sellDiaryByTicket: z.array(
+    z.object({
+      ticket: z.string(),
+      total: z.number(),
+      date: z.string(),
     }),
   ),
 });

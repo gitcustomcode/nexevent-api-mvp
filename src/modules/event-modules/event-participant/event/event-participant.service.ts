@@ -767,14 +767,25 @@ export class EventParticipantService {
       const session =
         await this.stripe.checkoutSessionEventParticipant(lineItems);
 
-      await this.prisma.balanceHistoric.create({
-        data: {
-          userId: userId,
-          paymentId: session.id,
-          value: Number(session.value / 100),
-          eventId: event.id,
-        },
-      });
+      await Promise.all(
+        eventTickets.map(async (ticket) => {
+          const ticketId = await this.prisma.eventTicketPrice.findUnique({
+            where: {
+              id: ticket.ticketPriceId,
+            },
+          });
+
+          await this.prisma.balanceHistoric.create({
+            data: {
+              userId: userId,
+              paymentId: session.id,
+              value: ticketId.price,
+              eventId: event.id,
+              eventTicketId: ticketId.eventTicketId,
+            },
+          });
+        }),
+      );
 
       return session.url;
     } catch (error) {
