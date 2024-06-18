@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -15,6 +14,7 @@ import {
   GeneralDashboardResponseDto,
   ResponseEventParticipants,
   ResponseEvents,
+  EventDashboardPanelFinancialDto,
 } from './dto/event-producer-response.dto';
 import {
   StorageService,
@@ -568,6 +568,7 @@ export class EventProducerService {
         eventViews: event.viewsCount,
         eventCity: event.city,
         eventState: event.state,
+        startAt: event.startAt,
 
         eventParticipantsCount: event.eventParticipant.length,
         eventParticipantLimitCount: event.eventConfig[0].limit,
@@ -1187,6 +1188,95 @@ export class EventProducerService {
       const response: ResponseEventParticipants = {
         data: eventParticipant,
         pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async financialDashboard(
+    userEmail: string,
+    eventSlug: string,
+  ): Promise<EventDashboardPanelFinancialDto> {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        eventSlug,
+        userEmail.toLowerCase(),
+      );
+
+      const balances = await this.prisma.balanceHistoric.findMany({
+        where: {
+          eventId: event.id,
+        },
+        include: {
+          eventTicket: true,
+        },
+      });
+
+      let total = 0;
+      let totalReceived = 0;
+      const balancesByDay = new Map<string, number>();
+      const sellDiaryByTicket = new Map<
+        string,
+        Map<string, { ticket: string; date: string; total: number }>
+      >();
+
+      balances.map((balance) => {
+        const value = Number(balance.value);
+        if (value > 0) {
+          total += value;
+
+          const date = balance.createdAt.toISOString().split('T')[0];
+
+          if (balancesByDay.has(date)) {
+            balancesByDay.set(date, balancesByDay.get(date)! + value);
+          } else {
+            balancesByDay.set(date, value);
+          }
+        } else if (value < 0) {
+          totalReceived += value;
+        }
+      });
+
+      balances.forEach((balance) => {
+        const value = Number(balance.value);
+        if (value > 0 && balance.eventTicketId) {
+          const date = balance.createdAt.toISOString().split('T')[0];
+          if (!sellDiaryByTicket.has(balance.eventTicketId)) {
+            sellDiaryByTicket.set(balance.eventTicketId, new Map());
+          }
+
+          const ticketBalances = sellDiaryByTicket.get(balance.eventTicketId)!;
+
+          if (ticketBalances.has(date)) {
+            ticketBalances.get(date)!.total += value;
+          } else {
+            ticketBalances.set(date, {
+              ticket: balance.eventTicket.title,
+              date: date,
+              total: value,
+            });
+          }
+        }
+      });
+
+      const sellDiaryByArray = Array.from(sellDiaryByTicket.values()).flatMap(
+        (ticketBalances) => Array.from(ticketBalances.values()),
+      );
+
+      const sellDiary = Array.from(balancesByDay, ([date, total]) => ({
+        date,
+        total,
+      }));
+
+      const response: EventDashboardPanelFinancialDto = {
+        eventTotal: total,
+        eventTotalDrawee: totalReceived,
+        totalDisponible: total + totalReceived,
+        sellDiary: sellDiary,
+        sellDiaryByTicket: sellDiaryByArray,
       };
 
       return response;

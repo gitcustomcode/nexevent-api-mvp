@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -23,6 +24,7 @@ import {
   ListTicketsDto,
   ParticipantTicketDto,
   EventTicketInfoDto,
+  NetworkParticipantDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
@@ -767,14 +769,25 @@ export class EventParticipantService {
       const session =
         await this.stripe.checkoutSessionEventParticipant(lineItems);
 
-      await this.prisma.balanceHistoric.create({
-        data: {
-          userId: userId,
-          paymentId: session.id,
-          value: Number(session.value / 100),
-          eventId: event.id,
-        },
-      });
+      await Promise.all(
+        eventTickets.map(async (ticket) => {
+          const ticketId = await this.prisma.eventTicketPrice.findUnique({
+            where: {
+              id: ticket.ticketPriceId,
+            },
+          });
+
+          await this.prisma.balanceHistoric.create({
+            data: {
+              userId: userId,
+              paymentId: session.id,
+              value: ticketId.price,
+              eventId: event.id,
+              eventTicketId: ticketId.eventTicketId,
+            },
+          });
+        }),
+      );
 
       return session.url;
     } catch (error) {
@@ -802,6 +815,49 @@ export class EventParticipantService {
       });
 
       return;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async networkParticipant(qrcode: string): Promise<NetworkParticipantDto> {
+    try {
+      const participant = await this.prisma.eventParticipant.findFirst({
+        where: {
+          qrcode: qrcode,
+        },
+        include: {
+          user: {
+            include: {
+              userHobbie: true,
+              userSocials: true,
+            },
+          },
+        },
+      });
+
+      const response: NetworkParticipantDto = {
+        name: participant.user.name,
+        profilePhoto: participant.user.profilePhoto,
+
+        userNetwork: participant.user.userSocials.map((social) => {
+          return {
+            id: social.id,
+            network: social.network,
+            username: social.username,
+          };
+        }),
+
+        userHobbie: participant.user.userHobbie.map((hobbie) => {
+          return {
+            id: hobbie.id,
+            description: hobbie.description,
+            rating: hobbie.rating,
+          };
+        }),
+      };
+
+      return response;
     } catch (error) {
       throw error;
     }

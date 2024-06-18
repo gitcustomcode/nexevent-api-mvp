@@ -1,5 +1,4 @@
-import { Injectable } from '@nestjs/common';
-import { CredentialType } from '@prisma/client';
+import { Injectable } from '@nestjs/common';import { CredentialType } from '@prisma/client';
 import { Request } from 'express';
 import { CheckoutSessionEventParticipantDto } from 'src/dtos/stripe.dto';
 import Stripe from 'stripe';
@@ -137,7 +136,7 @@ export class StripeService {
 
   async webhook(req: Request) {
     if (req.body.type === 'checkout.session.completed') {
-      const balanceHistoric = await this.prisma.balanceHistoric.findFirst({
+      const balanceHistorics = await this.prisma.balanceHistoric.findMany({
         where: {
           paymentId: req.body.data.object.id,
         },
@@ -147,28 +146,32 @@ export class StripeService {
         req.body.data.object.payment_intent,
       );
 
-      let fee = 0;
+      await Promise.all(
+        balanceHistorics.map(async (balanceHistoric) => {
+          let fee = 0;
 
-      if (paymentIntent.payment_method_types[0] === 'card') {
-        fee = Number(balanceHistoric.value) * 0.0399 + 0.39;
-      } else if (paymentIntent.payment_method_types[0] === 'pix') {
-        fee = Number(balanceHistoric.value) * 0.0119;
-      } else if (paymentIntent.payment_method_types[0] === 'boleto') {
-        fee = 3.45;
-      }
+          if (paymentIntent.payment_method_types[0] === 'card') {
+            fee = Number(balanceHistoric.value) * 0.0399 + 0.39;
+          } else if (paymentIntent.payment_method_types[0] === 'pix') {
+            fee = Number(balanceHistoric.value) * 0.0119;
+          } else if (paymentIntent.payment_method_types[0] === 'boleto') {
+            fee = 3.45;
+          }
 
-      await this.prisma.balanceHistoric.update({
-        where: {
-          id: balanceHistoric.id,
-        },
-        data: {
-          fee: fee.toFixed(2),
-          status:
-            req.body.data.object.payment_status === 'paid'
-              ? 'RECEIVED'
-              : 'PENDING',
-        },
-      });
+          await this.prisma.balanceHistoric.update({
+            where: {
+              id: balanceHistoric.id,
+            },
+            data: {
+              fee: fee.toFixed(2),
+              status:
+                req.body.data.object.payment_status === 'paid'
+                  ? 'RECEIVED'
+                  : 'PENDING',
+            },
+          });
+        }),
+      );
     }
   }
 }
