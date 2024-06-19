@@ -138,16 +138,10 @@ export class EventProducerController {
     example: '10',
   })
   @ApiQuery({
-    name: 'title',
+    name: 'searchable',
     type: String,
     required: false,
-    example: '10',
-  })
-  @ApiQuery({
-    name: 'category',
-    type: String,
-    required: false,
-    example: '10',
+    example: 'teste',
   })
   async findAllEvents(
     @Request() req: any,

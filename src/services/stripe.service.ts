@@ -93,6 +93,7 @@ export class StripeService {
       success_url: 'https://sistema-dev.nexevent.com.br/',
       cancel_url: 'https://sistema-dev.nexevent.com.br/',
       payment_method_types: ['card', 'boleto'],
+      allow_promotion_codes: true,
     });
 
     return {

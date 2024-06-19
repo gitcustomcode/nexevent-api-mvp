@@ -1,5 +1,4 @@
-import {
-  ConflictException,
+import {  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -45,6 +44,7 @@ export class UserProducerValidationService {
           createdAt: user.createdAt,
           number: user.number,
           state: user.state,
+          validAt: user.validAt,
         };
 
         await UserValidationEmailResponseSchema.parseAsync(response);
@@ -104,6 +104,7 @@ export class UserProducerValidationService {
             createdAt: user.createdAt,
             number: user.number,
             state: user.state,
+            validAt: user.validAt,
           };
 
           await UserValidationEmailResponseSchema.parseAsync(response);
@@ -147,6 +148,7 @@ export class UserProducerValidationService {
         createdAt: user.createdAt,
         number: user.number,
         state: user.state,
+        validAt: user.validAt,
       };
 
       await UserValidationEmailResponseSchema.parseAsync(response);

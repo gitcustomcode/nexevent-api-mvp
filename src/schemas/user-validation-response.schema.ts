@@ -1,5 +1,4 @@
-import { UserType } from '@prisma/client';
-import { z } from 'nestjs-zod/z';
+import { UserType } from '@prisma/client';import { z } from 'nestjs-zod/z';
 
 export const UserValidationEmailResponseSchema = z.object({
   id: z.string(),
@@ -19,6 +18,7 @@ export const UserValidationEmailResponseSchema = z.object({
   cep: z.string().nullish(),
   type: z.nativeEnum(UserType),
   dateBirth: z.string().nullish(),
+  validAt: z.date().nullish(),
   createdAt: z.date(),
 });
 

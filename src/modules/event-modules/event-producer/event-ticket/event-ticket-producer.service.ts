@@ -134,8 +134,12 @@ export class EventTicketProducerService {
                   price: newPrice,
                   isPromotion: ticketPrice.isPromotion,
                   passOnFee: ticketPrice.passOnFee,
-                  endPublishAt: ticketPrice.endPublishAt,
-                  startPublishAt: ticketPrice.startPublishAt,
+                  endPublishAt: ticketPrice.endPublishAt
+                    ? ticketPrice.endPublishAt
+                    : new Date(),
+                  startPublishAt: ticketPrice.startPublishAt
+                    ? ticketPrice.startPublishAt
+                    : new Date(),
                   stripePriceId: stripePrice.id.toString(),
                 });
 

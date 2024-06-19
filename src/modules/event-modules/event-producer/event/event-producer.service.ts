@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -116,25 +117,27 @@ export class EventProducerService {
         let endPublishAt = null;
 
         ticket.eventTicketPrices.map((price) => {
-          if (price.startPublishAt >= price.endPublishAt) {
-            throw new ConflictException(
-              `A data inicial de publicação do lote ${price.batch} é maior ou igual a data final de publicação`,
-            );
-          }
-
-          if (firstBatch === null) {
-            firstBatch = price.batch;
-            endPublishAt = price.endPublishAt;
-          } else {
-            if (price.batch > firstBatch) {
-              if (new Date(price.startPublishAt) < new Date(endPublishAt)) {
-                throw new BadRequestException(
-                  `O lote ${firstBatch} tem uma data final de publicação menor à data inicial de publicação do lote ${price.batch}`,
-                );
-              }
+          if (price.endPublishAt && price.startPublishAt) {
+            if (price.startPublishAt >= price.endPublishAt) {
+              throw new ConflictException(
+                `A data inicial de publicação do lote ${price.batch} é maior ou igual a data final de publicação`,
+              );
             }
-            firstBatch = price.batch;
-            endPublishAt = price.endPublishAt;
+
+            if (firstBatch === null) {
+              firstBatch = price.batch;
+              endPublishAt = price.endPublishAt;
+            } else {
+              if (price.batch > firstBatch) {
+                if (new Date(price.startPublishAt) < new Date(endPublishAt)) {
+                  throw new BadRequestException(
+                    `O lote ${firstBatch} tem uma data final de publicação menor à data inicial de publicação do lote ${price.batch}`,
+                  );
+                }
+              }
+              firstBatch = price.batch;
+              endPublishAt = price.endPublishAt;
+            }
           }
 
           if (taxToClient != price.passOnFee && taxToClient != true) {
@@ -457,6 +460,11 @@ export class EventProducerService {
               term: true,
             },
           },
+          BalanceHistoric: {
+            include: {
+              eventTicket: true,
+            },
+          },
         },
       });
 
@@ -479,7 +487,7 @@ export class EventProducerService {
         { title: string; qtd: number; limit: number }
       >();
 
-      const salesByDayMap = new Map<string, { date: string; total: number }>();
+      const salesByDayMap = new Map<string, number>();
 
       event.eventTicket.forEach((ticket) => {
         eventTicketsArr.set(ticket.id, {
@@ -514,41 +522,42 @@ export class EventProducerService {
             eventTicketsArr.set(participant.eventTicketId, ticket);
           }
         }
+      });
 
-        if (eventTicketPercentualSellArr.has(participant.eventTicket.title)) {
-          const ticket = eventTicketPercentualSellArr.get(
-            participant.eventTicket.title,
-          );
-          if (ticket) {
-            ticket.qtd += 1;
-            eventTicketPercentualSellArr.set(
-              participant.eventTicket.title,
-              ticket,
-            );
+      event.BalanceHistoric.map((balance) => {
+        const value = Number(balance.value);
+        if (value > 0) {
+          const date = balance.createdAt.toISOString().split('T')[0];
+
+          if (salesByDayMap.has(date)) {
+            salesByDayMap.set(date, salesByDayMap.get(date)! + value);
+          } else {
+            salesByDayMap.set(date, value);
           }
         }
 
-        const createdAtDate = new Date(participant.createdAt);
-        const dateKey = createdAtDate.toISOString().split('T')[0];
-
-        const ticketPrice = Number(participant.eventTicketPrice.price);
-
-        if (salesByDayMap.has(dateKey)) {
-          const daySales = salesByDayMap.get(dateKey);
-          if (daySales) {
-            daySales.total += ticketPrice;
+        if (balance.eventTicketId) {
+          if (eventTicketPercentualSellArr.has(balance.eventTicket.title)) {
+            const ticket = eventTicketPercentualSellArr.get(
+              balance.eventTicket.title,
+            );
+            if (ticket) {
+              ticket.qtd += 1;
+              eventTicketPercentualSellArr.set(
+                balance.eventTicket.title,
+                ticket,
+              );
+            }
           }
-        } else {
-          salesByDayMap.set(dateKey, {
-            date: dateKey,
-            total: ticketPrice,
-          });
         }
       });
 
       const uniqueCheckInArr = Array.from(checkInArr.values());
       const eventTickets = Array.from(eventTicketsArr.values());
-      const eventDiarySells = Array.from(salesByDayMap.values());
+      const sellDiary = Array.from(salesByDayMap, ([date, total]) => ({
+        date,
+        total,
+      }));
       const eventTicketPercentualSell = Array.from(
         eventTicketPercentualSellArr.values(),
       ).map((ticket) => {
@@ -588,7 +597,7 @@ export class EventProducerService {
 
         eventTicketPercentualSell: eventTicketPercentualSell,
 
-        eventDiarySells: eventDiarySells,
+        sellDiary: sellDiary,
       };
 
       return response;
