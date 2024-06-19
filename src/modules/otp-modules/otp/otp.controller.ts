@@ -1,12 +1,23 @@
-import { Body, Controller, Get, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiInternalServerErrorResponse,
   ApiOperation,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { OtpService } from './otp.service';
+import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 
 @ApiTags('Otp')
 @Controller('otp')
@@ -54,5 +65,39 @@ export class OtpController {
     @Query('password') password: string,
   ): Promise<string> {
     return await this.otpService.changePassword(hash, number, password);
+  }
+
+  @Post('v1/otp/verify-email')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({
+    summary: 'Forgot password',
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  async verifyEmail(@Request() req: any): Promise<string> {
+    const email = req.auth.user.email;
+    return await this.otpService.verifyEmail(email);
+  }
+
+  @Post('v1/otp/verify-email-code')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({
+    summary: 'Forgot password',
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiQuery({
+    name: 'code',
+    required: true,
+    type: String,
+  })
+  async verifyEmailCode(
+    @Request() req: any,
+    @Query('code') code: string,
+  ): Promise<string> {
+    const email = req.auth.user.email;
+    return await this.otpService.verifyEmailCode(email, code);
   }
 }

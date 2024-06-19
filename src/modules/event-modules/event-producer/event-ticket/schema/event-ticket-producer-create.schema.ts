@@ -1,4 +1,5 @@
-import { date, z } from 'nestjs-zod/z';function parseDate(value: string): Date {
+import { date, z } from 'nestjs-zod/z';
+function parseDate(value: string): Date {
   const date = new Date(value);
   if (isNaN(date.getTime())) {
     throw new Error('Invalid date string');
@@ -13,8 +14,8 @@ export const EventTicketPriceCreateSchema = z.object({
   guestBonus: z.number(),
   price: z.number(),
   passOnFee: z.boolean(),
-  startPublishAt: z.string().transform(parseDate),
-  endPublishAt: z.string().transform(parseDate),
+  startPublishAt: z.string().transform(parseDate).nullish(),
+  endPublishAt: z.string().transform(parseDate).nullish(),
   currency: z.string().toLowerCase(),
 });
 

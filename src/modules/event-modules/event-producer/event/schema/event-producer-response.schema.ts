@@ -37,7 +37,7 @@ export const EventDashboardResponseSchema = z.object({
     }),
   ),
 
-  eventDiarySells: z.array(
+  sellDiary: z.array(
     z.object({
       date: z.string(),
       total: z.number(),

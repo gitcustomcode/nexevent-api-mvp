@@ -29,6 +29,7 @@ import {
   subYears,
 } from 'date-fns';
 import { validateBirth } from 'src/utils/date-validator';
+import { EmailService } from 'src/services/email.service';
 
 @Injectable()
 export class UserProducerService {

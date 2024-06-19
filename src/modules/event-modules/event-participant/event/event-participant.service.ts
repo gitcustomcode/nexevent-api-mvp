@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -86,14 +87,21 @@ export class EventParticipantService {
       let signerInfo = null;
 
       if (event.eventTerm.length > 0 && event.eventTerm[0].signature) {
-        const signer = await this.createTermSignatorie(user.id);
+        /*      const signer = await this.createTermSignatorie(user.id);
 
         const res = await this.addTermSigner(
           signer.id,
           event.eventTerm[0].term.path,
         );
 
-        signerInfo = res.clickSignResponseSigner;
+        signerInfo = res.clickSignResponseSigner; */
+
+        if (event.eventTerm && !user.validAt) {
+          throw new ConflictException(
+            'O evento requer que o participante seja verificado',
+          );
+        }
+        signerInfo = true;
       }
 
       const fully = concatTitleAndCategoryEvent(
@@ -112,11 +120,12 @@ export class EventParticipantService {
           sequential: sequential + 1,
           userId: user.id,
           status: participantStatus,
-          signerId: signerInfo ? signerInfo.list.signer_key : null,
+          /* signerId: signerInfo ? signerInfo.list.signer_key : null,
           documentSignerId: signerInfo ? signerInfo.list.document_key : null,
           requestSignatureKey: signerInfo
             ? signerInfo.list.request_signature_key
-            : null,
+            : null, */
+          signature: signerInfo,
         },
       });
 
@@ -618,25 +627,51 @@ export class EventParticipantService {
     body: EventTicketSellDto,
   ): Promise<string> {
     try {
-      const user = await this.prisma.user.findUnique({
+      const userExist = await this.prisma.user.findUnique({
         where: {
           id: userId,
         },
       });
 
-      if (!user) throw new NotFoundException('User not found');
+      if (!userExist) throw new NotFoundException('User not found');
 
-      const { eventSlug, eventTickets } = body;
+      const { eventSlug, eventTickets, networks, user } = body;
+
+      const { cep, name, phone } = user;
+
+      await this.prisma.user.update({
+        where: {
+          id: userExist.id,
+        },
+        data: {
+          cep,
+          name,
+          phoneNumber: phone,
+        },
+      });
 
       const event = await this.prisma.event.findUnique({
         where: {
           slug: eventSlug,
+        },
+        include: {
+          eventTerm: {
+            include: {
+              term: true,
+            },
+          },
         },
       });
 
       const links = [];
 
       if (!event) throw new NotFoundException('Event not found');
+
+      if (event.eventTerm && !userExist.validAt) {
+        throw new ConflictException(
+          'O evento requer que o participante seja verificado',
+        );
+      }
 
       const lineItems: CheckoutSessionEventParticipantDto = [];
 
@@ -690,7 +725,7 @@ export class EventParticipantService {
                 },
               });
 
-              await this.prisma.eventParticipant.create({
+              const part = await this.prisma.eventParticipant.create({
                 data: {
                   userId,
                   eventTicketId: ticketPriceExist.eventTicketId,
@@ -700,8 +735,11 @@ export class EventParticipantService {
                   sequential: sequential + 1,
                   status: 'AWAITING_PAYMENT',
                   fullySearch: fully,
+                  signature: true,
                 },
               });
+
+              await this.createParticipantNetworks(part.id, networks);
 
               ticketPriceExist.eventTicket.EventTicketBonus.map(
                 async (bonus) => {
@@ -720,7 +758,7 @@ export class EventParticipantService {
                       invite: bonus.qtd,
                       eventTicketId: ticketBonus.id,
                       eventTicketPriceId: ticketPriceExist.id,
-                      userId: user.id,
+                      userId: userExist.id,
                     },
                   });
 
@@ -734,7 +772,7 @@ export class EventParticipantService {
                 invite: ticket.ticketQuantity,
                 eventTicketId: ticketPriceExist.eventTicketId,
                 eventTicketPriceId: ticketPriceExist.id,
-                userId: user.id,
+                userId: userExist.id,
               },
             });
 
@@ -754,7 +792,7 @@ export class EventParticipantService {
                   invite: bonus.qtd,
                   eventTicketId: ticketBonus.id,
                   eventTicketPriceId: ticketPriceExist.id,
-                  userId: user.id,
+                  userId: userExist.id,
                 },
               });
 

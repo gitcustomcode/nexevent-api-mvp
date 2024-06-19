@@ -74,6 +74,13 @@ export class EmailService {
         .replace('[CODE]', code);
 
       subject = 'Código de verificação para redefinição de senha';
+    } else if (type == 'verifyEmail') {
+      html = await fs
+        .readFileSync('src/templates/emails/verifyEmail/index.html', 'utf-8')
+        .replace('[USERNAME]', name.split(' ')[0])
+        .replace('[CODE]', code);
+
+      subject = 'Código de verificação do email';
     } else if (type == 'sendEmailParticipantQRcode') {
       html = await fs
         .readFileSync('src/templates/emails/participant/qrcode.html', 'utf-8')

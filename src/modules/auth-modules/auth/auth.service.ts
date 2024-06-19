@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -40,6 +39,7 @@ export class AuthService {
       const haveOtp = await this.prisma.otp.findFirst({
         where: {
           userId: user.id,
+          type: 'RECOVERY',
           verified: false,
         },
       });
