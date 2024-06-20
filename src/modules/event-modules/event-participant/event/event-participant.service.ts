@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -396,7 +395,8 @@ export class EventParticipantService {
   async findAllPublicEvents(
     page: number,
     perPage: number,
-    searchable?: string,
+    title?: string,
+    category?: string,
     initialDate?: string,
     finalDate?: string,
   ): Promise<FindAllPublicEvents> {
@@ -406,8 +406,12 @@ export class EventParticipantService {
         status: 'ENABLE',
       };
 
-      if (searchable) {
-        where.fullySearch = { contains: searchable, mode: 'insensitive' };
+      if (category) {
+        where.category = { contains: category, mode: 'insensitive' };
+      }
+
+      if (title) {
+        where.title = { contains: title, mode: 'insensitive' };
       }
 
       if (initialDate || finalDate) {

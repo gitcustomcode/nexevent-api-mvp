@@ -88,7 +88,12 @@ export class EventParticipantController {
     type: String,
   })
   @ApiQuery({
-    name: 'searchable',
+    name: 'category',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'title',
     required: false,
     type: String,
   })
@@ -105,14 +110,16 @@ export class EventParticipantController {
   async findAllPublicEvents(
     @Query('page') page: string = '1',
     @Query('perPage') perPage: string = '10',
-    @Query('searchable') searchable?: string,
+    @Query('title') title?: string,
+    @Query('category') category?: string,
     @Query('initialDate') initialDate?: string,
     @Query('finalDate') finalDate?: string,
   ): Promise<FindAllPublicEvents> {
     return await this.eventParticipantService.findAllPublicEvents(
       Number(page),
       Number(perPage),
-      searchable,
+      title,
+      category,
       initialDate,
       finalDate,
     );
