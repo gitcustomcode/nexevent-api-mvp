@@ -1,5 +1,4 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Get,
   Param,
@@ -34,6 +33,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import {
   EventTicketInfoDto,
   FindAllPublicEvents,
+  FindAllPublicEventsDto,
   FindEventInfoDto,
   FindOnePublicEventsDto,
   ListTickets,
@@ -116,6 +116,28 @@ export class EventParticipantController {
       initialDate,
       finalDate,
     );
+  }
+
+  @Get('v1/event-participant/get-events-more-views')
+  @ApiOperation({ summary: 'get Events More View' })
+  @ApiResponse({
+    type: FindAllPublicEventsDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  async getEventsMoreView(): Promise<FindAllPublicEventsDto> {
+    return await this.eventParticipantService.getEventsMoreView();
+  }
+
+  @Get('v1/event-participant/get-events-home')
+  @ApiOperation({ summary: 'get Events More View' })
+  @ApiResponse({
+    type: FindAllPublicEventsDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  async findAllPublicEventsHome() {
+    return await this.eventParticipantService.findAllPublicEventsHome();
   }
 
   @Get('v1/event-participant/:slug/find-one-event-public')

@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -118,7 +117,7 @@ export class EventProducerService {
 
         ticket.eventTicketPrices.map((price) => {
           if (price.endPublishAt && price.startPublishAt) {
-            if (price.startPublishAt >= price.endPublishAt) {
+            if (price.startPublishAt > price.endPublishAt) {
               throw new ConflictException(
                 `A data inicial de publicação do lote ${price.batch} é maior ou igual a data final de publicação`,
               );
