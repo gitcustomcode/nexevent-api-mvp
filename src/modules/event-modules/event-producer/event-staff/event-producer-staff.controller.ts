@@ -90,11 +90,17 @@ export class EventProducerStaffController {
     required: false,
     type: Number,
   })
+  @ApiQuery({
+    name: 'staffEmail',
+    required: false,
+    type: String,
+  })
   async listEventStaff(
     @Request() req: any,
     @Param('eventSlug') eventSlug: string,
     @Query('page') page: number = 1,
     @Query('perPage') perPage: number = 10,
+    @Query('staffEmail') staffEmail?: string,
   ): Promise<EventStaffsResponse> {
     const email = req.auth.user.email;
     return await this.eventProducerStaffService.listEventStaff(
@@ -102,6 +108,7 @@ export class EventProducerStaffController {
       eventSlug,
       page,
       perPage,
+      staffEmail
     );
   }
 

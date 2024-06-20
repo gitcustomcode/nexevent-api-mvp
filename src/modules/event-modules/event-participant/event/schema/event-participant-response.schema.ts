@@ -1,4 +1,5 @@
-import { CredentialType, EventLocation } from '@prisma/client';import { z } from 'nestjs-zod/z';
+import { CredentialType, EventLocation } from '@prisma/client';
+import { z } from 'nestjs-zod/z';
 
 export const ParticipantTicketSchema = z.object({
   id: z.string(),
@@ -24,6 +25,8 @@ export const FindAllPublicEventsSchema = z.array(
     photo: z.string(),
     category: z.string(),
     description: z.string(),
+    state: z.string(),
+    city: z.string(),
     startAt: z.date(),
     endAt: z.date(),
   }),

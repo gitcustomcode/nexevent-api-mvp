@@ -26,6 +26,7 @@ import {
   ParticipantTicketDto,
   EventTicketInfoDto,
   NetworkParticipantDto,
+  FindAllPublicEventsDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
@@ -447,6 +448,8 @@ export class EventParticipantService {
           description: event.description,
           startAt: event.startAt,
           endAt: event.endAt,
+          state: event.state,
+          city: event.city,
         };
       });
 
@@ -454,6 +457,92 @@ export class EventParticipantService {
         data: eventsFormatted,
         pageInfo: pagination,
       };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async findAllPublicEventsHome() {
+    try {
+      const categories = await this.prisma.event.findMany({
+        where: {
+          public: true,
+          status: 'ENABLE',
+        },
+        select: {
+          category: true,
+        },
+        distinct: ['category'],
+      });
+
+      const groupedEvents = await Promise.all(
+        categories.map(async (category) => {
+          const events = await this.prisma.event.findMany({
+            where: {
+              public: true,
+              status: 'ENABLE',
+              category: category.category,
+            },
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              photo: true,
+              category: true,
+              startAt: true,
+              state: true,
+              city: true,
+            },
+            orderBy: {
+              startAt: 'desc',
+            },
+            take: 10,
+          });
+          return {
+            category: category.category,
+            events,
+          };
+        }),
+      );
+
+      return groupedEvents;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getEventsMoreView(): Promise<FindAllPublicEventsDto> {
+    try {
+      const where: Prisma.EventWhereInput = {
+        public: true,
+        status: 'ENABLE',
+      };
+
+      const events = await this.prisma.event.findMany({
+        where,
+        orderBy: {
+          viewsCount: 'desc',
+        },
+        take: 4,
+      });
+
+      const eventsFormatted = events.map((event) => {
+        return {
+          id: event.id,
+          title: event.title,
+          slug: event.slug,
+          photo: event.photo,
+          category: event.category,
+          description: event.description,
+          startAt: event.startAt,
+          endAt: event.endAt,
+          view: event.viewsCount,
+        };
+      });
+
+      const response: FindAllPublicEventsDto = eventsFormatted;
 
       return response;
     } catch (error) {
@@ -695,10 +784,12 @@ export class EventParticipantService {
           if (!ticketPriceExist)
             throw new NotFoundException('Ticket not found');
 
-          lineItems.push({
-            price: ticketPriceExist.stripePriceId,
-            quantity: ticket.ticketQuantity,
-          });
+          if (Number(ticketPriceExist.price) > 0) {
+            lineItems.push({
+              price: ticketPriceExist.stripePriceId,
+              quantity: ticket.ticketQuantity,
+            });
+          }
 
           if (ticket.participant === user.email) {
             const participantExists =
@@ -803,9 +894,14 @@ export class EventParticipantService {
           }
         }),
       );
+      let session = null;
 
-      const session =
-        await this.stripe.checkoutSessionEventParticipant(lineItems);
+      if (lineItems.length > 0) {
+        const created =
+          await this.stripe.checkoutSessionEventParticipant(lineItems);
+
+        session = created.url;
+      }
 
       await Promise.all(
         eventTickets.map(async (ticket) => {
@@ -818,7 +914,7 @@ export class EventParticipantService {
           await this.prisma.balanceHistoric.create({
             data: {
               userId: userId,
-              paymentId: session.id,
+              paymentId: session ? session.id : null,
               value: ticketId.price,
               eventId: event.id,
               eventTicketId: ticketId.eventTicketId,
@@ -827,7 +923,7 @@ export class EventParticipantService {
         }),
       );
 
-      return session.url;
+      return session;
     } catch (error) {
       throw error;
     }

@@ -108,6 +108,7 @@ export class EventProducerStaffService {
     eventSlug: string,
     page: number,
     perPage: number,
+    staffEmail?: string,
   ): Promise<EventStaffsResponse> {
     try {
       const event = await this.userProducerValidationService.eventExists(
@@ -119,8 +120,14 @@ export class EventProducerStaffService {
         eventId: event.id,
       };
 
+      if (staffEmail) {
+        where.email = { contains: staffEmail, mode: 'insensitive' };
+      }
+
       const eventStaffs = await this.prisma.eventStaff.findMany({
         where,
+        skip: (page - 1) * perPage,
+        take: Number(perPage),
       });
 
       const totalItems = await this.prisma.eventStaff.count({

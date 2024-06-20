@@ -441,18 +441,30 @@ export class EventTicketProducerService {
         expireAt,
       );
 
-      eventTicketsId.map(async (ticketId) => {
-        await this.prisma.eventTicketCupom.create({
-          data: {
-            code: code,
-            cupomStripeId: stripe.id,
-            expireAt: expireAt,
-            name: name,
+      const cupomCreated = await this.prisma.eventTicketCupom.create({
+        data: {
+          code: code,
+          cupomStripeId: stripe.id,
+          expireAt: expireAt,
+          name: name,
+          eventId: event.id,
+          percentOff: percentOff,
+        },
+      });
+
+      const data = [];
+
+      await Promise.all(
+        eventTicketsId.map((ticketId) => {
+          data.push({
             eventTicketId: ticketId.ticketId,
-            eventId: event.id,
-            percentOff: percentOff,
-          },
-        });
+            eventTicketCupomId: cupomCreated.id,
+          });
+        }),
+      );
+
+      await this.prisma.ticketCupom.createMany({
+        data,
       });
 
       return 'CRIOU';
@@ -511,11 +523,11 @@ export class EventTicketProducerService {
           const ticket = await this.prisma.eventTicket.findMany({
             where: {
               eventId: event.id,
-              eventTicketCupom: {
+              /* eventTicketCupom: {
                 every: {
                   id: cupom.id,
                 },
-              },
+              }, */
             },
           });
 
