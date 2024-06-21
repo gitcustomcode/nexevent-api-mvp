@@ -70,7 +70,7 @@ export class EventTicketProducerService {
       const newEndAt = new Date(event.endAt);
 
       const eventTicketDayFormatted = eventTicketDays.map((day) => {
-        if (day.date > newStartAt && day.date < newEndAt) {
+        if (day.date < newStartAt && day.date > newEndAt) {
           throw new ConflictException(
             'O ingresso possui um ou mais dias que não estão no periodo do evento',
           );
@@ -98,6 +98,7 @@ export class EventTicketProducerService {
             let bonusPrice = 0;
             if (eventTicketBonuses && eventTicketBonuses.length > 0) {
               eventTicketBonuses.map((b) => {
+                console.log('bonus', b);
                 bonusPrice += (printAutomatic + credential) * b.qtd;
               });
             }
@@ -112,6 +113,7 @@ export class EventTicketProducerService {
               currency === 'usd' ||
               currency === 'eur'
             ) {
+              let stripePriceId = null;
               if (ticketPrice.price > 0) {
                 const newTitle = `${title} - Lote ${ticketPrice.batch} ${ticketPrice.isPromotion ? 'Promoção' : ''}`;
 
@@ -121,34 +123,37 @@ export class EventTicketProducerService {
                   currency.toUpperCase(),
                 );
 
-                const eventTicketPriceId = randomUUID();
-
-                ticketGuests += ticketPrice.guests;
-
-                eventTicketPricesArr.push({
-                  id: eventTicketPriceId,
-                  eventTicketId: ticketId,
-                  batch: index + 1,
-                  guests: ticketPrice.guests,
-                  guestBonus: ticketPrice.guestBonus,
-                  price: newPrice,
-                  isPromotion: ticketPrice.isPromotion,
-                  passOnFee: ticketPrice.passOnFee,
-                  endPublishAt: ticketPrice.endPublishAt
-                    ? ticketPrice.endPublishAt
-                    : new Date(),
-                  startPublishAt: ticketPrice.startPublishAt
-                    ? ticketPrice.startPublishAt
-                    : new Date(),
-                  stripePriceId: stripePrice.id.toString(),
-                });
-
-                eventLinks.push({
-                  eventTicketId: ticketId,
-                  eventTicketPriceId: eventTicketPriceId,
-                  invite: ticketPrice.guests,
-                });
+                stripePriceId = stripePrice.id;
               }
+
+              const eventTicketPriceId = randomUUID();
+
+              ticketGuests += ticketPrice.guests;
+
+              eventTicketPricesArr.push({
+                id: eventTicketPriceId,
+                currency: currency.toUpperCase(),
+                eventTicketId: ticketId,
+                batch: index + 1,
+                guests: ticketPrice.guests,
+                guestBonus: ticketPrice.guestBonus,
+                price: newPrice,
+                isPromotion: ticketPrice.isPromotion,
+                passOnFee: ticketPrice.passOnFee,
+                endPublishAt: ticketPrice.endPublishAt
+                  ? ticketPrice.endPublishAt
+                  : new Date(),
+                startPublishAt: ticketPrice.startPublishAt
+                  ? ticketPrice.startPublishAt
+                  : new Date(),
+                stripePriceId: stripePriceId,
+              });
+
+              eventLinks.push({
+                eventTicketId: ticketId,
+                eventTicketPriceId: eventTicketPriceId,
+                invite: ticketPrice.guests,
+              });
             } else {
               throw new UnprocessableEntityException(`Currency not accepted`);
             }
@@ -160,6 +165,7 @@ export class EventTicketProducerService {
             const eventTicketPriceId = randomUUID();
             eventTicketPricesArr.push({
               id: eventTicketPriceId,
+              currency: ticketPrice.currency.toUpperCase(),
               eventTicketId: ticketId,
               batch: index + 1,
               guests: ticketPrice.guests,

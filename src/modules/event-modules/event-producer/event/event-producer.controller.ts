@@ -1,4 +1,5 @@
-import {  Body,
+import {
+  Body,
   Controller,
   Get,
   Param,
@@ -150,9 +151,10 @@ export class EventProducerController {
     @Query('searchable') searchable?: string,
   ): Promise<ResponseEvents> {
     const email = req.auth.user.email;
+    const newPage = Number(page) <= 0 ? 1 : Number(page);
     return await this.eventProducerService.findAllEvents(
       email,
-      Number(page),
+      Number(newPage),
       Number(perPage),
       searchable,
     );

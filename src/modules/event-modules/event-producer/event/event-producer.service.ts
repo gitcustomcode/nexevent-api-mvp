@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -145,7 +146,7 @@ export class EventProducerService {
         });
 
         ticket.eventTicketDays.map((day) => {
-          if (day.date > startAt && day.date < endAt) {
+          if (day.date < startAt && day.date > endAt) {
             throw new ConflictException(
               'O ingresso possui um ou mais dias que não estão no periodo do evento',
             );
@@ -746,6 +747,10 @@ export class EventProducerService {
     status?: string,
   ): Promise<ResponseEvents> {
     try {
+      if (Number(page) < 0 || Number(perPage) < 0) {
+        throw new BadRequestException('page ou per page é menor que zero');
+      }
+
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
           email.toLowerCase(),
@@ -762,6 +767,9 @@ export class EventProducerService {
       if (status) {
         where.status = status === 'ENABLE' ? 'ENABLE' : 'DISABLE';
       }
+
+      console.log(perPage);
+      console.log(page);
 
       const event = await this.prisma.event.findMany({
         where,

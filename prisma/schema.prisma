@@ -375,6 +375,7 @@ model EventTicketPrice {
   guestBonus     Int                    @default(0) @map("guest_bonus")
   price          Decimal                @db.Decimal(10, 2)
   passOnFee      Boolean                @default(false) @map("pass_on_fee")
+  currency       String?                @default("BRL")
   startPublishAt DateTime               @map("start_publish_at")
   endPublishAt   DateTime               @map("end_publish_at")
   createdAt      DateTime               @default(now()) @map("created_at")
