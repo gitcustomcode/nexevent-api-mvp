@@ -32,12 +32,16 @@ export const EventTicketSellSchema = z.object({
     }),
   ),
 
-  user: z.object({
-    name: z.string(),
-    email: z.string(),
-    phone: z.string(),
-    cep: z.string(),
-  }),
+  user: z
+    .object({
+      name: z.string(),
+      email: z.string(),
+      phone: z.string(),
+      document: z.string(),
+      state: z.string(),
+      city: z.string(),
+    })
+    .optional(),
 
-  networks: EventParticipantCreateNetworksSchema,
+  networks: EventParticipantCreateNetworksSchema.optional(),
 });

@@ -337,6 +337,7 @@ export class EventParticipantService {
         include: {
           eventTicket: true,
           event: true,
+          eventTicketPrice: true,
         },
       });
 
@@ -347,7 +348,7 @@ export class EventParticipantService {
       const response: ParticipantTicketDto = {
         id: participant.id,
         ticketName: participant.eventTicket.title,
-        price: 10,
+        price: Number(participant.eventTicketPrice.price),
         eventName: participant.event.title,
         qrcode: participant.qrcode,
         startAt: participant.event.startAt,
@@ -542,6 +543,8 @@ export class EventParticipantService {
           description: event.description,
           startAt: event.startAt,
           endAt: event.endAt,
+          state: event.state,
+          city: event.city,
           view: event.viewsCount,
         };
       });
@@ -561,9 +564,33 @@ export class EventParticipantService {
           slug,
         },
         include: {
-          eventTicket: true,
+          eventTicket: {
+            include: {
+              eventTicketPrice: {
+                include: {
+                  EventParticipant: true,
+                },
+              },
+            },
+          },
           eventConfig: true,
         },
+      });
+
+      const ticketsPrice = [];
+
+      event.eventTicket.map((ticket) => {
+        ticket.eventTicketPrice.map((price) => {
+          ticketsPrice.push({
+            id: price.id,
+            batch: price.batch,
+            title: ticket.title,
+            price: Number(price.price),
+            description: ticket.description,
+            avaible: price.guests - price.EventParticipant.length,
+            currency: price.currency,
+          });
+        });
       });
 
       const response: FindOnePublicEventsDto = {
@@ -578,14 +605,14 @@ export class EventParticipantService {
         longitude: event.longitude,
         latitude: event.latitude,
         location: event.location,
-        ticket: event.eventTicket.map((ticket) => {
-          return {
-            id: ticket.id,
-            title: ticket.title,
-            price: 10,
-            description: ticket.description,
-          };
-        }),
+        address: event.address,
+        city: event.city,
+        complement: event.complement,
+        country: event.country,
+        number: event.number,
+        state: event.state,
+        district: event.district,
+        ticket: ticketsPrice,
         config: {
           credentialType: event.eventConfig[0].credentialType,
           participantNetworks: event.eventConfig[0].participantNetworks,
@@ -607,9 +634,20 @@ export class EventParticipantService {
     finalDate?: string,
   ): Promise<ListTickets> {
     try {
-      const where: Prisma.EventParticipantWhereInput = {
-        userId,
-        deletedAt: null,
+      const where: Prisma.EventWhereInput = {
+        eventTicket: {
+          some: {
+            eventTicketPrice: {
+              some: {
+                EventTicketLink: {
+                  some: {
+                    userId,
+                  },
+                },
+              },
+            },
+          },
+        },
       };
 
       if (searchable) {
@@ -617,31 +655,26 @@ export class EventParticipantService {
       }
 
       if (initialDate || finalDate) {
-        where.event = {
-          startAt: {
-            gte: initialDate
-              ? new Date(`${initialDate}T00:00:00.000Z`)
-              : '1000-12-31T00:00:00.000Z',
-            lte: finalDate
-              ? new Date(`${finalDate}T23:59:59.999Z`)
-              : '3000-12-31T23:59:59.999Z',
-          },
+        where.startAt = {
+          gte: initialDate
+            ? new Date(`${initialDate}T00:00:00.000Z`)
+            : '1000-12-31T00:00:00.000Z',
+          lte: finalDate
+            ? new Date(`${finalDate}T23:59:59.999Z`)
+            : '3000-12-31T23:59:59.999Z',
         };
       }
 
-      const events = await this.prisma.eventParticipant.findMany({
+      const events = await this.prisma.event.findMany({
         where,
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
         orderBy: {
           createdAt: 'desc',
         },
-        take: Number(perPage),
-        skip: (page - 1) * Number(perPage),
-        include: {
-          event: true,
-        },
       });
 
-      const totalItems = await this.prisma.eventParticipant.count({ where });
+      const totalItems = await this.prisma.event.count({ where });
 
       const pagination = await this.paginationService.paginate({
         page,
@@ -651,13 +684,21 @@ export class EventParticipantService {
 
       const eventsFormatted: ListTicketsDto = events.map((event) => {
         return {
-          eventTitle: event.event.title,
-          eventPhoto: event.event.photo,
-          eventStartAt: event.event.startAt,
-          eventSlug: event.event.slug,
-          eventLatitude: event.event.latitude,
-          eventLocation: event.event.location,
-          eventLongitude: event.event.longitude,
+          id: event.id,
+          eventTitle: event.title,
+          eventPhoto: event.photo,
+          eventStartAt: event.startAt,
+          eventSlug: event.slug,
+          eventLatitude: event.latitude,
+          eventLocation: event.location,
+          eventLongitude: event.longitude,
+          state: event.state,
+          city: event.city,
+          address: event.address,
+          complement: event.complement,
+          country: event.country,
+          number: event.number,
+          district: event.district,
         };
       });
 
@@ -680,10 +721,65 @@ export class EventParticipantService {
       const event = await this.prisma.event.findUnique({
         where: {
           slug: eventSlug,
+          eventTicket: {
+            some: {
+              eventTicketPrice: {
+                some: {
+                  EventTicketLink: {
+                    some: {
+                      userId,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        include: {
+          eventTicket: {
+            include: {
+              eventTicketPrice: {
+                include: {
+                  EventTicketLink: {
+                    include: {
+                      eventParticipant: {
+                        include: {
+                          eventTicket: true,
+                          user: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       });
 
       if (!event) throw new NotFoundException('Event not found');
+
+      let avaibleGuests = 0;
+
+      const guests = [];
+
+      event.eventTicket.map((ticket) => {
+        ticket.eventTicketPrice.map((price) => {
+          price.EventTicketLink.map((link) => {
+            avaibleGuests += link.invite - link.eventParticipant.length;
+
+            link.eventParticipant.map((part) => {
+              if (part.user.id !== userId) {
+                guests.push({
+                  participantId: part.id,
+                  name: part.user.name,
+                  ticketName: part.eventTicket.title,
+                });
+              }
+            });
+          });
+        });
+      });
 
       const eventParticipant = await this.prisma.eventParticipant.findFirst({
         where: {
@@ -696,17 +792,32 @@ export class EventParticipantService {
         },
       });
 
-      if (!eventParticipant)
-        throw new NotFoundException('Event participant not found');
-
       const response: EventTicketInfoDto = {
-        eventDescription: eventParticipant.event.description,
-        eventParticipantId: eventParticipant.id,
-        eventParticipantQrcode: eventParticipant.qrcode,
-        eventPhoto: eventParticipant.event.photo,
-        eventStartAt: eventParticipant.event.startAt,
-        eventTitle: eventParticipant.event.title,
-        eventTicketTitle: eventParticipant.eventTicket.title,
+        eventPhoto: event.photo,
+        eventTitle: event.title,
+        eventDescription: event.description,
+        eventState: event.state,
+        eventCity: event.city,
+        eventAddress: event.address,
+        eventNumber: event.number,
+        eventDistrict: event.district,
+        eventComplement: event.complement,
+        eventLatitude: event.latitude,
+        eventLongitude: event.longitude,
+        eventStartAt: event.startAt,
+        eventEndAt: event.endAt,
+
+        eventParticipantId: eventParticipant ? eventParticipant.id : null,
+        eventParticipantQrcode: eventParticipant
+          ? eventParticipant.qrcode
+          : null,
+        eventTicketTitle: eventParticipant
+          ? eventParticipant.eventTicket.title
+          : null,
+
+        avaibleGuests: avaibleGuests,
+
+        guests: guests,
       };
 
       return response;
@@ -730,16 +841,18 @@ export class EventParticipantService {
 
       const { eventSlug, eventTickets, networks, user } = body;
 
-      const { cep, name, phone } = user;
+      const { name, phone, city, state, document } = user;
 
       await this.prisma.user.update({
         where: {
           id: userExist.id,
         },
         data: {
-          cep,
+          document,
           name,
           phoneNumber: phone,
+          city,
+          state,
         },
       });
 
@@ -782,8 +895,16 @@ export class EventParticipantService {
                     EventTicketBonus: true,
                   },
                 },
+                EventParticipant: true,
               },
             });
+          const limitBatch =
+            ticketPriceExist.guests - ticketPriceExist.EventParticipant.length;
+          if (limitBatch < ticket.ticketQuantity) {
+            throw new ConflictException(
+              `O limite de ingressos para o lote ${ticketPriceExist.batch} do ingresso ${ticketPriceExist.eventTicket.title} foi atingido`,
+            );
+          }
 
           if (!ticketPriceExist)
             throw new NotFoundException('Ticket not found');

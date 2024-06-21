@@ -44,12 +44,22 @@ export const FindOnePublicEventsSchema = z.object({
   location: z.nativeEnum(EventLocation),
   latitude: z.string(),
   longitude: z.string(),
+  state: z.string(),
+  city: z.string(),
+  address: z.string(),
+  complement: z.string(),
+  country: z.string(),
+  number: z.string(),
+  district: z.string(),
   ticket: z.array(
     z.object({
       id: z.string(),
+      batch: z.number(),
+      avaible: z.number(),
       ticketName: z.string(),
       description: z.string(),
       price: z.number(),
+      currency: z.string(),
     }),
   ),
   config: z.object({
@@ -60,6 +70,7 @@ export const FindOnePublicEventsSchema = z.object({
 
 export const ListTicketsSchema = z.array(
   z.object({
+    id: z.string(),
     eventSlug: z.string(),
     eventPhoto: z.string(),
     eventTitle: z.string(),
@@ -67,17 +78,46 @@ export const ListTicketsSchema = z.array(
     eventLocation: z.nativeEnum(EventLocation),
     eventLatitude: z.string(),
     eventLongitude: z.string(),
+    state: z.string(),
+    city: z.string(),
+    address: z.string(),
+    complement: z.string(),
+    country: z.string(),
+    number: z.string(),
+    district: z.string(),
   }),
 );
 
 export const EventTicketInfoSchema = z.object({
-  eventParticipantId: z.string(),
   eventPhoto: z.string(),
-  eventDescription: z.string(),
   eventTitle: z.string(),
-  eventParticipantQrcode: z.string(),
-  eventTicketTitle: z.string(),
+  eventDescription: z.string(),
+  eventState: z.string(),
+  eventCity: z.string(),
+  eventAddress: z.string(),
+  eventNumber: z.string(),
+  eventDistrict: z.string(),
+  eventComplement: z.string(),
+  eventLatitude: z.string(),
+  eventLongitude: z.string(),
   eventStartAt: z.date(),
+  eventEndAt: z.date(),
+
+  eventParticipantId: z.string().nullish(),
+  eventParticipantQrcode: z.string().nullish(),
+  eventTicketTitle: z.string().nullish(),
+
+  guests: z
+    .array(
+      z.object({
+        participantId: z.string().nullish(),
+        name: z.string().nullish(),
+        ticketName: z.string().nullish(),
+      }),
+    )
+    .nullish(),
+
+  avaibleGuests: z.number(),
 });
 
 export const NetworkParticipantSchema = z.object({
