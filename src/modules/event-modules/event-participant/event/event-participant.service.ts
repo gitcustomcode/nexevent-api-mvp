@@ -26,6 +26,8 @@ import {
   EventTicketInfoDto,
   NetworkParticipantDto,
   FindAllPublicEventsDto,
+  NetworkHistoric,
+  NetworkHistoricDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
@@ -79,23 +81,9 @@ export class EventParticipantService {
         },
       });
 
-      const participantStatus = await this.updateUserParticipantStatus(
-        event,
-        user,
-      );
-
-      let signerInfo = null;
+      let signerInfo = false;
 
       if (event.eventTerm.length > 0 && event.eventTerm[0].signature) {
-        /*      const signer = await this.createTermSignatorie(user.id);
-
-        const res = await this.addTermSigner(
-          signer.id,
-          event.eventTerm[0].term.path,
-        );
-
-        signerInfo = res.clickSignResponseSigner; */
-
         if (event.eventTerm && !user.validAt) {
           throw new ConflictException(
             'O evento requer que o participante seja verificado',
@@ -119,12 +107,7 @@ export class EventParticipantService {
           qrcode,
           sequential: sequential + 1,
           userId: user.id,
-          status: participantStatus,
-          /* signerId: signerInfo ? signerInfo.list.signer_key : null,
-          documentSignerId: signerInfo ? signerInfo.list.document_key : null,
-          requestSignatureKey: signerInfo
-            ? signerInfo.list.request_signature_key
-            : null, */
+          status: 'COMPLETE',
           signature: signerInfo,
         },
       });
@@ -132,7 +115,6 @@ export class EventParticipantService {
       return {
         eventParticipantId: eventParticipant.id,
         participantStatus: eventParticipant.status,
-        requestSignatureKey: eventParticipant.requestSignatureKey,
       };
     } catch (error) {
       throw error;
@@ -574,6 +556,11 @@ export class EventParticipantService {
             },
           },
           eventConfig: true,
+          eventTerm: {
+            include: {
+              term: true,
+            },
+          },
         },
       });
 
@@ -616,6 +603,11 @@ export class EventParticipantService {
         config: {
           credentialType: event.eventConfig[0].credentialType,
           participantNetworks: event.eventConfig[0].participantNetworks,
+        },
+        term: {
+          id: event.eventTerm[0] ? event.eventTerm[0].term.id : null,
+          name: event.eventTerm[0] ? event.eventTerm[0].term.name : null,
+          path: event.eventTerm[0] ? event.eventTerm[0].term.path : null,
         },
       };
 
@@ -762,11 +754,22 @@ export class EventParticipantService {
       let avaibleGuests = 0;
 
       const guests = [];
+      const links = [];
 
       event.eventTicket.map((ticket) => {
         ticket.eventTicketPrice.map((price) => {
           price.EventTicketLink.map((link) => {
             avaibleGuests += link.invite - link.eventParticipant.length;
+
+            if (link.status !== 'FULL') {
+              links.push({
+                id: link.id,
+                ticketId: link.eventTicketId,
+                ticketName: ticket.title,
+                limit: link.invite,
+                guests: link.eventParticipant.length,
+              });
+            }
 
             link.eventParticipant.map((part) => {
               if (part.user.id !== userId) {
@@ -817,6 +820,8 @@ export class EventParticipantService {
 
         avaibleGuests: avaibleGuests,
 
+        links: links,
+
         guests: guests,
       };
 
@@ -826,10 +831,7 @@ export class EventParticipantService {
     }
   }
 
-  async eventTicketSell(
-    userId: string,
-    body: EventTicketSellDto,
-  ): Promise<string> {
+  async eventTicketSell(userId: string, body: EventTicketSellDto) {
     try {
       const userExist = await this.prisma.user.findUnique({
         where: {
@@ -869,6 +871,8 @@ export class EventParticipantService {
         },
       });
 
+      let partId = null;
+
       const links = [];
 
       if (!event) throw new NotFoundException('Event not found');
@@ -883,6 +887,7 @@ export class EventParticipantService {
 
       await Promise.all(
         eventTickets.map(async (ticket) => {
+          console.log(ticket);
           const ticketPriceExist =
             await this.prisma.eventTicketPrice.findUnique({
               where: {
@@ -909,7 +914,10 @@ export class EventParticipantService {
           if (!ticketPriceExist)
             throw new NotFoundException('Ticket not found');
 
-          if (Number(ticketPriceExist.price) > 0) {
+          if (
+            Number(ticketPriceExist.price) > 0 &&
+            ticketPriceExist.stripePriceId
+          ) {
             lineItems.push({
               price: ticketPriceExist.stripePriceId,
               quantity: ticket.ticketQuantity,
@@ -954,6 +962,8 @@ export class EventParticipantService {
                   signature: true,
                 },
               });
+
+              partId = part.id;
 
               await this.createParticipantNetworks(part.id, networks);
 
@@ -1020,7 +1030,7 @@ export class EventParticipantService {
         }),
       );
       let session = null;
-
+      console.log(lineItems);
       if (lineItems.length > 0) {
         const created =
           await this.stripe.checkoutSessionEventParticipant(lineItems);
@@ -1048,7 +1058,7 @@ export class EventParticipantService {
         }),
       );
 
-      return session;
+      return { session: session, participantId: partId };
     } catch (error) {
       throw error;
     }
@@ -1114,6 +1124,117 @@ export class EventParticipantService {
             rating: hobbie.rating,
           };
         }),
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async createNetwork(userEmail: string, qrcode: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email: userEmail.toLowerCase(),
+        },
+      });
+
+      if (!user) throw new NotFoundException('User not found');
+
+      const participant = await this.prisma.eventParticipant.findFirst({
+        where: {
+          qrcode: qrcode,
+        },
+      });
+
+      if (!participant) throw new NotFoundException('Participant not found');
+
+      if (user.id === participant.userId)
+        throw new ConflictException('User is the participant');
+
+      const networkExistis =
+        await this.prisma.userEventNetworkHistoric.findFirst({
+          where: {
+            userId: user.id,
+            eventParticipantId: participant.id,
+          },
+        });
+
+      if (networkExistis) throw new ConflictException('Network already exists');
+
+      await this.prisma.userEventNetworkHistoric.create({
+        data: {
+          userId: user.id,
+          eventParticipantId: participant.id,
+        },
+      });
+
+      return 'success';
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async networkHistoric(
+    userEmail: string,
+    page: number,
+    perPage: number,
+  ): Promise<NetworkHistoric> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email: userEmail.toLowerCase(),
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const historic = await this.prisma.userEventNetworkHistoric.findMany({
+        where: {
+          userId: user.id,
+        },
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          eventParticipant: {
+            include: {
+              user: true,
+              event: true,
+            },
+          },
+        },
+      });
+
+      const totalItems = await this.prisma.userEventNetworkHistoric.count({
+        where: { userId: user.id },
+      });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const data: NetworkHistoricDto[] = [];
+
+      historic.map((historic) => {
+        data.push({
+          id: historic.id,
+          name: historic.eventParticipant.user.name,
+          eventName: historic.eventParticipant.event.title,
+          profilePhoto: historic.eventParticipant.user.profilePhoto,
+        });
+      });
+
+      const response: NetworkHistoric = {
+        data: data,
+        pageInfo: pagination,
       };
 
       return response;

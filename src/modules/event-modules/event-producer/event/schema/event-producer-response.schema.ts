@@ -1,4 +1,5 @@
-import {  CredentialType,
+import {
+  CredentialType,
   EventParticipantHistoricStatus,
   EventStatus,
   EventTicketStatus,
@@ -94,6 +95,7 @@ export const EventParticipantsResponseSchema = z.array(
     facial: z.string(),
     checkInDate: z.date().nullable(),
     payment: z.boolean(),
+    lastStatus: z.string(),
   }),
 );
 

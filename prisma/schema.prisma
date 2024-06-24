@@ -37,15 +37,16 @@ model User {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  userFacials      UserFacial[]
-  userSocials      UserSocial[]
-  userHobbie       UserHobbie[]
-  event            Event[]
-  balanceHistoric  BalanceHistoric[]
-  eventParticipant EventParticipant[]
-  termSignatorie   TermSignatorie[]
-  Otp              Otp[]
-  EventTicketLink  EventTicketLink[]
+  userFacials              UserFacial[]
+  userSocials              UserSocial[]
+  userHobbie               UserHobbie[]
+  event                    Event[]
+  balanceHistoric          BalanceHistoric[]
+  eventParticipant         EventParticipant[]
+  termSignatorie           TermSignatorie[]
+  Otp                      Otp[]
+  EventTicketLink          EventTicketLink[]
+  UserEventNetworkHistoric UserEventNetworkHistoric[]
 
   @@map("users")
 }
@@ -82,6 +83,18 @@ model UserHobbie {
   user User @relation(fields: [userId], references: [id])
 
   @@map("user_hobbies")
+}
+
+model UserEventNetworkHistoric {
+  id                 String   @id @default(uuid())
+  userId             String   @map("user_id")
+  eventParticipantId String   @map("event_participant_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  eventParticipant EventParticipant @relation(fields: [eventParticipantId], references: [id])
+  user             User             @relation(fields: [userId], references: [id])
+
+  @@map("user_event_network_historic")
 }
 
 model Otp {
@@ -436,6 +449,7 @@ model EventParticipant {
   eventParticipantHistoric EventParticipantHistoric[]
   event                    Event                      @relation(fields: [eventId], references: [id])
   BalanceHistoric          BalanceHistoric[]
+  UserEventNetworkHistoric UserEventNetworkHistoric[]
 
   @@unique([userId, eventTicketId])
   @@map("event_participants")

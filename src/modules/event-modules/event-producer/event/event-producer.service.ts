@@ -225,6 +225,7 @@ export class EventProducerService {
           eventConfig.printAutomatic,
           eventConfig.credentialType,
         );
+        console.log(checkoutSession);
         eventType = 'PAID_OUT';
         stripeCheckoutUrl = checkoutSession.sessionUrl;
         stripeCheckoutValue = checkoutSession.value;
@@ -668,6 +669,8 @@ export class EventProducerService {
         string,
         { participantId: string; status: string }
       >();
+
+      console.log(event.eventParticipant);
 
       event.eventParticipant.forEach((participant) => {
         if (participant.status !== 'AWAITING_PAYMENT') {
@@ -1157,6 +1160,7 @@ export class EventProducerService {
           checkInDate: Date;
           payment: boolean;
           email: string;
+          lastStatus: string | null;
         }
       >();
 
@@ -1173,6 +1177,7 @@ export class EventProducerService {
                 ? participant.user.userFacials[0].path
                 : null,
             payment: participant.status !== 'AWAITING_PAYMENT' ? true : false,
+            lastStatus: participant.eventParticipantHistoric[0].status,
           });
         }
 
@@ -1200,6 +1205,7 @@ export class EventProducerService {
                     : null,
                 payment:
                   participant.status !== 'AWAITING_PAYMENT' ? true : false,
+                lastStatus: participant.eventParticipantHistoric[0].status,
               });
             }
           }

@@ -66,6 +66,11 @@ export const FindOnePublicEventsSchema = z.object({
     credentialType: z.nativeEnum(CredentialType),
     participantNetworks: z.boolean(),
   }),
+  term: z.object({
+    id: z.string(),
+    name: z.string(),
+    path: z.string(),
+  }),
 });
 
 export const ListTicketsSchema = z.array(
@@ -118,6 +123,16 @@ export const EventTicketInfoSchema = z.object({
     .nullish(),
 
   avaibleGuests: z.number(),
+
+  links: z.array(
+    z.object({
+      id: z.string(),
+      ticketId: z.string(),
+      ticketName: z.string(),
+      guests: z.number(),
+      limit: z.number(),
+    }),
+  ),
 });
 
 export const NetworkParticipantSchema = z.object({
@@ -139,4 +154,11 @@ export const NetworkParticipantSchema = z.object({
       rating: z.number(),
     }),
   ),
+});
+
+export const NetworkHistoricSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  eventName: z.string(),
+  profilePhoto: z.string(),
 });
