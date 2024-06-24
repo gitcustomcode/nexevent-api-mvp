@@ -1,4 +1,5 @@
-import {  ConflictException,
+import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -108,11 +109,14 @@ export class EventTicketProducerService {
 
             const currency = ticketPrice.currency;
 
+            console.log('price', ticketPrice);
+
             if (
               currency === 'brl' ||
               currency === 'usd' ||
               currency === 'eur'
             ) {
+              console.log('entrou no if do stripe');
               let stripePriceId = null;
               if (ticketPrice.price > 0) {
                 const newTitle = `${title} - Lote ${ticketPrice.batch} ${ticketPrice.isPromotion ? 'Promoção' : ''}`;
@@ -122,6 +126,8 @@ export class EventTicketProducerService {
                   newPrice,
                   currency.toUpperCase(),
                 );
+
+                console.log(stripePrice);
 
                 stripePriceId = stripePrice.id;
               }
@@ -359,6 +365,7 @@ export class EventTicketProducerService {
               price: price.price,
               sells: price.EventParticipant.length,
               limit: price.guests,
+              currency: price.currency,
             });
           });
 

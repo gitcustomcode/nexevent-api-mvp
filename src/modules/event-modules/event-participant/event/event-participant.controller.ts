@@ -1,4 +1,5 @@
-import {  Body,
+import {
+  Body,
   Controller,
   Get,
   Param,
@@ -385,5 +386,48 @@ export class EventParticipantController {
   async eventTicketSell(@Request() req: any, @Body() body: EventTicketSellDto) {
     const userId = req.auth.user.id;
     return await this.eventParticipantService.eventTicketSell(userId, body);
+  }
+
+  @Post('v1/event-participant/create-network')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiQuery({
+    name: 'qrcode',
+    required: true,
+    type: String,
+  })
+  async createNetwork(@Request() req: any, @Query('qrcode') qrcode: string) {
+    const userEmail = req.auth.user.email;
+    return await this.eventParticipantService.createNetwork(userEmail, qrcode);
+  }
+
+  @Get('v1/event-participant/network-historic')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiQuery({
+    name: 'page',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'perPage',
+    required: true,
+    type: String,
+  })
+  async networkHistoric(
+    @Request() req: any,
+    @Query('page') page: string = '1',
+    @Query('perPage') perPage: string = '10',
+  ) {
+    const userEmail = req.auth.user.email;
+    return await this.eventParticipantService.networkHistoric(
+      userEmail,
+      Number(page),
+      Number(perPage),
+    );
   }
 }
