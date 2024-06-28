@@ -206,41 +206,40 @@ export class EventTicketProducerService {
         );
       }
 
-      await this.prisma.$transaction(async (prisma) => {
-        await prisma.eventTicket.create({
-          data: {
-            id: ticketId,
-            slug,
-            sequential,
-            eventId: event.id,
-            title,
-            description,
-            isPrivate,
-            guests: ticketGuests,
-            eventTicketDays: {
-              createMany: {
-                data: eventTicketDayFormatted,
-              },
+      await this.prisma.eventTicket.create({
+        data: {
+          id: ticketId,
+          slug,
+          sequential,
+          eventId: event.id,
+          title,
+          description,
+          isPrivate,
+          isBonus: isBonus,
+          guests: ticketGuests,
+          eventTicketDays: {
+            createMany: {
+              data: eventTicketDayFormatted,
             },
           },
-        });
-
-        await prisma.eventTicketPrice.createMany({
-          data: eventTicketPricesArr,
-        });
-
-        if (bonus.length > 0) {
-          await prisma.eventTicketBonus.createMany({
-            data: bonus,
-          });
-        }
-
-        if (eventLinks.length > 0) {
-          await prisma.eventTicketLink.createMany({
-            data: eventLinks,
-          });
-        }
+        },
       });
+
+      await this.prisma.eventTicketPrice.createMany({
+        data: eventTicketPricesArr,
+      });
+
+      if (bonus.length > 0) {
+        await this.prisma.eventTicketBonus.createMany({
+          data: bonus,
+        });
+      }
+
+      if (eventLinks.length > 0) {
+        await this.prisma.eventTicketLink.createMany({
+          data: eventLinks,
+        });
+      }
 
       return 'Ticket created successfully';
     } catch (error) {
@@ -313,6 +312,7 @@ export class EventTicketProducerService {
         include: {
           eventTicketPrice: {
             include: {
+              EventTicketLink: true,
               EventParticipant: true,
             },
           },
@@ -359,6 +359,18 @@ export class EventTicketProducerService {
 
           ticket.eventTicketPrice.map((price) => {
             limit += price.guests;
+
+            if (ticket.isPrivate) {
+              ticketBatch.push({
+                id: price.id,
+                batch: price.batch,
+                price: price.price,
+                sells: price.EventParticipant.length,
+                limit: price.guests,
+                link: price.EventTicketLink,
+                currency: price.currency,
+              });
+            }
 
             ticketBatch.push({
               id: price.id,

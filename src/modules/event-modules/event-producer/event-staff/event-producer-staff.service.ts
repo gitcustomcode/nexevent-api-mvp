@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -95,7 +94,6 @@ export class EventProducerStaffService {
         });
         return `Event Staff created successfully`;
       } else {
-        console.log('Nenhum novo staff para inserir.');
         return 'Nenhum novo staff para inserir.';
       }
     } catch (error) {
