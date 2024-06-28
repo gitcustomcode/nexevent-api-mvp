@@ -185,6 +185,7 @@ export class EventProducerService {
 
       let stripeCheckoutUrl = null;
       let stripeCheckoutValue = 0;
+      let stripeId = null;
       let eventLimit = 20;
       let eventType: EventType = 'FREE';
       let ticketPriceNegative = false;
@@ -229,6 +230,7 @@ export class EventProducerService {
         eventType = 'PAID_OUT';
         stripeCheckoutUrl = checkoutSession.sessionUrl;
         stripeCheckoutValue = checkoutSession.value;
+        stripeId = checkoutSession.id;
       } else {
         eventType = 'PASSED_CLIENT';
       }
@@ -283,7 +285,7 @@ export class EventProducerService {
           await prisma.balanceHistoric.create({
             data: {
               userId: user.id,
-              paymentId: stripeCheckoutUrl,
+              paymentId: stripeId,
               eventId: createdEvent.id,
               value:
                 stripeCheckoutValue > 0
@@ -320,7 +322,6 @@ export class EventProducerService {
         slug: result.slug,
         stripeCheckoutUrl: stripeCheckoutUrl,
       };
-
     } catch (error) {
       console.error('Erro ao criar evento:', error);
       throw error;
