@@ -1,5 +1,4 @@
-import {
-  ConflictException,
+import {  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -207,39 +206,41 @@ export class EventTicketProducerService {
         );
       }
 
-      await this.prisma.eventTicket.create({
-        data: {
-          id: ticketId,
-          slug,
-          sequential,
-          eventId: event.id,
-          title,
-          description,
-          isPrivate,
-          guests: ticketGuests,
-          eventTicketDays: {
-            createMany: {
-              data: eventTicketDayFormatted,
+      await this.prisma.$transaction(async (prisma) => {
+        await prisma.eventTicket.create({
+          data: {
+            id: ticketId,
+            slug,
+            sequential,
+            eventId: event.id,
+            title,
+            description,
+            isPrivate,
+            guests: ticketGuests,
+            eventTicketDays: {
+              createMany: {
+                data: eventTicketDayFormatted,
+              },
             },
           },
-        },
-      });
-
-      await this.prisma.eventTicketPrice.createMany({
-        data: eventTicketPricesArr,
-      });
-
-      if (bonus.length > 0) {
-        await this.prisma.eventTicketBonus.createMany({
-          data: bonus,
         });
-      }
 
-      if (eventLinks.length > 0) {
-        await this.prisma.eventTicketLink.createMany({
-          data: eventLinks,
+        await prisma.eventTicketPrice.createMany({
+          data: eventTicketPricesArr,
         });
-      }
+
+        if (bonus.length > 0) {
+          await prisma.eventTicketBonus.createMany({
+            data: bonus,
+          });
+        }
+
+        if (eventLinks.length > 0) {
+          await prisma.eventTicketLink.createMany({
+            data: eventLinks,
+          });
+        }
+      });
 
       return 'Ticket created successfully';
     } catch (error) {
@@ -395,6 +396,7 @@ export class EventTicketProducerService {
             price: totalBrute,
             participantsCount: ticket.EventParticipant.length,
             priceLiquid: totalBrute - tax,
+            isBonus: ticket.isBonus,
             ticketPercentualSell:
               (ticket.EventParticipant.length / limit) * 100,
             ticketBatch,
@@ -440,6 +442,12 @@ export class EventTicketProducerService {
               eventTicketPrice: true,
             },
           });
+
+          if (eventTicket.isBonus) {
+            throw new ConflictException(
+              `O ingresso ${eventTicket.title} é bônus`,
+            );
+          }
 
           eventTicket.eventTicketPrice.map((price) => {
             stripePriceIds.push(price.stripePriceId);
