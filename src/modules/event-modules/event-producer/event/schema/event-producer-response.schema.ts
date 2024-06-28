@@ -1,5 +1,4 @@
-import {
-  CredentialType,
+import {  CredentialType,
   EventParticipantHistoricStatus,
   EventStatus,
   EventTicketStatus,
@@ -61,26 +60,18 @@ export const GeneralDashboardResponseSchema = z.object({
   totalEvents: z.number(),
   totalTickets: z.number(),
   totalParticipants: z.number(),
-  total: z.number(),
 
-  lastEvents: z.array(
+  totalBrute: z.number(),
+  totalLiquid: z.number(),
+  totalDrawee: z.number(),
+
+  bestEvents: z.array(
     z.object({
       id: z.string(),
       title: z.string(),
-      slug: z.string(),
       total: z.number(),
     }),
   ),
-
-  bigParticipantsForState: z.object({
-    state: z.string(),
-    total: z.string(),
-  }),
-
-  bigSaleForState: z.object({
-    state: z.string(),
-    total: z.number(),
-  }),
 
   participantsCheckIn: z.number(),
   participantsNotCheckedIn: z.number(),
