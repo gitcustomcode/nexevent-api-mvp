@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -46,11 +47,15 @@ export class EventProducerAccreditationService {
         userEmail.toLowerCase(),
       );
 
+      console.log(event);
+
       if (event.status === 'DISABLE') {
         throw new ForbiddenException('Event disabled');
       }
 
       const participant = await this.findOne(event.id, null, qrcode);
+
+      console.log(participant);
 
       const response: FindByQrCodeResponseDto = {
         id: participant.id,
@@ -153,6 +158,8 @@ export class EventProducerAccreditationService {
       const validDay = eventTicketValidDay.find((day) =>
         isSameDay(day.date, today),
       );
+
+      console.log(validDay);
 
       if (!validDay) throw new ConflictException(`Invalid day`);
 

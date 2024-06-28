@@ -237,89 +237,85 @@ export class EventProducerService {
 
       const fullySearch = concatTitleAndCategoryEvent(title, category);
 
-      const result = await this.prisma.$transaction(async (prisma) => {
-        const createdEvent = await prisma.event.create({
-          data: {
-            userId: user.id,
-            slug: slug,
-            sequential: sequential + 1,
-            title: title,
-            description: description,
-            category: category,
-            location: location,
-            public: eventPublic,
-            type: eventType,
-            startAt: startAt,
-            endAt: endAt,
-            startPublishAt: startPublishAt,
-            endPublishAt: endPublishAt,
-            fullySearch: fullySearch,
-            latitude: latitude,
-            longitude: longitude,
-            sellOnThePlatform: sellOnThePlatform,
-            checkoutUrl: stripeCheckoutUrl,
-            paymentStatus: 'unpaid',
-            address,
-            city,
-            complement,
-            country,
-            district,
-            number,
-            state,
-            eventSchedule: {
-              createMany: {
-                data: eventScheduleFormatted,
-              },
-            },
-            eventConfig: {
-              create: {
-                printAutomatic: eventConfig.printAutomatic,
-                credentialType: eventConfig.credentialType,
-                limit: eventLimit,
-              },
+      const createdEvent = await this.prisma.event.create({
+        data: {
+          userId: user.id,
+          slug: slug,
+          sequential: sequential + 1,
+          title: title,
+          description: description,
+          category: category,
+          location: location,
+          public: eventPublic,
+          type: eventType,
+          startAt: startAt,
+          endAt: endAt,
+          startPublishAt: startPublishAt,
+          endPublishAt: endPublishAt,
+          fullySearch: fullySearch,
+          latitude: latitude,
+          longitude: longitude,
+          sellOnThePlatform: sellOnThePlatform,
+          checkoutUrl: stripeCheckoutUrl,
+          paymentStatus: 'unpaid',
+          address,
+          city,
+          complement,
+          country,
+          district,
+          number,
+          state,
+          eventSchedule: {
+            createMany: {
+              data: eventScheduleFormatted,
             },
           },
-        });
-
-        if (stripeCheckoutUrl) {
-          await prisma.balanceHistoric.create({
-            data: {
-              userId: user.id,
-              paymentId: stripeId,
-              eventId: createdEvent.id,
-              value:
-                stripeCheckoutValue > 0
-                  ? Number(stripeCheckoutValue / 100).toFixed(2)
-                  : stripeCheckoutValue,
+          eventConfig: {
+            create: {
+              printAutomatic: eventConfig.printAutomatic,
+              credentialType: eventConfig.credentialType,
+              limit: eventLimit,
             },
-          });
-        }
-
-        for (const ticket of eventTickets) {
-          const body = {
-            title: ticket.title,
-            description: ticket.description,
-            isFree: ticket.isFree,
-            isPrivate: ticket.isPrivate,
-            eventTicketPrices: ticket.eventTicketPrices,
-            eventTicketBonuses: ticket.eventTicketBonuses,
-            eventTicketDays: ticket.eventTicketDays,
-            isBonus: ticket.isBonus,
-          };
-
-          await this.eventTicketProducerService.createEventTicket(
-            email,
-            createdEvent.slug,
-            body,
-          );
-        }
-
-        return createdEvent;
+          },
+        },
       });
 
+      if (stripeCheckoutUrl) {
+        await this.prisma.balanceHistoric.create({
+          data: {
+            userId: user.id,
+            paymentId: stripeId,
+            eventId: createdEvent.id,
+            value:
+              stripeCheckoutValue > 0
+                ? Number(stripeCheckoutValue / 100).toFixed(2)
+                : stripeCheckoutValue,
+          },
+        });
+      }
+
+      for (const ticket of eventTickets) {
+        const body = {
+          title: ticket.title,
+          description: ticket.description,
+          isFree: ticket.isFree,
+          isPrivate: ticket.isPrivate,
+          eventTicketPrices: ticket.eventTicketPrices,
+          eventTicketBonuses: ticket.eventTicketBonuses,
+          eventTicketDays: ticket.eventTicketDays,
+          isBonus: ticket.isBonus,
+        };
+
+        await this.eventTicketProducerService.createEventTicket(
+          email,
+          createdEvent.slug,
+          body,
+        );
+      }
+
       return {
-        id: result.id,
-        slug: result.slug,
+        id: createdEvent.id,
+        slug: createdEvent.slug,
         stripeCheckoutUrl: stripeCheckoutUrl,
       };
     } catch (error) {
@@ -777,8 +773,7 @@ export class EventProducerService {
         where.status = status === 'ENABLE' ? 'ENABLE' : 'DISABLE';
       }
 
-      console.log(perPage);
-      console.log(page);
+      console.log('aqui');
 
       const event = await this.prisma.event.findMany({
         where,
@@ -987,65 +982,63 @@ export class EventProducerService {
       const participantsCheckIn = [];
       const eventSales = [];
 
-      await Promise.all(
-        events.map(async (event) => {
-          totalTickets += event.eventTicket.length;
-          totalParticipants += event.eventParticipant.length;
+      events.map(async (event) => {
+        totalTickets += event.eventTicket.length;
+        totalParticipants += event.eventParticipant.length;
 
-          const eventDrawee = await this.prisma.balanceHistoric.findMany({
+        const eventDrawee = await this.prisma.balanceHistoric.findMany({
+          where: {
+            userId: user.id,
+            eventId: event.id,
+            status: 'RECEIVED',
+          },
+        });
+
+        eventDrawee.forEach((drawee) => {
+          if (Number(drawee.value) < 0) {
+            totalDrawee += Number(drawee.value);
+          }
+        });
+
+        let eventTotalSales = 0;
+
+        for (const participant of event.eventParticipant) {
+          const sell = await this.prisma.balanceHistoric.findMany({
             where: {
-              userId: user.id,
-              eventId: event.id,
+              userId: participant.userId,
+              eventId: participant.eventId,
               status: 'RECEIVED',
             },
           });
 
-          eventDrawee.forEach((drawee) => {
-            if (Number(drawee.value) < 0) {
-              totalDrawee += Number(drawee.value);
-            }
-          });
-
-          let eventTotalSales = 0;
-
-          for (const participant of event.eventParticipant) {
-            const sell = await this.prisma.balanceHistoric.findMany({
-              where: {
-                userId: participant.userId,
-                eventId: participant.eventId,
-                status: 'RECEIVED',
-              },
-            });
-
-            if (sell.length > 0) {
-              sell.forEach((s) => {
-                if (Number(s.value) > 0) {
-                  totalBrute += Number(s.value);
-                  totalLiquid += Number(s.value) - Number(s.fee);
-                  eventTotalSales += Number(s.value);
-                }
-              });
-            }
-
-            participant.eventParticipantHistoric.forEach((historic) => {
-              if (historic.status === 'CHECK_IN') {
-                participantsCheckIn.push({
-                  id: historic.eventParticipantId,
-                  status: historic.status,
-                });
+          if (sell.length > 0) {
+            sell.forEach((s) => {
+              if (Number(s.value) > 0) {
+                totalBrute += Number(s.value);
+                totalLiquid += Number(s.value) - Number(s.fee);
+                eventTotalSales += Number(s.value);
               }
             });
           }
 
-          if (eventTotalSales > 0) {
-            eventSales.push({
-              id: event.id,
-              title: event.title,
-              total: eventTotalSales,
-            });
-          }
-        }),
-      );
+          participant.eventParticipantHistoric.forEach((historic) => {
+            if (historic.status === 'CHECK_IN') {
+              participantsCheckIn.push({
+                id: historic.eventParticipantId,
+                status: historic.status,
+              });
+            }
+          });
+        }
+
+        if (eventTotalSales > 0) {
+          eventSales.push({
+            id: event.id,
+            title: event.title,
+            total: eventTotalSales,
+          });
+        }
+      });
 
       const uniqueArray = Array.from(
         new Map(participantsCheckIn.map((item) => [item.id, item])).values(),
