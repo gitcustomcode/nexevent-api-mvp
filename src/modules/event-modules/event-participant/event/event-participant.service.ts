@@ -1035,12 +1035,14 @@ export class EventParticipantService {
           }),
         );
 
-        let session = null;
+        let sessionId = null;
+        let sessionUrl = null;
         if (lineItems.length > 0) {
           const created =
             await this.stripe.checkoutSessionEventParticipant(lineItems);
 
-          session = created.url;
+          sessionId = created.id;
+          sessionUrl = created.url;
         }
 
         await Promise.all(
@@ -1054,12 +1056,12 @@ export class EventParticipantService {
             await prisma.balanceHistoric.create({
               data: {
                 userId: userId,
-                paymentId: session ? session.id : null,
+                paymentId: sessionId ? sessionId : null,
                 value: ticketId.price,
                 eventId: event.id,
                 eventTicketId: ticketId.eventTicketId,
                 status:
-                  session || Number(ticketId.price) > 0
+                  sessionId || Number(ticketId.price) > 0
                     ? 'PENDING'
                     : 'RECEIVED',
               },
@@ -1067,7 +1069,11 @@ export class EventParticipantService {
           }),
         );
 
-        return { session: session, participantId: partId };
+        return {
+          sessionId: sessionId,
+          participantId: partId,
+          sessionUrl: sessionUrl,
+        };
       });
 
       return trans;
