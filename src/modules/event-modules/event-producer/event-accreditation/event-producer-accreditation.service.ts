@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -118,6 +119,8 @@ export class EventProducerAccreditationService {
 
       const results = await Promise.all(validationPromises);
 
+      console.log(results);
+
       const filteredResults = results.filter((result) => result !== undefined);
 
       return filteredResults.length > 0 ? filteredResults[0] : false;
@@ -185,6 +188,7 @@ export class EventProducerAccreditationService {
           },
           data: {
             status: 'AWAITING_PRINT',
+            isPrinted: false,
           },
         });
       }
