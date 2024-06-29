@@ -31,6 +31,7 @@ import {
   EventAllResponseDto,
   EventDashboardPanelFinancialDto,
   EventDashboardResponseDto,
+  EventPrintAllPartsDto,
   FindOneDashboardParticipantPanelDto,
   GeneralDashboardResponseDto,
   ResponseEventParticipants,
@@ -46,6 +47,45 @@ import {
 @Controller('event-producer')
 export class EventProducerController {
   constructor(private readonly eventProducerService: EventProducerService) {}
+
+  @Get('v1/event-producer/:eventId/print-participant')
+  @ApiOperation({ summary: 'Get event dashboard' })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventId',
+    type: String,
+    required: true,
+    description: 'Event id',
+  })
+  async getPartClient(
+    @Param('eventId') eventId: string,
+  ): Promise<EventPrintAllPartsDto> {
+    return this.eventProducerService.getPartClient(eventId);
+  }
+
+  @Patch('v1/event-producer/:eventId/print-participant')
+  @ApiOperation({ summary: 'Get event dashboard' })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventId',
+    type: String,
+    required: true,
+    description: 'Event Id',
+  })
+  @ApiQuery({
+    name: 'participantId',
+    type: String,
+    required: true,
+    description: 'Participant ID',
+  })
+  async updateIsPrint(
+    @Param('eventId') eventId: string,
+    @Query('participantId') participantId: string,
+  ) {
+    return this.eventProducerService.updateIsPrint(eventId, participantId);
+  }
 
   @Post('v1/event-producer/create-event')
   @ApiBearerAuth()

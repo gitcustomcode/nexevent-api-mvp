@@ -1,4 +1,5 @@
-import {  CredentialType,
+import {
+  CredentialType,
   EventParticipantHistoricStatus,
   EventStatus,
   EventTicketStatus,
@@ -127,3 +128,12 @@ export const EventDashboardPanelFinancialSchema = z.object({
     }),
   ),
 });
+
+export const EventPrintPartSchema = z.object({
+  partId: z.string(),
+  name: z.string(),
+  ticket: z.string(),
+  qrcode: z.string(),
+});
+
+export const EventPrintAllPartsSchema = z.array(EventPrintPartSchema);

@@ -46,15 +46,11 @@ export class EventProducerAccreditationService {
         userEmail.toLowerCase(),
       );
 
-      console.log(event);
-
       if (event.status === 'DISABLE') {
         throw new ForbiddenException('Event disabled');
       }
 
       const participant = await this.findOne(event.id, null, qrcode);
-
-      console.log(participant);
 
       const response: FindByQrCodeResponseDto = {
         id: participant.id,
