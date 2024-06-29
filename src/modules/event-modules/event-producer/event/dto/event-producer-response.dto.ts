@@ -1,9 +1,10 @@
-import { createZodDto } from 'nestjs-zod';
-import {
+import { createZodDto } from 'nestjs-zod';import {
   EventAllResponseSchema,
   EventDashboardPanelFinancialSchema,
   EventDashboardResponseSchema,
   EventParticipantsResponseSchema,
+  EventPrintAllPartsSchema,
+  EventPrintPartSchema,
   FindOneDashboardParticipantPanelSchema,
   GeneralDashboardResponseSchema,
 } from '../schema/event-producer-response.schema';
@@ -40,6 +41,12 @@ export class GeneralDashboardResponseDto extends createZodDto(
 
 export class EventParticipantsResponseDto extends createZodDto(
   EventParticipantsResponseSchema,
+) {}
+
+export class EventPrintPartDto extends createZodDto(EventPrintPartSchema) {}
+
+export class EventPrintAllPartsDto extends createZodDto(
+  EventPrintAllPartsSchema,
 ) {}
 
 export class ResponseEventParticipants {

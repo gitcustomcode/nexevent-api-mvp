@@ -16,6 +16,7 @@ import {
   ResponseEventParticipants,
   ResponseEvents,
   EventDashboardPanelFinancialDto,
+  EventPrintAllPartsDto,
 } from './dto/event-producer-response.dto';
 import {
   StorageService,
@@ -65,6 +66,55 @@ export class EventProducerService {
     private readonly eventTicketProducerService: EventTicketProducerService,
     private readonly stripe: StripeService,
   ) {}
+
+  async getPartClient(eventId: string): Promise<EventPrintAllPartsDto> {
+    try {
+      const part = await this.prisma.eventParticipant.findMany({
+        where: {
+          eventId,
+          status: 'AWAITING_PRINT',
+          isPrinted: false,
+        },
+        include: {
+          user: true,
+          eventTicket: true,
+        },
+        take: 10,
+      });
+
+      const response: EventPrintAllPartsDto = [];
+
+      await Promise.all(
+        part.map((p) => {
+          response.push({
+            partId: p.id,
+            name: p.user.name,
+            qrcode: p.qrcode,
+            ticket: p.eventTicket.title,
+          });
+        }),
+      );
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateIsPrint(eventId: string, partId: string) {
+    await this.prisma.eventParticipant.update({
+      where: {
+        id: partId,
+        eventId,
+      },
+      data: {
+        isPrinted: true,
+        status: 'COMPLETE',
+      },
+    });
+
+    return 'success';
+  }
 
   async createEvent(email: string, body: EventCreateDto): Promise<object> {
     try {

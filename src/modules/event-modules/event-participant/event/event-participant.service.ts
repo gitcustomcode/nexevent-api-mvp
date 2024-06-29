@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -74,7 +73,7 @@ export class EventParticipantService {
 
       const event = eventTicketLink.eventTicket.event;
 
-      const qrcode = `https://sistema-dev.nexevent.com.br/participant/network/${randomUUID()}`;
+      const qrcode = randomUUID();
 
       const sequential = await this.prisma.eventParticipant.count({
         where: {
