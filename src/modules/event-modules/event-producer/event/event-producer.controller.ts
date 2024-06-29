@@ -58,6 +58,9 @@ export class EventProducerController {
     required: true,
     description: 'Event id',
   })
+  @ApiResponse({
+    type: EventPrintAllPartsDto,
+  })
   async getPartClient(
     @Param('eventId') eventId: string,
   ): Promise<EventPrintAllPartsDto> {
