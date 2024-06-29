@@ -74,7 +74,7 @@ export class EventParticipantService {
 
       const event = eventTicketLink.eventTicket.event;
 
-      const qrcode = randomUUID();
+      const qrcode = `https://sistema-dev.nexevent.com.br/participant/network/${randomUUID()}`;
 
       const sequential = await this.prisma.eventParticipant.count({
         where: {
