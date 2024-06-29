@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -181,7 +180,8 @@ export class EventProducerAccreditationService {
 
       if (
         event.eventConfig[0].printAutomatic === true &&
-        participant.eventParticipantHistoric.length === 0
+        participant.eventParticipantHistoric.length === 0 &&
+        participant.isPrinted === false
       ) {
         await this.prisma.eventParticipant.update({
           where: {
