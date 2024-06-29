@@ -1,4 +1,5 @@
-import { UserType } from '@prisma/client';import { z } from 'nestjs-zod/z';
+import { UserType } from '@prisma/client';
+import { z } from 'nestjs-zod/z';
 
 export const UserValidationEmailResponseSchema = z.object({
   id: z.string(),
@@ -35,5 +36,6 @@ export const UserEventParticipantCreateSchema = z.object({
   phoneNumber: z.string().nullish().describe('Event participant phone number'),
   state: z.string().nullish().describe('Event participant state'),
   country: z.string().nullish().describe('Event participant country'),
+  city: z.string().nullish(),
   cep: z.string().nullish().describe('Event participant cep'),
 });

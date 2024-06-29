@@ -1,4 +1,5 @@
-import { Cron, CronExpression } from '@nestjs/schedule';import { PrismaService } from 'src/services/prisma.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { PrismaService } from 'src/services/prisma.service';
 import { EventParticipant, Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import * as QRCode from 'qrcode';
@@ -11,7 +12,7 @@ export class EventParticipantCronService {
     private readonly emailService: EmailService,
   ) {}
 
-  /* @Cron(CronExpression.EVERY_10_SECONDS, {
+  @Cron(CronExpression.EVERY_10_SECONDS, {
     name: 'eventParticipantsNotPaymentBy10Minutes',
   })
   async deleteParticipantsNotPaymentsBy10Minutes() {
@@ -61,7 +62,7 @@ export class EventParticipantCronService {
     } catch (error) {
       console.error('Error in cron job:', error);
     }
-  } */
+  }
 
   @Cron(CronExpression.EVERY_30_SECONDS, {
     name: 'eventParticipantSendEmails',

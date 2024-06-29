@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -111,6 +112,8 @@ export class EventParticipantService {
           signature: signerInfo,
         },
       });
+
+      await this.createParticipantNetworks(eventParticipant.id, body.networks);
 
       return {
         eventParticipantId: eventParticipant.id,

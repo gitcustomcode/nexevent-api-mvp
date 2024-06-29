@@ -63,23 +63,15 @@ export class UserParticipantValidationService {
     email: string,
     body: UserEventParticipantCreateDto,
   ) {
-    const {
-      cep,
-      country,
-      dateBirth,
-      document,
-      name,
-      phoneCountry,
-      phoneNumber,
-      state,
-    } = body;
+    const { country, document, name, phoneCountry, phoneNumber, state, city } =
+      body;
 
-    validateBirth(dateBirth, false);
-
-    if (country === 'Brasil' || phoneCountry === '55') {
-      const documentValid = validateCPF(document);
-      if (!documentValid) {
-        throw new UnprocessableEntityException('Invalid CPF document');
+    if (document) {
+      if (country === 'Brasil' || phoneCountry === '55') {
+        const documentValid = validateCPF(document);
+        if (!documentValid) {
+          throw new UnprocessableEntityException('Invalid CPF document');
+        }
       }
     }
     const validName = name.trim().split(' ');
@@ -91,14 +83,13 @@ export class UserParticipantValidationService {
     const user = await this.prisma.user.create({
       data: {
         email: email.toLowerCase(),
-        cep,
         country,
-        dateBirth,
-        document,
+        document: document ? document : null,
         name,
         phoneCountry,
         phoneNumber,
         state,
+        city,
       },
       include: {
         userFacials: true,
