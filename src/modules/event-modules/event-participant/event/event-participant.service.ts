@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -28,6 +29,7 @@ import {
   FindAllPublicEventsDto,
   NetworkHistoric,
   NetworkHistoricDto,
+  FindByEmailDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
@@ -54,12 +56,38 @@ export class EventParticipantService {
     userEmail: string,
     eventTicketLinkId: string,
     body: EventParticipantCreateDto,
+    updateUser: boolean,
   ) {
     try {
       const user = await this.userParticipantValidationService.findUserByEmail(
         userEmail.toLowerCase(),
         body,
       );
+
+      if (updateUser) {
+        const {
+          city,
+          country,
+          document,
+          name,
+          phoneCountry,
+          phoneNumber,
+          state,
+        } = body;
+
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            name: name,
+            phoneNumber: phoneNumber,
+            document: document,
+            phoneCountry: phoneCountry,
+            city: city,
+            state: state,
+            country: country,
+          },
+        });
+      }
 
       const eventTicketLink =
         await this.userParticipantValidationService.updateEventTicketLinkStatus(
@@ -568,22 +596,25 @@ export class EventParticipantService {
 
       const ticketsPrice = [];
 
-      event.eventTicket.map((ticket) => {
-        console.log(ticket);
-        if (ticket.isBonus === false) {
-          ticket.eventTicketPrice.map((price) => {
-            ticketsPrice.push({
-              id: price.id,
-              batch: price.batch,
-              title: ticket.title,
-              price: Number(price.price),
-              description: ticket.description,
-              avaible: price.guests - price.EventParticipant.length,
-              currency: price.currency,
+      if (event.eventTicket) {
+        event.eventTicket.map((ticket) => {
+          if (ticket.isBonus === false) {
+            ticket.eventTicketPrice.map((price) => {
+              if (ticket.isPrivate === false) {
+                ticketsPrice.push({
+                  id: price.id,
+                  batch: price.batch,
+                  title: ticket.title,
+                  price: Number(price.price),
+                  description: ticket.description,
+                  avaible: price.guests - price.EventParticipant.length,
+                  currency: price.currency,
+                });
+              }
             });
-          });
-        }
-      });
+          }
+        });
+      }
 
       const response: FindOnePublicEventsDto = {
         id: event.id,
@@ -844,7 +875,11 @@ export class EventParticipantService {
     }
   }
 
-  async eventTicketSell(userId: string, body: EventTicketSellDto) {
+  async eventTicketSell(
+    userId: string,
+    body: EventTicketSellDto,
+    updateUser: boolean,
+  ) {
     try {
       const userExist = await this.prisma.user.findUnique({
         where: {
@@ -857,18 +892,18 @@ export class EventParticipantService {
       const { eventSlug, eventTickets, networks, user } = body;
       const { name, phone, city, state, document } = user;
 
-      await this.prisma.user.update({
-        where: {
-          id: userExist.id,
-        },
-        data: {
-          document: userExist.document ? userExist.document : document,
-          name: userExist.name ? userExist.name : name,
-          phoneNumber: userExist.phoneNumber ? userExist.phoneNumber : phone,
-          city: userExist.city ? userExist.city : city,
-          state: userExist.state ? userExist.state : state,
-        },
-      });
+      if (updateUser) {
+        await this.prisma.user.update({
+          where: { id: userExist.id },
+          data: {
+            name: name,
+            phoneNumber: phone,
+            document: document,
+            city: city,
+            state: state,
+          },
+        });
+      }
 
       const event = await this.prisma.event.findUnique({
         where: {
@@ -1276,6 +1311,36 @@ export class EventParticipantService {
       const response: NetworkHistoric = {
         data: data,
         pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async findByEmail(email: string): Promise<FindByEmailDto | null> {
+    try {
+      const userExist = await this.prisma.user.findUnique({
+        where: {
+          email: email.toLowerCase(),
+        },
+      });
+
+      if (!userExist) {
+        return null;
+      }
+
+      const response: FindByEmailDto = {
+        city: userExist.cep,
+        email: userExist.email,
+        id: userExist.id,
+        name: userExist.name,
+        phone: userExist.phoneNumber,
+        validAt: userExist.validAt,
+        state: userExist.state,
+        country: userExist.country,
+        document: userExist.document,
       };
 
       return response;
