@@ -164,3 +164,15 @@ export const NetworkHistoricSchema = z.object({
   eventName: z.string(),
   profilePhoto: z.string(),
 });
+
+export const FindByEmailSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  phone: z.string(),
+  city: z.string(),
+  country: z.string(),
+  state: z.string(),
+  document: z.string(),
+  validAt: z.date().nullish(),
+});

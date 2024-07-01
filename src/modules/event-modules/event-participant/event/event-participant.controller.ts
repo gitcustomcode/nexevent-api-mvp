@@ -35,6 +35,7 @@ import {
   EventTicketInfoDto,
   FindAllPublicEvents,
   FindAllPublicEventsDto,
+  FindByEmailDto,
   FindEventInfoDto,
   FindOnePublicEventsDto,
   ListTickets,
@@ -183,6 +184,11 @@ export class EventParticipantController {
     required: true,
     type: String,
   })
+  @ApiQuery({
+    name: 'updateUser',
+    required: true,
+    type: Boolean,
+  })
   @ApiParam({
     name: 'eventTicketLinkId',
     required: true,
@@ -191,12 +197,14 @@ export class EventParticipantController {
   async createParticipant(
     @Body() body: EventParticipantCreateDto,
     @Query('userEmail') userEmail: string,
+    @Query('updateUser') updateUser: boolean,
     @Param('eventTicketLinkId') eventTicketLinkId: string,
   ) {
     return await this.eventParticipantService.createParticipant(
       userEmail,
       eventTicketLinkId,
       body,
+      updateUser,
     );
   }
 
@@ -297,6 +305,22 @@ export class EventParticipantController {
     return await this.eventParticipantService.findEventInfo(eventTicketLinkId);
   }
 
+  @Get('v1/event-participant/:email/find-user-by-email')
+  @ApiOperation({ summary: 'Get event information' })
+  @ApiResponse({
+    type: FindByEmailDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'email',
+    required: true,
+    type: String,
+  })
+  async findByEmail(@Param('email') email: string): Promise<FindByEmailDto> {
+    return await this.eventParticipantService.findByEmail(email);
+  }
+
   @Get('v1/event-participant/list-tickets')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
@@ -383,9 +407,22 @@ export class EventParticipantController {
   })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
-  async eventTicketSell(@Request() req: any, @Body() body: EventTicketSellDto) {
+  @ApiQuery({
+    name: 'updateUser',
+    required: true,
+    type: Boolean,
+  })
+  async eventTicketSell(
+    @Request() req: any,
+    @Body() body: EventTicketSellDto,
+    @Query('updateUser') updateUser: boolean = false,
+  ) {
     const userId = req.auth.user.id;
-    return await this.eventParticipantService.eventTicketSell(userId, body);
+    return await this.eventParticipantService.eventTicketSell(
+      userId,
+      body,
+      updateUser,
+    );
   }
 
   @Post('v1/event-participant/create-network')

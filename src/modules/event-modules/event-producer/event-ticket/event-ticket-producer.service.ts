@@ -1,4 +1,5 @@
-import {  ConflictException,
+import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -360,6 +361,8 @@ export class EventTicketProducerService {
           ticket.eventTicketPrice.map((price) => {
             limit += price.guests;
 
+            console.log(price);
+
             if (ticket.isPrivate) {
               ticketBatch.push({
                 id: price.id,
@@ -370,16 +373,16 @@ export class EventTicketProducerService {
                 link: price.EventTicketLink,
                 currency: price.currency,
               });
+            } else {
+              ticketBatch.push({
+                id: price.id,
+                batch: price.batch,
+                price: price.price,
+                sells: price.EventParticipant.length,
+                limit: price.guests,
+                currency: price.currency,
+              });
             }
-
-            ticketBatch.push({
-              id: price.id,
-              batch: price.batch,
-              price: price.price,
-              sells: price.EventParticipant.length,
-              limit: price.guests,
-              currency: price.currency,
-            });
           });
 
           ticket.EventParticipant.map((participant) => {

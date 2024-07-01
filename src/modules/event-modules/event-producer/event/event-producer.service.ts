@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -1286,6 +1285,9 @@ export class EventProducerService {
       const balances = await this.prisma.balanceHistoric.findMany({
         where: {
           eventId: event.id,
+          eventTicketId: {
+            not: null,
+          },
         },
         include: {
           eventTicket: true,
@@ -1350,7 +1352,8 @@ export class EventProducerService {
 
       const response: EventDashboardPanelFinancialDto = {
         eventTotal: total,
-        eventTotalDrawee: totalReceived,
+        eventTotalDrawee:
+          totalReceived > 0 ? totalReceived * -1 : totalReceived,
         totalDisponible: total + totalReceived,
         sellDiary: sellDiary,
         sellDiaryByTicket: sellDiaryByArray,
