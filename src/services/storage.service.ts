@@ -36,7 +36,6 @@ export class StorageService {
           throw new Error('Invalid storage provider');
       }
     } catch (error) {
-      console.log(`Error: ${error}`);
       throw new ConflictException(`Error: ${error}`);
     }
   }
@@ -109,7 +108,6 @@ export class StorageService {
 
       await this.s3.putObject(uploadParams).promise();
     } catch (error) {
-      console.log(`Error: ${error}`);
       throw error;
     }
   }

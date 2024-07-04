@@ -1,5 +1,4 @@
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from 'src/services/prisma.service';
+import { Cron, CronExpression } from '@nestjs/schedule';import { PrismaService } from 'src/services/prisma.service';
 import { EventParticipant, Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import * as QRCode from 'qrcode';
@@ -58,7 +57,6 @@ export class EventParticipantCronService {
           });
         }),
       );
-      console.log('Cron job completed successfully');
     } catch (error) {
       console.error('Error in cron job:', error);
     }

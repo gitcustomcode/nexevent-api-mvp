@@ -28,6 +28,8 @@ export const EventDashboardResponseSchema = z.object({
       id: z.string(),
       title: z.string(),
       price: z.number(),
+      partQtd: z.number(),
+      limit: z.number(),
     }),
   ),
 
@@ -112,6 +114,7 @@ export const EventDashboardPanelFinancialSchema = z.object({
   eventTotal: z.number(),
   eventTotalDrawee: z.number(),
   totalDisponible: z.number(),
+  currency: z.string(),
 
   sellDiary: z.array(
     z.object({

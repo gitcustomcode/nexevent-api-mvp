@@ -30,6 +30,7 @@ import {
   NetworkHistoric,
   NetworkHistoricDto,
   FindByEmailDto,
+  ThanksScreenDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
@@ -80,7 +81,7 @@ export class EventParticipantService {
           data: {
             name: name,
             phoneNumber: phoneNumber,
-            document: document,
+            document: document ? document : user.document,
             phoneCountry: phoneCountry,
             city: city,
             state: state,
@@ -953,7 +954,7 @@ export class EventParticipantService {
 
           const limitBatch =
             ticketPriceExist.guests - ticketPriceExist.EventParticipant.length;
-          console.log(limitBatch);
+
           if (limitBatch <= ticket.ticketQuantity) {
             throw new ConflictException(
               `O limite de ingressos para o lote ${ticketPriceExist.batch} do ingresso ${ticketPriceExist.eventTicket.title} foi atingido`,
@@ -1087,8 +1088,10 @@ export class EventParticipantService {
       let sessionId = null;
       let sessionUrl = null;
       if (lineItems.length > 0) {
-        const created =
-          await this.stripe.checkoutSessionEventParticipant(lineItems);
+        const created = await this.stripe.checkoutSessionEventParticipant(
+          lineItems,
+          partId ? partId : null,
+        );
 
         sessionId = created.id;
         sessionUrl = created.url;
@@ -1336,11 +1339,44 @@ export class EventParticipantService {
         email: userExist.email,
         id: userExist.id,
         name: userExist.name,
-        phone: userExist.phoneNumber,
+        phoneNumber: userExist.phoneNumber,
+        phoneCountry: userExist.phoneCountry,
         validAt: userExist.validAt,
         state: userExist.state,
         country: userExist.country,
         document: userExist.document,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async thanksScreen(partId: string): Promise<ThanksScreenDto> {
+    try {
+      const part = await this.prisma.eventParticipant.findUnique({
+        where: {
+          id: partId,
+        },
+        include: {
+          event: true,
+          eventTicket: true,
+          user: true,
+        },
+      });
+
+      const response: ThanksScreenDto = {
+        evenState: part.event.state,
+        eventSlug: part.event.slug,
+        eventCity: part.event.city,
+        eventPhoto: part.event.photo,
+        eventEndAt: part.event.endAt,
+        eventParticipantName: part.user.name,
+        eventParticipantQrcode: part.qrcode,
+        eventParticipantTicketTitle: part.eventTicket.title,
+        eventStartAt: part.event.startAt,
+        eventTitle: part.event.title,
       };
 
       return response;
@@ -1411,8 +1447,6 @@ export class EventParticipantService {
 
       const fileBase64 = file.toString('base64');
       const mimeType = mime.lookup(documentPath) || 'application/octet-stream';
-
-      console.log(`MIME type: ${mimeType}`);
 
       const contentBase64 = `data:${mimeType};base64,${fileBase64}`;
 

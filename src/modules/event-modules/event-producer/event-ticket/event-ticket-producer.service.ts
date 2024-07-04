@@ -41,7 +41,7 @@ export class EventTicketProducerService {
         description,
         title,
         isFree,
-        isPrivate,
+
         eventTicketPrices,
         eventTicketBonuses,
         eventTicketDays,
@@ -63,6 +63,10 @@ export class EventTicketProducerService {
           eventSlug,
           slug,
         );
+
+      if (!event.public) {
+        body.isPrivate = true;
+      }
 
       const eventLinks: Prisma.EventTicketLinkCreateManyInput[] = [];
       const eventTicketPricesArr: Prisma.EventTicketPriceCreateManyInput[] = [];
@@ -99,7 +103,6 @@ export class EventTicketProducerService {
             let bonusPrice = 0;
             if (eventTicketBonuses && eventTicketBonuses.length > 0) {
               eventTicketBonuses.map((b) => {
-                console.log('bonus', b);
                 bonusPrice += (printAutomatic + credential) * b.qtd;
               });
             }
@@ -109,14 +112,11 @@ export class EventTicketProducerService {
 
             const currency = ticketPrice.currency;
 
-            console.log('price', ticketPrice);
-
             if (
               currency === 'brl' ||
               currency === 'usd' ||
               currency === 'eur'
             ) {
-              console.log('entrou no if do stripe');
               let stripePriceId = null;
               if (ticketPrice.price > 0) {
                 const newTitle = `${title} - Lote ${ticketPrice.batch} ${ticketPrice.isPromotion ? 'Promoção' : ''}`;
@@ -126,8 +126,6 @@ export class EventTicketProducerService {
                   newPrice,
                   currency.toUpperCase(),
                 );
-
-                console.log(stripePrice);
 
                 stripePriceId = stripePrice.id;
               }
@@ -155,11 +153,13 @@ export class EventTicketProducerService {
                 stripePriceId: stripePriceId,
               });
 
-              eventLinks.push({
-                eventTicketId: ticketId,
-                eventTicketPriceId: eventTicketPriceId,
-                invite: ticketPrice.guests,
-              });
+              if (body.isPrivate) {
+                eventLinks.push({
+                  eventTicketId: ticketId,
+                  eventTicketPriceId: eventTicketPriceId,
+                  invite: ticketPrice.guests,
+                });
+              }
             } else {
               throw new UnprocessableEntityException(`Currency not accepted`);
             }
@@ -184,11 +184,13 @@ export class EventTicketProducerService {
               stripePriceId: null,
             });
             ticketGuests += ticketPrice.guests;
-            eventLinks.push({
-              eventTicketId: ticketId,
-              eventTicketPriceId: eventTicketPriceId,
-              invite: ticketPrice.guests,
-            });
+            if (body.isPrivate) {
+              eventLinks.push({
+                eventTicketId: ticketId,
+                eventTicketPriceId: eventTicketPriceId,
+                invite: ticketPrice.guests,
+              });
+            }
           }),
         );
       }
@@ -215,7 +217,7 @@ export class EventTicketProducerService {
           eventId: event.id,
           title,
           description,
-          isPrivate,
+          isPrivate: body.isPrivate,
           isBonus: isBonus,
           guests: ticketGuests,
           eventTicketDays: {
@@ -361,13 +363,12 @@ export class EventTicketProducerService {
           ticket.eventTicketPrice.map((price) => {
             limit += price.guests;
 
-            console.log(price);
-
             if (ticket.isPrivate) {
               ticketBatch.push({
                 id: price.id,
                 batch: price.batch,
                 price: price.price,
+                isPrivate: ticket.isPrivate,
                 sells: price.EventParticipant.length,
                 limit: price.guests,
                 link: price.EventTicketLink,
@@ -378,6 +379,7 @@ export class EventTicketProducerService {
                 id: price.id,
                 batch: price.batch,
                 price: price.price,
+                isPrivate: ticket.isPrivate,
                 sells: price.EventParticipant.length,
                 limit: price.guests,
                 currency: price.currency,
@@ -412,8 +414,9 @@ export class EventTicketProducerService {
             participantsCount: ticket.EventParticipant.length,
             priceLiquid: totalBrute - tax,
             isBonus: ticket.isBonus,
-            ticketPercentualSell:
+            ticketPercentualSell: Number(
               (ticket.EventParticipant.length / limit) * 100,
+            ).toFixed(2),
             ticketBatch,
           });
         }),

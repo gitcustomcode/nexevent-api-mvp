@@ -44,3 +44,4 @@ export const EventTicketSellSchema = z.object({
 
   networks: EventParticipantCreateNetworksSchema.optional(),
 });
+

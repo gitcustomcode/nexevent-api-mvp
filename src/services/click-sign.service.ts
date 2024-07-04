@@ -71,9 +71,6 @@ export class ClickSignApiService {
       },
     };
 
-    console.log(this.accessToken);
-    console.log(this.apiUrl);
-
     try {
       const response = await axios.post(
         `${this.apiUrl}/v1/documents?access_token=${this.accessToken}`,
@@ -109,7 +106,6 @@ export class ClickSignApiService {
         },
       );
 
-      console.log('Resposta da API:', resposta.data);
       return resposta.data; // ou faça algo com os dados da resposta
     } catch (erro) {
       console.error('Erro na chamada da API:', erro);

@@ -68,21 +68,21 @@ export class OtpController {
   }
 
   @Post('v1/otp/verify-email')
-  @ApiBearerAuth()
-  @UseGuards(AuthUserGuard)
   @ApiOperation({
     summary: 'Forgot password',
   })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
-  async verifyEmail(@Request() req: any): Promise<string> {
-    const email = req.auth.user.email;
-    return await this.otpService.verifyEmail(email);
+  @ApiQuery({
+    name: 'email',
+    required: true,
+    type: String,
+  })
+  async verifyEmail(@Query('email') email: string): Promise<string> {
+    return await this.otpService.verifyEmail(email.toLowerCase());
   }
 
   @Post('v1/otp/verify-email-code')
-  @ApiBearerAuth()
-  @UseGuards(AuthUserGuard)
   @ApiOperation({
     summary: 'Forgot password',
   })
@@ -93,11 +93,15 @@ export class OtpController {
     required: true,
     type: String,
   })
+  @ApiQuery({
+    name: 'email',
+    required: true,
+    type: String,
+  })
   async verifyEmailCode(
-    @Request() req: any,
+    @Query('email') email: string,
     @Query('code') code: string,
   ): Promise<string> {
-    const email = req.auth.user.email;
-    return await this.otpService.verifyEmailCode(email, code);
+    return await this.otpService.verifyEmailCode(email.toLowerCase(), code);
   }
 }
