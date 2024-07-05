@@ -1,5 +1,4 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Get,
   Patch,
@@ -29,11 +28,18 @@ import { UserProducerFinishSignUpDto } from './dto/user-producer-finish-sign-up.
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import { UserProducerResponseDto } from './dto/user-producer-response.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  StorageService,
+  StorageServiceType,
+} from 'src/services/storage.service';
 
 @ApiTags('User Producer')
 @Controller('user-producer')
 export class UserProducerController {
-  constructor(private readonly userProducerService: UserProducerService) {}
+  constructor(
+    private readonly userProducerService: UserProducerService,
+    private readonly storageService: StorageService,
+  ) {}
 
   @Post('v1/user-producer/sign-up')
   @ApiOperation({ summary: 'Register user producer' })
@@ -185,5 +191,28 @@ export class UserProducerController {
   ) {
     const email = req.auth.user.email;
     return await this.userProducerService.uploadProfilePhoto(email, file);
+  }
+
+  @Post('video')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadVideo(@UploadedFile() file: Express.Multer.File) {
+    const buffer = file.buffer;
+    const key = `${Date.now().toString()}-${file.originalname}`;
+
+    await this.storageService.uploadVideo(StorageServiceType.S3, key, buffer);
+
+    return key;
   }
 }

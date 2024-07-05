@@ -1,5 +1,4 @@
-import { Module } from '@nestjs/common';
-import { PrismaService } from './services/prisma.service';
+import { Module } from '@nestjs/common';import { PrismaService } from './services/prisma.service';
 import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AuthModule } from './modules/auth-modules/auth/auth.module';
@@ -14,6 +13,7 @@ import { EventProducerAccreditationModule } from './modules/event-modules/event-
 import { ScheduleModule } from '@nestjs/schedule';
 import { EventProducerStaffModule } from './modules/event-modules/event-producer/event-staff/event-producer-staff.module';
 import { EventParticipantCronModule } from './modules/cron-modules/event-participant-cron/event-participant-cron.module';
+import { EventQuizModule } from './modules/event-modules/event-producer/event-quiz/event.quiz.module';
 
 @Module({
   imports: [
@@ -28,6 +28,7 @@ import { EventParticipantCronModule } from './modules/cron-modules/event-partici
     EventProducerAccreditationModule,
     EventProducerStaffModule,
     EventParticipantCronModule,
+    EventQuizModule,
   ],
   controllers: [],
   providers: [
