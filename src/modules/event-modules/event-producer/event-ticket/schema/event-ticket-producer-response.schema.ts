@@ -7,16 +7,58 @@ export const EventTicketDashboardResponseSchema = z.array(
     title: z.string(),
     status: z.nativeEnum(EventTicketStatus),
     price: z.number(),
-    guest: z.number(),
+    priceLiquid: z.number(),
     participantsCount: z.number(),
-    links: z.array(
+    ticketLimit: z.number(),
+    ticketPercentualSell: z.number(),
+    isBonus: z.boolean(),
+
+    ticketBatch: z.array(
       z.object({
         id: z.string(),
-        status: z.nativeEnum(EventTicketLinkStatus),
+        batch: z.number(),
+        price: z.number(),
+        sells: z.number(),
         limit: z.number(),
-        used: z.number(),
-        limitUsed: z.string(),
+        currency: z.string(),
+        isPrivate: z.boolean(),
+        link: z.array(
+          z.object({
+            id: z.string(),
+            eventTicketId: z.string(),
+            eventTicketPriceId: z.string(),
+            userId: z.string(),
+            userTicketId: z.string(),
+            isBonus: z.boolean(),
+            invite: z.number(),
+            status: z.nativeEnum(EventTicketLinkStatus),
+            createdAt: z.date(),
+            updatedAt: z.date(),
+          }),
+        ),
       }),
     ),
   }),
 );
+
+export const EventTicketCouponResponseSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  code: z.string(),
+  percentOff: z.number(),
+  createdAt: z.date(),
+  expireAt: z.date(),
+
+  tickets: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+    }),
+  ),
+});
+
+export const EventTicketCouponDashboardSchema = z.object({
+  cuponsCreated: z.number(),
+  cuponsActives: z.number(),
+  cuponsExpired: z.number(),
+});

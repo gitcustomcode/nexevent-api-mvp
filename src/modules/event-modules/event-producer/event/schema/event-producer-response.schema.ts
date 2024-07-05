@@ -1,6 +1,7 @@
 import {
   CredentialType,
   EventParticipantHistoricStatus,
+  EventStatus,
   EventTicketStatus,
 } from '@prisma/client';
 import { z } from 'nestjs-zod/z';
@@ -9,71 +10,42 @@ export const EventDashboardResponseSchema = z.object({
   id: z.string(),
   title: z.string(),
   slug: z.string(),
-  category: z.string(),
-  subtitle: z.string(),
-  description: z.string(),
-  location: z.string(),
-  eventPublic: z.boolean(),
+  status: z.nativeEnum(EventStatus),
+  eventStaff: z.number(),
+  eventViews: z.number(),
+  eventCity: z.string(),
+  eventState: z.string(),
   startAt: z.date(),
-  endAt: z.date(),
-  startPublishAt: z.date(),
-  endPublishAt: z.date(),
-  photo: z.string(),
-  haveTerm: z.boolean(),
-  eventLimit: z.number(),
-  eventPrintAutomatic: z.boolean(),
-  eventCredentialType: z.nativeEnum(CredentialType),
-  participants: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      status: z.nativeEnum(EventParticipantHistoricStatus),
-      ticketName: z.string(),
-      facial: z.string(),
-      email: z.string(),
-      userNetwork: z.string(),
-    }),
-  ),
-  credential: z.object({
-    participantsCredentialPerHour: z.array(z.number()),
-    participantsCheckIn: z.number(),
-    initialDate: z.date(),
-    finalDate: z.date(),
-  }),
-  tickets: z.array(
+
+  eventParticipantsCount: z.number(),
+  eventParticipantLimitCount: z.number(),
+  eventParcitipantAccreditationsCount: z.number(),
+  eventParcitipantAccreditationsPercentual: z.number(),
+
+  eventTotal: z.number(),
+  eventTickets: z.array(
     z.object({
       id: z.string(),
       title: z.string(),
       price: z.number(),
-      linksUsed: z.string(),
-      guestPerLink: z.number(),
-      link: z.string(),
+      partQtd: z.number(),
+      limit: z.number(),
     }),
   ),
-  links: z.number(),
-  ticketsCreated: z.number(),
-  ticketsUseds: z.number(),
-  alreadyCheckIn: z.number(),
-  notCheckIn: z.number(),
-  statesInfo: z.array(
+
+  eventTicketPercentualSell: z.array(
     z.object({
-      state: z.string(),
+      title: z.string(),
+      percentual: z.number(),
+    }),
+  ),
+
+  sellDiary: z.array(
+    z.object({
+      date: z.string(),
       total: z.number(),
     }),
   ),
-  staffs: z.array(
-    z.object({
-      id: z.string(),
-      email: z.string(),
-    }),
-  ),
-  eventTerm: z.object({
-    id: z.number(),
-    termId: z.string(),
-    termName: z.string(),
-    termPath: z.string(),
-    signature: z.boolean(),
-  }),
 });
 
 export const EventAllResponseSchema = z.array(
@@ -91,26 +63,18 @@ export const GeneralDashboardResponseSchema = z.object({
   totalEvents: z.number(),
   totalTickets: z.number(),
   totalParticipants: z.number(),
-  total: z.number(),
 
-  lastEvents: z.array(
+  totalBrute: z.number(),
+  totalLiquid: z.number(),
+  totalDrawee: z.number(),
+
+  bestEvents: z.array(
     z.object({
       id: z.string(),
       title: z.string(),
-      slug: z.string(),
       total: z.number(),
     }),
   ),
-
-  bigParticipantsForState: z.object({
-    state: z.string(),
-    total: z.string(),
-  }),
-
-  bigSaleForState: z.object({
-    state: z.string(),
-    total: z.number(),
-  }),
 
   participantsCheckIn: z.number(),
   participantsNotCheckedIn: z.number(),
@@ -123,7 +87,56 @@ export const EventParticipantsResponseSchema = z.array(
     status: z.nativeEnum(EventParticipantHistoricStatus),
     ticketName: z.string(),
     facial: z.string(),
-    email: z.string(),
-    userNetwork: z.string(),
+    checkInDate: z.date().nullable(),
+    payment: z.boolean(),
+    lastStatus: z.string(),
   }),
 );
+
+export const FindOneDashboardParticipantPanelSchema = z.object({
+  eventLimit: z.number(),
+  eventParticipantsCount: z.number(),
+  eventParticipantAwaitPayment: z.number(),
+
+  eventParcitipantAccreditationsCount: z.number(),
+  eventParcitipantAccreditationsPercentual: z.number(),
+  eventParticipantAccreditationsPerMinute: z.number(),
+
+  eventAverageLocation: z.array(
+    z.object({
+      region: z.string(),
+      percentage: z.number(),
+    }),
+  ),
+});
+
+export const EventDashboardPanelFinancialSchema = z.object({
+  eventTotal: z.number(),
+  eventTotalDrawee: z.number(),
+  totalDisponible: z.number(),
+  currency: z.string(),
+
+  sellDiary: z.array(
+    z.object({
+      date: z.string(),
+      total: z.number(),
+    }),
+  ),
+
+  sellDiaryByTicket: z.array(
+    z.object({
+      ticket: z.string(),
+      total: z.number(),
+      date: z.string(),
+    }),
+  ),
+});
+
+export const EventPrintPartSchema = z.object({
+  partId: z.string(),
+  name: z.string(),
+  ticket: z.string(),
+  qrcode: z.string(),
+});
+
+export const EventPrintAllPartsSchema = z.array(EventPrintPartSchema);

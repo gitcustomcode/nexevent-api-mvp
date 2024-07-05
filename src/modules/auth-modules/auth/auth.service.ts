@@ -40,6 +40,7 @@ export class AuthService {
       const haveOtp = await this.prisma.otp.findFirst({
         where: {
           userId: user.id,
+          type: 'RECOVERY',
           verified: false,
         },
       });
@@ -152,7 +153,6 @@ export class AuthService {
 
         return accessToken;
       } else {
-        console.log('deu erro');
         throw new ConflictException('Login with facial failed');
       }
     } catch (error) {

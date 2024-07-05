@@ -1,5 +1,4 @@
-import { Module } from '@nestjs/common';
-import { UserProducerController } from './user-producer.controller';
+import { Module } from '@nestjs/common';import { UserProducerController } from './user-producer.controller';
 import { UserProducerService } from './user-producer.service';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';

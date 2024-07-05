@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Request,
@@ -213,6 +214,37 @@ export class EventProducerAccreditationController {
     return await this.eventProducerAccreditationService.getEventConfig(
       eventSlug,
       email,
+    );
+  }
+
+  @Patch('v1/event-producer/:eventSlug/accreditation/re-printer')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event config' })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  @ApiQuery({
+    name: 'participantId',
+    type: String,
+    required: true,
+    description: 'Event participant id',
+  })
+  async rePrintParticipant(
+    @Request() req: any,
+    @Param('eventSlug') eventSlug: string,
+    @Query('participantId') participantId: string,
+  ) {
+    const email = req.auth.user.email;
+    return await this.eventProducerAccreditationService.rePrintParticipant(
+      email,
+      eventSlug,
+      participantId,
     );
   }
 

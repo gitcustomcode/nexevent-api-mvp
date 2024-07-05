@@ -29,6 +29,7 @@ import {
   subYears,
 } from 'date-fns';
 import { validateBirth } from 'src/utils/date-validator';
+import { EmailService } from 'src/services/email.service';
 
 @Injectable()
 export class UserProducerService {
@@ -79,7 +80,7 @@ export class UserProducerService {
   async finishSignUp(
     email: string,
     body: UserProducerFinishSignUpDto,
-  ): Promise<String> {
+  ): Promise<string> {
     try {
       const emailExists =
         await this.userProducerValidationService.findUserByEmail(email);

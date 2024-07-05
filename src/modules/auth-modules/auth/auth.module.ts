@@ -1,5 +1,4 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { Module } from '@nestjs/common';import { ConfigModule } from '@nestjs/config';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import variables from 'src/variables';
 import { AuthController } from './auth.controller';
@@ -8,6 +7,7 @@ import { UserProducerValidationService } from 'src/services/user-producer-valida
 import { PrismaService } from 'src/services/prisma.service';
 import { StorageService } from 'src/services/storage.service';
 import { FaceValidationService } from 'src/services/face-validation.service';
+import { StripeService } from 'src/services/stripe.service';
 
 @Module({
   imports: [
@@ -27,6 +27,7 @@ import { FaceValidationService } from 'src/services/face-validation.service';
     StorageService,
     PrismaService,
     FaceValidationService,
+    StripeService,
   ],
 })
 export class AuthModule {}

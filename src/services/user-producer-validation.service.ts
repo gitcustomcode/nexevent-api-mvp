@@ -1,5 +1,4 @@
-import {
-  ConflictException,
+import {  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -45,6 +44,7 @@ export class UserProducerValidationService {
           createdAt: user.createdAt,
           number: user.number,
           state: user.state,
+          validAt: user.validAt,
         };
 
         await UserValidationEmailResponseSchema.parseAsync(response);
@@ -104,6 +104,7 @@ export class UserProducerValidationService {
             createdAt: user.createdAt,
             number: user.number,
             state: user.state,
+            validAt: user.validAt,
           };
 
           await UserValidationEmailResponseSchema.parseAsync(response);
@@ -117,6 +118,7 @@ export class UserProducerValidationService {
 
         return staff;
       }
+
       const user = await this.prisma.user.findUnique({
         where: {
           email: email.toLowerCase(),
@@ -146,6 +148,7 @@ export class UserProducerValidationService {
         createdAt: user.createdAt,
         number: user.number,
         state: user.state,
+        validAt: user.validAt,
       };
 
       await UserValidationEmailResponseSchema.parseAsync(response);
@@ -186,6 +189,9 @@ export class UserProducerValidationService {
       },
     });
 
+    console.log(slug);
+    console.log(userEmail);
+
     await this.validateUserProducerByEmail(
       userEmail.toLowerCase(),
       null,
@@ -200,7 +206,9 @@ export class UserProducerValidationService {
   }
 
   async eventNameExists(userEmail: string, slug: string) {
-    const user = await this.validateUserProducerByEmail(userEmail.toLowerCase());
+    const user = await this.validateUserProducerByEmail(
+      userEmail.toLowerCase(),
+    );
 
     const eventExists = await this.prisma.event.findUnique({
       where: {
@@ -218,7 +226,6 @@ export class UserProducerValidationService {
   async validateUserEventTicket(
     userEmail: string,
     eventSlug: string,
-    ticketGuest: number,
     slug?: string,
   ) {
     const event = await this.eventExists(eventSlug, userEmail.toLowerCase());
@@ -235,15 +242,9 @@ export class UserProducerValidationService {
       }
     }
 
-    if (ticketGuest > event.eventConfig[0].limit) {
-      throw new ConflictException(
-        'The quantity must be less than or equal to the event limit',
-      );
-    }
-
     return {
       event: event,
       sequential: event.eventTicket.length + 1,
-    }; //retorno do sequential do ticket;
+    };
   }
 }

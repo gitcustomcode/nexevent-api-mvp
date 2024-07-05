@@ -11,9 +11,12 @@ import { EventCreateDto } from './dto/event-producer-create.dto';
 import { generateSlug } from 'src/utils/generate-slug';
 import {
   EventDashboardResponseDto,
+  FindOneDashboardParticipantPanelDto,
   GeneralDashboardResponseDto,
   ResponseEventParticipants,
   ResponseEvents,
+  EventDashboardPanelFinancialDto,
+  EventPrintAllPartsDto,
 } from './dto/event-producer-response.dto';
 import {
   StorageService,
@@ -21,7 +24,11 @@ import {
 } from 'src/services/storage.service';
 import { randomUUID } from 'crypto';
 import { PaginationService } from 'src/services/paginate.service';
-import { EventType, Prisma } from '@prisma/client';
+import {
+  EventParticipantHistoricStatus,
+  EventType,
+  Prisma,
+} from '@prisma/client';
 import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
 import { EventTicketCreateDto } from '../event-ticket/dto/event-ticket-producer-create.dto';
 import {
@@ -34,6 +41,8 @@ import {
   getMaxSalesState,
 } from 'src/utils/test';
 import { StripeService } from 'src/services/stripe.service';
+import { concatTitleAndCategoryEvent } from 'src/utils/concat-title-category-event';
+import { isArray } from 'class-validator';
 
 type DataItem = {
   state: string | null;
@@ -58,6 +67,55 @@ export class EventProducerService {
     private readonly stripe: StripeService,
   ) {}
 
+  async getPartClient(eventId: string): Promise<EventPrintAllPartsDto> {
+    try {
+      const part = await this.prisma.eventParticipant.findMany({
+        where: {
+          eventId,
+          status: 'AWAITING_PRINT',
+          isPrinted: false,
+        },
+        include: {
+          user: true,
+          eventTicket: true,
+        },
+        take: 10,
+      });
+
+      const response: EventPrintAllPartsDto = [];
+
+      await Promise.all(
+        part.map((p) => {
+          response.push({
+            partId: p.id,
+            name: p.user.name,
+            qrcode: p.qrcode,
+            ticket: p.eventTicket.title,
+          });
+        }),
+      );
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateIsPrint(eventId: string, partId: string) {
+    await this.prisma.eventParticipant.update({
+      where: {
+        id: partId,
+        eventId,
+      },
+      data: {
+        isPrinted: true,
+        status: 'COMPLETE',
+      },
+    });
+
+    return 'success';
+  }
+
   async createEvent(email: string, body: EventCreateDto): Promise<object> {
     try {
       const {
@@ -76,7 +134,13 @@ export class EventProducerService {
         longitude,
         description,
         sellOnThePlatform,
-        taxToClient,
+        address,
+        city,
+        complement,
+        country,
+        district,
+        number,
+        state,
       } = body;
 
       if (startAt > endAt) {
@@ -91,7 +155,63 @@ export class EventProducerService {
         );
       }
 
-      const slug = generateSlug(title);
+      if (location === 'ONLINE') {
+        eventConfig.credentialType = 'QRCODE';
+        eventConfig.printAutomatic = false;
+      }
+
+      let taxToClient = false;
+
+      eventTickets.map((ticket) => {
+        let firstBatch = null;
+        let endPublishAt = null;
+
+        ticket.eventTicketPrices.map((price) => {
+          if (price.endPublishAt && price.startPublishAt) {
+            if (price.startPublishAt > price.endPublishAt) {
+              throw new ConflictException(
+                `A data inicial de publicação do lote ${price.batch} é maior ou igual a data final de publicação`,
+              );
+            }
+
+            if (firstBatch === null) {
+              firstBatch = price.batch;
+              endPublishAt = price.endPublishAt;
+            } else {
+              if (price.batch > firstBatch) {
+                if (new Date(price.startPublishAt) < new Date(endPublishAt)) {
+                  throw new BadRequestException(
+                    `O lote ${firstBatch} tem uma data final de publicação menor à data inicial de publicação do lote ${price.batch}`,
+                  );
+                }
+              }
+              firstBatch = price.batch;
+              endPublishAt = price.endPublishAt;
+            }
+          }
+
+          if (taxToClient != price.passOnFee && taxToClient != true) {
+            taxToClient = price.passOnFee;
+          }
+        });
+
+        ticket.eventTicketDays.map((day) => {
+          if (day.date < startAt && day.date > endAt) {
+            throw new ConflictException(
+              'O ingresso possui um ou mais dias que não estão no periodo do evento',
+            );
+          }
+        });
+
+        if (ticket.isBonus && ticket.eventTicketPrices.length > 1) {
+          throw new ConflictException(
+            'Ingressos bonus não podem ter mais de 1 valor ou lote',
+          );
+        }
+      });
+
+      const milliseconds = new Date().getTime();
+      const slug = generateSlug(`${title} ${milliseconds}`);
 
       const user = await this.userProducerValidationService.eventNameExists(
         email.toLowerCase(),
@@ -114,24 +234,57 @@ export class EventProducerService {
       });
 
       let stripeCheckoutUrl = null;
+      let stripeCheckoutValue = 0;
+      let stripeId = null;
       let eventLimit = 20;
       let eventType: EventType = 'FREE';
+      let ticketPriceNegative = false;
+
+      const printAutomatic = eventConfig.printAutomatic ? 2 : 0;
+      const credentialType = eventConfig.credentialType;
+      const credential =
+        credentialType === 'QRCODE'
+          ? 1
+          : credentialType === 'FACIAL'
+            ? 4
+            : credentialType === 'FACIAL_IN_SITE'
+              ? 3
+              : 0;
+
+      const fee = printAutomatic + credential;
 
       eventTickets.map((ticket) => {
-        eventLimit += ticket.guests;
+        ticket.eventTicketPrices.map((ticketPrice) => {
+          eventLimit += ticketPrice.guests;
+          const price = ticketPrice.price;
+
+          ticketPrice.passOnFee;
+
+          if (
+            price - fee < 0 &&
+            !ticketPrice.passOnFee &&
+            ticket.isBonus === false
+          ) {
+            ticketPriceNegative = true;
+          }
+        });
       });
 
-      if (!taxToClient && eventLimit > 20) {
+      if ((!taxToClient && eventLimit > 20) || ticketPriceNegative) {
         const checkoutSession = await this.stripe.checkoutSessionEventProducer(
           eventLimit,
           eventConfig.printAutomatic,
           eventConfig.credentialType,
         );
         eventType = 'PAID_OUT';
-        stripeCheckoutUrl = checkoutSession;
+        stripeCheckoutUrl = checkoutSession.sessionUrl;
+        stripeCheckoutValue = checkoutSession.value;
+        stripeId = checkoutSession.id;
       } else {
         eventType = 'PASSED_CLIENT';
       }
+
+      const fullySearch = concatTitleAndCategoryEvent(title, category);
 
       const createdEvent = await this.prisma.event.create({
         data: {
@@ -148,11 +301,19 @@ export class EventProducerService {
           endAt: endAt,
           startPublishAt: startPublishAt,
           endPublishAt: endPublishAt,
+          fullySearch: fullySearch,
           latitude: latitude,
           longitude: longitude,
           sellOnThePlatform: sellOnThePlatform,
           checkoutUrl: stripeCheckoutUrl,
           paymentStatus: 'unpaid',
+          address,
+          city,
+          complement,
+          country,
+          district,
+          number,
+          state,
           eventSchedule: {
             createMany: {
               data: eventScheduleFormatted,
@@ -168,18 +329,30 @@ export class EventProducerService {
         },
       });
 
+      if (stripeCheckoutUrl) {
+        await this.prisma.balanceHistoric.create({
+          data: {
+            userId: user.id,
+            paymentId: stripeId,
+            eventId: createdEvent.id,
+            value:
+              stripeCheckoutValue > 0
+                ? Number(stripeCheckoutValue / 100).toFixed(2)
+                : stripeCheckoutValue,
+          },
+        });
+      }
+
       for (const ticket of eventTickets) {
-        const body: EventTicketCreateDto = {
+        const body = {
           title: ticket.title,
-          color: ticket.color,
           description: ticket.description,
-          price: ticket.price,
-          links: 1,
-          guestPerLink: ticket.guests,
-          passOnFee: ticket.passOnFee,
-          startAt: ticket.startAt,
-          endAt: ticket.endAt,
-          ticketReferersTitle: ticket.ticketReferersTitle,
+          isFree: ticket.isFree,
+          isPrivate: ticket.isPrivate,
+          eventTicketPrices: ticket.eventTicketPrices,
+          eventTicketBonuses: ticket.eventTicketBonuses,
+          eventTicketDays: ticket.eventTicketDays,
+          isBonus: ticket.isBonus,
         };
 
         await this.eventTicketProducerService.createEventTicket(
@@ -221,23 +394,37 @@ export class EventProducerService {
       const {
         category,
         description,
-        endAt,
-        endPublishAt,
         location,
-        eventPublic,
-        startAt,
-        startPublishAt,
         title,
-        latitude,
-        longitude,
+        address,
+        city,
+        complement,
+        country,
+        district,
+        number,
+        state,
       } = body;
 
-      if (location === 'DEFINED' && (!latitude || !longitude)) {
+      const fullySearch = concatTitleAndCategoryEvent(
+        title ? title : event.title,
+        category ? category : event.category,
+      );
+
+      if (
+        location === 'DEFINED' &&
+        (!district ||
+          !state ||
+          !number ||
+          !complement ||
+          !country ||
+          !district ||
+          !city ||
+          !address)
+      ) {
         throw new BadRequestException(
-          'É necessário informar latitude e longitude para o local definido',
+          'Location must be DEFINED when address, city, complement, country, district, number and state are provided',
         );
       }
-
       await this.prisma.event.update({
         where: {
           id: event.id,
@@ -245,17 +432,16 @@ export class EventProducerService {
         data: {
           category: category ? category : event.category,
           description: description ? description : event.description,
-          endAt: endAt ? endAt : event.endAt,
-          endPublishAt: endPublishAt ? endPublishAt : event.endPublishAt,
-          location: location ? location : event.location,
-          public: eventPublic ? eventPublic : event.public,
-          startAt: startAt ? startAt : event.startAt,
-          startPublishAt: startPublishAt
-            ? startPublishAt
-            : event.startPublishAt,
+          fullySearch,
           title: title ? title : event.title,
-          latitude: latitude ? latitude : event.latitude,
-          longitude: longitude ? longitude : event.longitude,
+          address: address ? address : event.address,
+          city: city ? city : event.city,
+          complement: complement ? complement : event.complement,
+          country: country ? country : event.country,
+          district: district ? district : event.district,
+          number: number ? number : event.number,
+          state: state ? state : event.state,
+          location: location ? location : event.location,
         },
       });
 
@@ -316,6 +502,7 @@ export class EventProducerService {
               },
               eventParticipantHistoric: true,
               eventTicket: true,
+              eventTicketPrice: true,
             },
             orderBy: {
               createdAt: 'desc',
@@ -332,6 +519,11 @@ export class EventProducerService {
               term: true,
             },
           },
+          BalanceHistoric: {
+            include: {
+              eventTicket: true,
+            },
+          },
         },
       });
 
@@ -339,199 +531,279 @@ export class EventProducerService {
         throw new NotFoundException('Event not found');
       }
 
-      const tickets = [];
-      const totalTickets = event.eventTicket ? event.eventTicket.length : 0;
-      let totalTicketsUsed = 0;
-      let links = 0;
-      const participantsCheckIn = [];
-      const participantsState = [];
-      const participants = [];
-      const staffs = [];
-      const hourCounts: { [key: string]: number } = {};
+      const checkInArr = new Map<
+        string,
+        { participantId: string; status: string }
+      >();
 
-      event.EventStaff.map((staff) => {
-        staffs.push({
-          id: staff.id,
-          email: staff.email.toLowerCase(),
-        });
-      });
-
-      /*   event.eventTicket.map((ticket) => {
-        if (ticket.status === 'PART_FULL' || ticket.status === 'FULL') {
-          totalTicketsUsed += 1;
+      const eventTicketsArr = new Map<
+        string,
+        {
+          ticketId: string;
+          price: number;
+          title: string;
+          partQtd: number;
+          limit: number;
         }
-      }); */
+      >();
 
-      event.eventParticipant.map((participant) => {
-        participantsState.push({
-          state: participant.user.state,
+      const eventTicketPercentualSellArr = new Map<
+        string,
+        { title: string; qtd: number; limit: number }
+      >();
+
+      const salesByDayMap = new Map<string, number>();
+
+      event.eventTicket.forEach((ticket) => {
+        let ticketLimit = 0;
+
+        ticket.eventTicketPrice.forEach((price) => {
+          ticketLimit += price.guests;
         });
 
-        participants.push({
-          id: participant.id,
-          name: participant.user.name,
-          status:
-            participant.eventParticipantHistoric.length > 0
-              ? participant.eventParticipantHistoric[0].status
-              : null,
-          ticketName: participant.eventTicket.title,
-          facial:
-            participant.user.userFacials.length > 0
-              ? participant.user.userFacials[0].path
-              : null,
-          email: participant.user.email,
-          userNetwork:
-            participant.user.userSocials.length > 0
-              ? participant.user.userSocials[0].username
-              : null,
-        });
-
-        participant.eventParticipantHistoric.map((historic) => {
-          if (historic.status === 'CHECK_IN') {
-            participantsCheckIn.push({
-              id: historic.eventParticipantId,
-              status: historic.status,
-            });
-          }
-
-          const hour = new Date(historic.createdAt).getHours();
-          const day = new Date(historic.createdAt).getDay();
-
-          // Atualiza as contagens por hora
-          if (hourCounts[`${day}-${hour}`]) {
-            hourCounts[`${day}-${hour}`] += 1;
-          } else {
-            hourCounts[`${day}-${hour}`] = 1;
-          }
-        });
-      });
-
-      const hourlyCountsArray = Object.values(hourCounts);
-
-      event.eventTicket.map((ticket) => {
-        let linksUsed = 0;
-
-        //links += ticket.guest;
-
-        ticket.eventTicketGuest.map((link) => {
-          if (link.status === 'FULL') {
-            linksUsed += 1;
-          }
-        });
-        const enableLinks = ticket.eventTicketGuest.filter(
-          (link) => link.status !== 'FULL',
-        );
-        tickets.push({
-          //alterar esse merda
-          id: ticket.id,
+        eventTicketsArr.set(ticket.id, {
+          ticketId: ticket.id,
+          price: 0,
           title: ticket.title,
-          price: 10,
-          linksUsed: `${ticket.eventTicketGuest.length - linksUsed}/${ticket.eventTicketGuest.length}`,
-          guestPerLink:
-            ticket.eventTicketGuest.length > 0
-              ? ticket.eventTicketGuest[0].invite
-              : 0,
-          link: enableLinks.length > 0 ? enableLinks[0].id : null,
+          partQtd: ticket.EventParticipant.length,
+          limit: ticketLimit,
+        });
+
+        eventTicketPercentualSellArr.set(ticket.title, {
+          title: ticket.title,
+          qtd: 0,
+          limit: ticket.guests,
         });
       });
 
-      const stateSums: StateSums = participantsState.reduce(
-        (acc: StateSums, item: DataItem) => {
-          const state = item.state === null ? 'não definido' : item.state;
-          if (acc[state]) {
-            acc[state].count += 1;
-          } else {
-            acc[state] = {
-              count: 1,
-            };
+      event.eventParticipant.forEach((participant) => {
+        participant.eventParticipantHistoric.forEach((historic) => {
+          if (historic.status === 'CHECK_IN') {
+            if (!checkInArr.has(historic.eventParticipantId)) {
+              checkInArr.set(historic.eventParticipantId, {
+                participantId: historic.eventParticipantId,
+                status: historic.status,
+              });
+            }
           }
-          return acc;
-        },
-        {},
-      );
+        });
 
-      const sortedStates = Object.entries(stateSums).sort(
-        (a, b) => b[1].count - a[1].count,
-      );
-
-      const topStatesCount = 4;
-      const topStates = sortedStates.slice(0, topStatesCount);
-      const otherStates = sortedStates.slice(topStatesCount);
-
-      const topStatesResult: StateSums = {};
-      topStates.forEach(([state, { count }]) => {
-        topStatesResult[state] = { count };
+        if (eventTicketsArr.has(participant.eventTicketId)) {
+          const ticket = eventTicketsArr.get(participant.eventTicketId);
+          if (ticket) {
+            ticket.price += Number(participant.eventTicketPrice.price);
+            eventTicketsArr.set(participant.eventTicketId, ticket);
+          }
+        }
       });
 
-      const othersCount = otherStates.reduce(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        (sum, [_, { count }]) => sum + count,
-        0,
-      );
-      if (othersCount > 0) {
-        topStatesResult['outros'] = { count: othersCount };
-      }
+      event.BalanceHistoric.map((balance) => {
+        const value = Number(balance.value);
+        if (value > 0 && balance.eventTicketId !== null) {
+          const date = balance.createdAt.toISOString().split('T')[0];
 
-      const uniqueArray = Array.from(
-        new Map(participantsCheckIn.map((item) => [item.id, item])).values(),
-      );
+          if (salesByDayMap.has(date)) {
+            salesByDayMap.set(date, salesByDayMap.get(date)! + value);
+          } else {
+            salesByDayMap.set(date, value);
+          }
+        }
 
-      const resultArray = Object.entries(topStatesResult).map(
-        ([state, { count }]) => ({
-          state,
-          count,
-        }),
-      );
+        if (balance.eventTicketId) {
+          if (eventTicketPercentualSellArr.has(balance.eventTicket.title)) {
+            const ticket = eventTicketPercentualSellArr.get(
+              balance.eventTicket.title,
+            );
+            if (ticket) {
+              ticket.qtd += 1;
+              eventTicketPercentualSellArr.set(
+                balance.eventTicket.title,
+                ticket,
+              );
+            }
+          }
+        }
+      });
 
-      let eventTerm = {
-        id: null,
-        termId: null,
-        termName: null,
-        signature: false,
-        termPath: null,
-      };
+      const uniqueCheckInArr = Array.from(checkInArr.values());
+      const eventTickets = Array.from(eventTicketsArr.values());
+      const sellDiary = Array.from(salesByDayMap, ([date, total]) => ({
+        date,
+        total,
+      }));
+      const eventTicketPercentualSell = Array.from(
+        eventTicketPercentualSellArr.values(),
+      ).map((ticket) => {
+        return {
+          title: ticket.title,
+          percentual:
+            (ticket.qtd / ticket.limit) * 100
+              ? (ticket.qtd / ticket.limit) * 100
+              : 0,
+        };
+      });
 
-      if (event.eventTerm.length > 0) {
-        eventTerm.id = event.eventTerm[0].id;
-        eventTerm.termId = event.eventTerm[0].termId;
-        eventTerm.signature = event.eventTerm[0].signature;
-        eventTerm.termPath = event.eventTerm[0].term.path;
-        eventTerm.termName = event.eventTerm[0].term.name;
-      }
+      let eventTotal = 0;
+      eventTicketsArr.forEach((ticket) => {
+        eventTotal += ticket.price;
+      });
 
       const response: EventDashboardResponseDto = {
         id: event.id,
         title: event.title,
         slug: event.slug,
-        photo: event.photo,
-        category: event.category,
-        description: event.description,
-        endAt: event.endAt,
-        endPublishAt: event.endPublishAt,
-        eventPublic: event.public,
-        location: event.location,
+        status: event.status,
+        eventStaff: event.EventStaff.length,
+        eventViews: event.viewsCount,
+        eventCity: event.city,
+        eventState: event.state,
         startAt: event.startAt,
-        haveTerm: event.eventTerm.length > 0 ? true : false,
-        startPublishAt: event.startPublishAt,
-        eventLimit: event.eventConfig[0].limit,
-        eventPrintAutomatic: event.eventConfig[0].printAutomatic,
-        eventCredentialType: event.eventConfig[0].credentialType,
-        participants: participants,
-        credential: {
-          participantsCredentialPerHour: hourlyCountsArray,
-          participantsCheckIn: uniqueArray.length,
-          initialDate: event.startAt,
-          finalDate: event.endAt,
+
+        eventParticipantsCount: event.eventParticipant.length,
+        eventParticipantLimitCount: event.eventConfig[0].limit,
+        eventParcitipantAccreditationsCount: uniqueCheckInArr.length,
+        eventParcitipantAccreditationsPercentual:
+          (uniqueCheckInArr.length / event.eventParticipant.length) * 100,
+
+        eventTotal: eventTotal,
+        eventTickets: eventTickets,
+
+        eventTicketPercentualSell: eventTicketPercentualSell,
+
+        sellDiary: sellDiary,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async findOneDashboardParticipantPanel(
+    email: string,
+    slug: string,
+  ): Promise<FindOneDashboardParticipantPanelDto> {
+    try {
+      const user =
+        await this.userProducerValidationService.validateUserProducerByEmail(
+          email.toLowerCase(),
+        );
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: slug,
+          userId: user.id,
         },
-        links,
-        tickets: tickets,
-        ticketsCreated: totalTickets,
-        ticketsUseds: totalTicketsUsed,
-        alreadyCheckIn: uniqueArray.length,
-        notCheckIn: event.eventParticipant.length - uniqueArray.length,
-        statesInfo: resultArray,
-        staffs,
-        eventTerm,
+        include: {
+          eventParticipant: {
+            include: {
+              user: {
+                include: {
+                  userSocials: {
+                    where: {
+                      username: { not: '' },
+                    },
+                  },
+                  userFacials: {
+                    orderBy: {
+                      createdAt: 'desc',
+                    },
+                  },
+                },
+              },
+              eventParticipantHistoric: true,
+              eventTicket: true,
+              eventTicketPrice: true,
+            },
+            orderBy: {
+              createdAt: 'desc',
+            },
+          },
+          eventConfig: true,
+        },
+      });
+
+      let eventParticipantsCount = 0;
+      let eventParticipantAwaitPayment = 0;
+
+      const listParticipants = new Map<
+        string,
+        {
+          participantId: string;
+          name: string;
+          ticketName: string;
+          checkInDate: Date;
+          payment: boolean;
+        }
+      >();
+
+      const checkInArr = new Map<
+        string,
+        { participantId: string; status: string }
+      >();
+
+      event.eventParticipant.forEach((participant) => {
+        if (participant.status !== 'AWAITING_PAYMENT') {
+          eventParticipantsCount += 1;
+        } else {
+          eventParticipantAwaitPayment += 1;
+        }
+
+        if (!listParticipants.has(participant.id)) {
+          listParticipants.set(participant.id, {
+            participantId: participant.id,
+            name: participant.user.name,
+            ticketName: participant.eventTicket.title,
+            checkInDate: null,
+            payment: participant.status !== 'AWAITING_PAYMENT' ? true : false,
+          });
+        }
+
+        participant.eventParticipantHistoric.forEach((historic) => {
+          if (historic.status === 'CHECK_IN') {
+            if (!checkInArr.has(historic.eventParticipantId)) {
+              checkInArr.set(historic.eventParticipantId, {
+                participantId: historic.eventParticipantId,
+                status: historic.status,
+              });
+
+              if (listParticipants.has(historic.eventParticipantId)) {
+                const existingParticipant = listParticipants.get(
+                  historic.eventParticipantId,
+                );
+                existingParticipant.checkInDate = historic.createdAt;
+                listParticipants.set(
+                  historic.eventParticipantId,
+                  existingParticipant,
+                );
+              } else {
+                listParticipants.set(historic.eventParticipantId, {
+                  participantId: historic.eventParticipantId,
+                  name: participant.user.name,
+                  ticketName: participant.eventTicket.title,
+                  checkInDate: historic.createdAt,
+                  payment:
+                    participant.status !== 'AWAITING_PAYMENT' ? true : false,
+                });
+              }
+            }
+          }
+        });
+      });
+
+      const uniqueCheckInArr = Array.from(checkInArr.values());
+
+      const perMinute = parseFloat((uniqueCheckInArr.length / 60).toFixed(2));
+
+      const response: FindOneDashboardParticipantPanelDto = {
+        eventLimit: event.eventConfig[0].limit,
+        eventParticipantsCount: eventParticipantsCount,
+        eventParticipantAwaitPayment: eventParticipantAwaitPayment,
+
+        eventParcitipantAccreditationsCount: uniqueCheckInArr.length,
+        eventParcitipantAccreditationsPercentual:
+          (uniqueCheckInArr.length / event.eventParticipant.length) * 100,
+        eventParticipantAccreditationsPerMinute: perMinute,
       };
 
       return response;
@@ -544,11 +816,14 @@ export class EventProducerService {
     email: string,
     page: number,
     perPage: number,
-    title?: string,
-    category?: string,
+    searchable?: string,
     status?: string,
   ): Promise<ResponseEvents> {
     try {
+      if (Number(page) < 0 || Number(perPage) < 0) {
+        throw new BadRequestException('page ou per page é menor que zero');
+      }
+
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
           email.toLowerCase(),
@@ -558,12 +833,8 @@ export class EventProducerService {
         userId: user.id,
       };
 
-      if (title) {
-        where.title = { contains: title, mode: 'insensitive' };
-      }
-
-      if (category) {
-        where.category = { contains: category, mode: 'insensitive' };
+      if (searchable) {
+        where.fullySearch = { contains: searchable, mode: 'insensitive' };
       }
 
       if (status) {
@@ -770,21 +1041,53 @@ export class EventProducerService {
 
       let totalTickets = 0;
       let totalParticipants = 0;
-      let total = 0;
-      const participantsCheckIn = [];
-      const participantsState = [];
+      let totalBrute = 0;
+      let totalLiquid = 0;
+      let totalDrawee = 0;
 
-      events.map((event) => {
+      const participantsCheckIn = [];
+      const eventSales = [];
+
+      events.map(async (event) => {
         totalTickets += event.eventTicket.length;
         totalParticipants += event.eventParticipant.length;
-        //alterar isso tbm
-        event.eventParticipant.map((participant) => {
-          participantsState.push({
-            state: participant.user.state,
-            // ticketValue: participant.eventTicket.price,
+
+        const eventDrawee = await this.prisma.balanceHistoric.findMany({
+          where: {
+            userId: user.id,
+            eventId: event.id,
+            status: 'RECEIVED',
+          },
+        });
+
+        eventDrawee.forEach((drawee) => {
+          if (Number(drawee.value) < 0) {
+            totalDrawee += Number(drawee.value);
+          }
+        });
+
+        let eventTotalSales = 0;
+
+        for (const participant of event.eventParticipant) {
+          const sell = await this.prisma.balanceHistoric.findMany({
+            where: {
+              userId: participant.userId,
+              eventId: participant.eventId,
+              status: 'RECEIVED',
+            },
           });
-          //total += Number(participant.eventTicket.price);
-          participant.eventParticipantHistoric.map((historic) => {
+
+          if (sell.length > 0) {
+            sell.forEach((s) => {
+              if (Number(s.value) > 0) {
+                totalBrute += Number(s.value);
+                totalLiquid += Number(s.value) - Number(s.fee);
+                eventTotalSales += Number(s.value);
+              }
+            });
+          }
+
+          participant.eventParticipantHistoric.forEach((historic) => {
             if (historic.status === 'CHECK_IN') {
               participantsCheckIn.push({
                 id: historic.eventParticipantId,
@@ -792,81 +1095,42 @@ export class EventProducerService {
               });
             }
           });
-        });
-      });
+        }
 
-      const stateSums: StateSumsFunc = participantsState.reduce(
-        (acc: StateSumsFunc, item: DataItem) => {
-          const state = item.state === null ? 'não definido' : item.state;
-          if (acc[state]) {
-            acc[state].count += 1;
-            acc[state].ticketSum += Number(item.ticketValue);
-          } else {
-            acc[state] = {
-              count: 1,
-              ticketSum: Number(item.ticketValue),
-            };
-          }
-          return acc;
-        },
-        {},
-      );
-
-      const { state: maxParticipantsState, count: maxParticipantsCount } =
-        getMaxParticipantsState(stateSums);
-
-      const percentage = (
-        (maxParticipantsCount / participantsState.length) *
-        100
-      ).toFixed(2);
-
-      const { state: maxSalesState, total: maxSalesTotal } =
-        getMaxSalesState(stateSums);
-
-      const bigParticipantsForState = {
-        state: maxParticipantsState,
-        total: percentage,
-      };
-
-      const bigSaleForState = {
-        state: maxSalesState,
-        total: maxSalesTotal,
-      };
-
-      const lastEvents = events
-        .map((event) => {
-          let total = 0;
-          event.eventParticipant.forEach((participant) => {
-            //ALTERAR ISSO
-            // total += Number(participant.eventTicket.price);
+        if (eventTotalSales > 0) {
+          eventSales.push({
+            id: event.id,
+            title: event.title,
+            total: eventTotalSales,
           });
-
-          if (total > 0) {
-            return {
-              id: event.id,
-              title: event.title,
-              slug: event.slug,
-              total: total,
-            };
-          }
-        })
-        .filter((event) => event !== undefined) // Filtra os eventos que foram removidos (total <= 0)
-        .slice(-10);
+        }
+      });
 
       const uniqueArray = Array.from(
         new Map(participantsCheckIn.map((item) => [item.id, item])).values(),
       );
 
+      eventSales.sort((a, b) => b.total - a.total);
+
+      const bestEvents = eventSales.slice(0, 6);
+
+      totalLiquid = parseFloat(totalLiquid.toFixed(2));
+      totalBrute = parseFloat(totalBrute.toFixed(2));
+      totalDrawee = parseFloat(totalDrawee.toFixed(2));
+
       const response: GeneralDashboardResponseDto = {
         totalEvents: events.length,
         totalTickets,
         totalParticipants,
-        total,
+
+        totalBrute,
+        totalLiquid,
+        totalDrawee,
+
+        bestEvents,
+
         participantsCheckIn: uniqueArray.length,
         participantsNotCheckedIn: totalParticipants - uniqueArray.length,
-        lastEvents,
-        bigParticipantsForState,
-        bigSaleForState,
       };
 
       return response;
@@ -881,6 +1145,7 @@ export class EventProducerService {
     page: number,
     perPage: number,
     name?: string,
+    ticketTitle?: [],
   ): Promise<ResponseEventParticipants> {
     try {
       const where: Prisma.EventParticipantWhereInput = {
@@ -894,6 +1159,14 @@ export class EventProducerService {
           name: {
             contains: name,
             mode: 'insensitive',
+          },
+        };
+      }
+
+      if (ticketTitle) {
+        where.eventTicket = {
+          title: {
+            in: isArray(ticketTitle) ? ticketTitle : [ticketTitle],
           },
         };
       }
@@ -937,30 +1210,189 @@ export class EventProducerService {
         totalItems,
       });
 
-      const eventParticipant = eventParticipants.map((participant) => {
-        return {
-          id: participant.id,
-          name: participant.user.name,
-          status:
-            participant.eventParticipantHistoric.length > 0
+      const listParticipants = new Map<
+        string,
+        {
+          participantId: string;
+          name: string;
+          ticketName: string;
+          facial: string | null;
+          checkInDate: Date;
+          payment: boolean;
+          email: string;
+          lastStatus: string | null;
+        }
+      >();
+
+      eventParticipants.forEach((participant) => {
+        if (!listParticipants.has(participant.id)) {
+          listParticipants.set(participant.id, {
+            participantId: participant.id,
+            name: participant.user.name,
+            ticketName: participant.eventTicket.title,
+            checkInDate: null,
+            email: participant.user.email,
+            facial:
+              participant.user.userFacials.length > 0
+                ? participant.user.userFacials[0].path
+                : null,
+            payment: participant.status !== 'AWAITING_PAYMENT' ? true : false,
+            lastStatus: participant.eventParticipantHistoric[0]
               ? participant.eventParticipantHistoric[0].status
               : null,
-          ticketName: participant.eventTicket.title,
-          facial:
-            participant.user.userFacials.length > 0
-              ? participant.user.userFacials[0].path
-              : null,
-          email: participant.user.email.toLowerCase(),
-          userNetwork:
-            participant.user.userSocials.length > 0
-              ? participant.user.userSocials[0].username
-              : 'Sem registro',
-        };
+          });
+        }
+
+        participant.eventParticipantHistoric.forEach((historic) => {
+          if (historic.status === 'CHECK_IN') {
+            if (listParticipants.has(historic.eventParticipantId)) {
+              const existingParticipant = listParticipants.get(
+                historic.eventParticipantId,
+              );
+              existingParticipant.checkInDate = historic.createdAt;
+              listParticipants.set(
+                historic.eventParticipantId,
+                existingParticipant,
+              );
+            } else {
+              listParticipants.set(historic.eventParticipantId, {
+                participantId: participant.id,
+                name: participant.user.name,
+                ticketName: participant.eventTicket.title,
+                checkInDate: null,
+                email: participant.user.email,
+                facial:
+                  participant.user.userFacials.length > 0
+                    ? participant.user.userFacials[0].path
+                    : null,
+                payment:
+                  participant.status !== 'AWAITING_PAYMENT' ? true : false,
+                lastStatus: participant.eventParticipantHistoric[0]
+                  ? participant.eventParticipantHistoric[0].status
+                  : null,
+              });
+            }
+          }
+        });
       });
+
+      const eventParticipant = Array.from(listParticipants.values());
 
       const response: ResponseEventParticipants = {
         data: eventParticipant,
         pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async financialDashboard(
+    userEmail: string,
+    eventSlug: string,
+  ): Promise<EventDashboardPanelFinancialDto> {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        eventSlug,
+        userEmail.toLowerCase(),
+      );
+
+      const balances = await this.prisma.balanceHistoric.findMany({
+        where: {
+          eventId: event.id,
+          eventTicketId: {
+            not: null,
+          },
+        },
+        include: {
+          eventTicket: true,
+        },
+      });
+
+      const ticketPrice = await this.prisma.eventTicket.findMany({
+        where: {
+          eventId: event.id,
+        },
+        include: {
+          eventTicketPrice: true,
+        },
+      });
+
+      let total = 0;
+      let totalReceived = 0;
+      let currency = null;
+      const balancesByDay = new Map<string, number>();
+      const sellDiaryByTicket = new Map<
+        string,
+        Map<string, { ticket: string; date: string; total: number }>
+      >();
+
+      ticketPrice.forEach((ticket) => {
+        ticket.eventTicketPrice.forEach((price) => {
+          if (currency == null) {
+            currency = price.currency;
+          }
+        });
+      });
+
+      balances.map((balance) => {
+        const value = Number(balance.value);
+        if (value > 0) {
+          total += value;
+
+          const date = balance.createdAt.toISOString().split('T')[0];
+
+          if (balancesByDay.has(date)) {
+            balancesByDay.set(date, balancesByDay.get(date)! + value);
+          } else {
+            balancesByDay.set(date, value);
+          }
+        } else if (value < 0) {
+          totalReceived += value;
+        }
+      });
+
+      balances.forEach((balance) => {
+        const value = Number(balance.value);
+        if (value > 0 && balance.eventTicketId) {
+          const date = balance.createdAt.toISOString().split('T')[0];
+          if (!sellDiaryByTicket.has(balance.eventTicketId)) {
+            sellDiaryByTicket.set(balance.eventTicketId, new Map());
+          }
+
+          const ticketBalances = sellDiaryByTicket.get(balance.eventTicketId)!;
+
+          if (ticketBalances.has(date)) {
+            ticketBalances.get(date)!.total += value;
+          } else {
+            ticketBalances.set(date, {
+              ticket: balance.eventTicket.title,
+              date: date,
+              total: value,
+            });
+          }
+        }
+      });
+
+      const sellDiaryByArray = Array.from(sellDiaryByTicket.values()).flatMap(
+        (ticketBalances) => Array.from(ticketBalances.values()),
+      );
+
+      const sellDiary = Array.from(balancesByDay, ([date, total]) => ({
+        date,
+        total,
+      }));
+
+      const response: EventDashboardPanelFinancialDto = {
+        eventTotal: total,
+        eventTotalDrawee:
+          totalReceived > 0 ? totalReceived * -1 : totalReceived,
+        totalDisponible: total + totalReceived,
+        sellDiary: sellDiary,
+        sellDiaryByTicket: sellDiaryByArray,
+        currency: currency,
       };
 
       return response;

@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -95,7 +94,6 @@ export class EventProducerStaffService {
         });
         return `Event Staff created successfully`;
       } else {
-        console.log('Nenhum novo staff para inserir.');
         return 'Nenhum novo staff para inserir.';
       }
     } catch (error) {
@@ -108,6 +106,7 @@ export class EventProducerStaffService {
     eventSlug: string,
     page: number,
     perPage: number,
+    staffEmail?: string,
   ): Promise<EventStaffsResponse> {
     try {
       const event = await this.userProducerValidationService.eventExists(
@@ -119,8 +118,14 @@ export class EventProducerStaffService {
         eventId: event.id,
       };
 
+      if (staffEmail) {
+        where.email = { contains: staffEmail, mode: 'insensitive' };
+      }
+
       const eventStaffs = await this.prisma.eventStaff.findMany({
         where,
+        skip: (page - 1) * perPage,
+        take: Number(perPage),
       });
 
       const totalItems = await this.prisma.eventStaff.count({

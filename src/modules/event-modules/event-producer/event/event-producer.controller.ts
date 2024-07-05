@@ -29,7 +29,10 @@ import { EventCreateDto } from './dto/event-producer-create.dto';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import {
   EventAllResponseDto,
+  EventDashboardPanelFinancialDto,
   EventDashboardResponseDto,
+  EventPrintAllPartsDto,
+  FindOneDashboardParticipantPanelDto,
   GeneralDashboardResponseDto,
   ResponseEventParticipants,
   ResponseEvents,
@@ -44,6 +47,48 @@ import {
 @Controller('event-producer')
 export class EventProducerController {
   constructor(private readonly eventProducerService: EventProducerService) {}
+
+  @Get('v1/event-producer/:eventId/print-participant')
+  @ApiOperation({ summary: 'Get event dashboard' })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventId',
+    type: String,
+    required: true,
+    description: 'Event id',
+  })
+  @ApiResponse({
+    type: EventPrintAllPartsDto,
+  })
+  async getPartClient(
+    @Param('eventId') eventId: string,
+  ): Promise<EventPrintAllPartsDto> {
+    return this.eventProducerService.getPartClient(eventId);
+  }
+
+  @Patch('v1/event-producer/:eventId/print-participant')
+  @ApiOperation({ summary: 'Get event dashboard' })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventId',
+    type: String,
+    required: true,
+    description: 'Event Id',
+  })
+  @ApiQuery({
+    name: 'participantId',
+    type: String,
+    required: true,
+    description: 'Participant ID',
+  })
+  async updateIsPrint(
+    @Param('eventId') eventId: string,
+    @Query('participantId') participantId: string,
+  ) {
+    return this.eventProducerService.updateIsPrint(eventId, participantId);
+  }
 
   @Post('v1/event-producer/create-event')
   @ApiBearerAuth()
@@ -60,7 +105,6 @@ export class EventProducerController {
   })
   async createEvent(@Body() body: EventCreateDto, @Request() req: any) {
     const email = req.auth.user.email;
-    console.log(EventCreateDto);
     return this.eventProducerService.createEvent(email, body);
   }
 
@@ -88,6 +132,33 @@ export class EventProducerController {
     return this.eventProducerService.findOneDashboard(email, slug);
   }
 
+  @Get('v1/event-producer/:slug/dashboard/participant-panel')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event dashboard' })
+  @ApiResponse({
+    description: 'event dashboard',
+    type: FindOneDashboardParticipantPanelDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'slug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  async findOneDashboardParticipantPanel(
+    @Request() req: any,
+    @Param('slug') slug: string,
+  ): Promise<FindOneDashboardParticipantPanelDto> {
+    const email = req.auth.user.email;
+    return this.eventProducerService.findOneDashboardParticipantPanel(
+      email,
+      slug,
+    );
+  }
+
   @Get('v1/event-producer/events/find-all')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
@@ -111,31 +182,24 @@ export class EventProducerController {
     example: '10',
   })
   @ApiQuery({
-    name: 'title',
+    name: 'searchable',
     type: String,
     required: false,
-    example: '10',
-  })
-  @ApiQuery({
-    name: 'category',
-    type: String,
-    required: false,
-    example: '10',
+    example: 'teste',
   })
   async findAllEvents(
     @Request() req: any,
     @Query('page') page: string = '1',
     @Query('perPage') perPage: string = '10',
-    @Query('title') title?: string,
-    @Query('category') category?: string,
+    @Query('searchable') searchable?: string,
   ): Promise<ResponseEvents> {
     const email = req.auth.user.email;
+    const newPage = Number(page) <= 0 ? 1 : Number(page);
     return await this.eventProducerService.findAllEvents(
       email,
-      Number(page),
+      Number(newPage),
       Number(perPage),
-      title,
-      category,
+      searchable,
     );
   }
 
@@ -252,6 +316,30 @@ export class EventProducerController {
     return this.eventProducerService.generalDashboard(email);
   }
 
+  @Get('v1/event-producer/:eventSlug/dashboard-financial')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get general dashboard' })
+  @ApiResponse({
+    description: 'event dashboard',
+    type: EventDashboardPanelFinancialDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  async financialDashboard(
+    @Request() req: any,
+    @Param('eventSlug') eventSlug: string,
+  ): Promise<EventDashboardPanelFinancialDto> {
+    const email = req.auth.user.email;
+    return this.eventProducerService.financialDashboard(email, eventSlug);
+  }
+
   @Get('v1/event-producer/:slug/participants/find-all')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
@@ -285,12 +373,18 @@ export class EventProducerController {
     type: String,
     required: false,
   })
+  @ApiQuery({
+    name: 'ticketTitle',
+    type: [String],
+    required: false,
+  })
   async findAllParticipants(
     @Request() req: any,
     @Param('slug') slug: string,
     @Query('page') page: number = 1,
     @Query('perPage') perPage: number = 10,
     @Query('name') name?: string,
+    @Query('ticketTitle') ticketTitle?: [],
   ): Promise<ResponseEventParticipants> {
     const email = req.auth.user.email;
     return this.eventProducerService.findAllParticipants(
@@ -299,6 +393,7 @@ export class EventProducerController {
       page,
       perPage,
       name,
+      ticketTitle,
     );
   }
 

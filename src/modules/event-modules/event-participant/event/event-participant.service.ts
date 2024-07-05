@@ -3,7 +3,6 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { EventParticipantStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -18,9 +17,6 @@ import {
   StorageService,
   StorageServiceType,
 } from 'src/services/storage.service';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { EmailService } from 'src/services/email.service';
-import * as QRCode from 'qrcode';
 import {
   FindAllPublicEvents,
   FindEventInfoDto,
@@ -29,6 +25,12 @@ import {
   ListTicketsDto,
   ParticipantTicketDto,
   EventTicketInfoDto,
+  NetworkParticipantDto,
+  FindAllPublicEventsDto,
+  NetworkHistoric,
+  NetworkHistoricDto,
+  FindByEmailDto,
+  ThanksScreenDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
@@ -37,6 +39,7 @@ import { PaginationService } from 'src/services/paginate.service';
 import { FaceValidationService } from 'src/services/face-validation.service';
 import { StripeService } from 'src/services/stripe.service';
 import { CheckoutSessionEventParticipantDto } from 'src/dtos/stripe.dto';
+import { concatTitleAndCategoryEvent } from 'src/utils/concat-title-category-event';
 
 @Injectable()
 export class EventParticipantService {
@@ -44,7 +47,6 @@ export class EventParticipantService {
     private readonly prisma: PrismaService,
     private readonly userParticipantValidationService: UserParticipantValidationService,
     private readonly storageService: StorageService,
-    private readonly emailService: EmailService,
     private readonly clickSignApiService: ClickSignApiService,
     private readonly paginationService: PaginationService,
     private readonly faceValidationService: FaceValidationService,
@@ -55,12 +57,38 @@ export class EventParticipantService {
     userEmail: string,
     eventTicketLinkId: string,
     body: EventParticipantCreateDto,
+    updateUser: boolean,
   ) {
     try {
       const user = await this.userParticipantValidationService.findUserByEmail(
         userEmail.toLowerCase(),
         body,
       );
+
+      if (updateUser) {
+        const {
+          city,
+          country,
+          document,
+          name,
+          phoneCountry,
+          phoneNumber,
+          state,
+        } = body;
+
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            name: name,
+            phoneNumber: phoneNumber,
+            document: document ? document : user.document,
+            phoneCountry: phoneCountry,
+            city: city,
+            state: state,
+            country: country,
+          },
+        });
+      }
 
       const eventTicketLink =
         await this.userParticipantValidationService.updateEventTicketLinkStatus(
@@ -82,46 +110,42 @@ export class EventParticipantService {
         },
       });
 
-      const participantStatus = await this.updateUserParticipantStatus(
-        event,
-        user,
-      );
-
-      let signerInfo = null;
+      let signerInfo = false;
 
       if (event.eventTerm.length > 0 && event.eventTerm[0].signature) {
-        const signer = await this.createTermSignatorie(user.id);
-
-        const res = await this.addTermSigner(
-          signer.id,
-          event.eventTerm[0].term.path,
-        );
-
-        signerInfo = res.clickSignResponseSigner;
+        if (event.eventTerm && !user.validAt) {
+          throw new ConflictException(
+            'O evento requer que o participante seja verificado',
+          );
+        }
+        signerInfo = true;
       }
+
+      const fully = concatTitleAndCategoryEvent(
+        event.title,
+        eventTicketLink.eventTicket.title,
+      );
 
       const eventParticipant = await this.prisma.eventParticipant.create({
         data: {
+          fullySearch: fully,
           eventId: event.id,
           eventTicketLinkId: eventTicketLink.id,
-          eventTicketPriceId: 'ALTERAR ESSA CARALHA DEPOIS',
-          eventTicketId: eventTicketLink.eventTicket.id,
+          eventTicketPriceId: eventTicketLink.eventTicketPriceId,
+          eventTicketId: eventTicketLink.eventTicketId,
           qrcode,
           sequential: sequential + 1,
           userId: user.id,
-          status: participantStatus,
-          signerId: signerInfo ? signerInfo.list.signer_key : null,
-          documentSignerId: signerInfo ? signerInfo.list.document_key : null,
-          requestSignatureKey: signerInfo
-            ? signerInfo.list.request_signature_key
-            : null,
+          status: 'COMPLETE',
+          signature: signerInfo,
         },
       });
+
+      await this.createParticipantNetworks(eventParticipant.id, body.networks);
 
       return {
         eventParticipantId: eventParticipant.id,
         participantStatus: eventParticipant.status,
-        requestSignatureKey: eventParticipant.requestSignatureKey,
       };
     } catch (error) {
       throw error;
@@ -326,6 +350,7 @@ export class EventParticipantService {
         include: {
           eventTicket: true,
           event: true,
+          eventTicketPrice: true,
         },
       });
 
@@ -336,7 +361,7 @@ export class EventParticipantService {
       const response: ParticipantTicketDto = {
         id: participant.id,
         ticketName: participant.eventTicket.title,
-        price: 10,
+        price: Number(participant.eventTicketPrice.price),
         eventName: participant.event.title,
         qrcode: participant.qrcode,
         startAt: participant.event.startAt,
@@ -386,18 +411,32 @@ export class EventParticipantService {
     perPage: number,
     title?: string,
     category?: string,
+    initialDate?: string,
+    finalDate?: string,
   ): Promise<FindAllPublicEvents> {
     try {
       const where: Prisma.EventWhereInput = {
         public: true,
+        status: 'ENABLE',
       };
+
+      if (category) {
+        where.category = { contains: category, mode: 'insensitive' };
+      }
 
       if (title) {
         where.title = { contains: title, mode: 'insensitive' };
       }
 
-      if (category) {
-        where.category = { contains: category, mode: 'insensitive' };
+      if (initialDate || finalDate) {
+        where.startAt = {
+          gte: initialDate
+            ? new Date(`${initialDate}T00:00:00.000Z`)
+            : '1000-12-31T00:00:00.000Z',
+          lte: finalDate
+            ? new Date(`${finalDate}T23:59:59.999Z`)
+            : '3000-12-31T23:59:59.999Z',
+        };
       }
 
       const events = await this.prisma.event.findMany({
@@ -427,6 +466,8 @@ export class EventParticipantService {
           description: event.description,
           startAt: event.startAt,
           endAt: event.endAt,
+          state: event.state,
+          city: event.city,
         };
       });
 
@@ -441,6 +482,94 @@ export class EventParticipantService {
     }
   }
 
+  async findAllPublicEventsHome() {
+    try {
+      const categories = await this.prisma.event.findMany({
+        where: {
+          public: true,
+          status: 'ENABLE',
+        },
+        select: {
+          category: true,
+        },
+        distinct: ['category'],
+      });
+
+      const groupedEvents = await Promise.all(
+        categories.map(async (category) => {
+          const events = await this.prisma.event.findMany({
+            where: {
+              public: true,
+              status: 'ENABLE',
+              category: category.category,
+            },
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              photo: true,
+              category: true,
+              startAt: true,
+              state: true,
+              city: true,
+            },
+            orderBy: {
+              startAt: 'desc',
+            },
+            take: 10,
+          });
+          return {
+            category: category.category,
+            events,
+          };
+        }),
+      );
+
+      return groupedEvents;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getEventsMoreView(): Promise<FindAllPublicEventsDto> {
+    try {
+      const where: Prisma.EventWhereInput = {
+        public: true,
+        status: 'ENABLE',
+      };
+
+      const events = await this.prisma.event.findMany({
+        where,
+        orderBy: {
+          viewsCount: 'desc',
+        },
+        take: 4,
+      });
+
+      const eventsFormatted = events.map((event) => {
+        return {
+          id: event.id,
+          title: event.title,
+          slug: event.slug,
+          photo: event.photo,
+          category: event.category,
+          description: event.description,
+          startAt: event.startAt,
+          endAt: event.endAt,
+          state: event.state,
+          city: event.city,
+          view: event.viewsCount,
+        };
+      });
+
+      const response: FindAllPublicEventsDto = eventsFormatted;
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async findOnePublicEvent(slug: string): Promise<FindOnePublicEventsDto> {
     try {
       const event = await this.prisma.event.findUnique({
@@ -448,10 +577,45 @@ export class EventParticipantService {
           slug,
         },
         include: {
-          eventTicket: true,
+          eventTicket: {
+            include: {
+              eventTicketPrice: {
+                include: {
+                  EventParticipant: true,
+                },
+              },
+            },
+          },
           eventConfig: true,
+          eventTerm: {
+            include: {
+              term: true,
+            },
+          },
         },
       });
+
+      const ticketsPrice = [];
+
+      if (event.eventTicket) {
+        event.eventTicket.map((ticket) => {
+          if (ticket.isBonus === false) {
+            ticket.eventTicketPrice.map((price) => {
+              if (ticket.isPrivate === false) {
+                ticketsPrice.push({
+                  id: price.id,
+                  batch: price.batch,
+                  title: ticket.title,
+                  price: Number(price.price),
+                  description: ticket.description,
+                  avaible: price.guests - price.EventParticipant.length,
+                  currency: price.currency,
+                });
+              }
+            });
+          }
+        });
+      }
 
       const response: FindOnePublicEventsDto = {
         id: event.id,
@@ -465,17 +629,22 @@ export class EventParticipantService {
         longitude: event.longitude,
         latitude: event.latitude,
         location: event.location,
-        ticket: event.eventTicket.map((ticket) => {
-          return {
-            id: ticket.id,
-            title: ticket.title,
-            price: 10,
-            description: ticket.description,
-          };
-        }),
+        address: event.address,
+        city: event.city,
+        complement: event.complement,
+        country: event.country,
+        number: event.number,
+        state: event.state,
+        district: event.district,
+        ticket: ticketsPrice,
         config: {
           credentialType: event.eventConfig[0].credentialType,
           participantNetworks: event.eventConfig[0].participantNetworks,
+        },
+        term: {
+          id: event.eventTerm[0] ? event.eventTerm[0].term.id : null,
+          name: event.eventTerm[0] ? event.eventTerm[0].term.name : null,
+          path: event.eventTerm[0] ? event.eventTerm[0].term.path : null,
         },
       };
 
@@ -489,25 +658,52 @@ export class EventParticipantService {
     userId: string,
     page: number,
     perPage: number,
+    searchable?: string,
+    initialDate?: string,
+    finalDate?: string,
   ): Promise<ListTickets> {
     try {
-      const where: Prisma.EventParticipantWhereInput = {
-        userId,
+      const where: Prisma.EventWhereInput = {
+        eventTicket: {
+          some: {
+            eventTicketPrice: {
+              some: {
+                EventTicketLink: {
+                  some: {
+                    userId,
+                  },
+                },
+              },
+            },
+          },
+        },
       };
 
-      const events = await this.prisma.eventParticipant.findMany({
+      if (searchable) {
+        where.fullySearch = { contains: searchable, mode: 'insensitive' };
+      }
+
+      if (initialDate || finalDate) {
+        where.startAt = {
+          gte: initialDate
+            ? new Date(`${initialDate}T00:00:00.000Z`)
+            : '1000-12-31T00:00:00.000Z',
+          lte: finalDate
+            ? new Date(`${finalDate}T23:59:59.999Z`)
+            : '3000-12-31T23:59:59.999Z',
+        };
+      }
+
+      const events = await this.prisma.event.findMany({
         where,
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
         orderBy: {
           createdAt: 'desc',
         },
-        take: Number(perPage),
-        skip: (page - 1) * Number(perPage),
-        include: {
-          event: true,
-        },
       });
 
-      const totalItems = await this.prisma.eventParticipant.count({ where });
+      const totalItems = await this.prisma.event.count({ where });
 
       const pagination = await this.paginationService.paginate({
         page,
@@ -517,11 +713,21 @@ export class EventParticipantService {
 
       const eventsFormatted: ListTicketsDto = events.map((event) => {
         return {
-          eventSlug: event.event.slug,
-          eventDescription: event.event.description,
-          eventTitle: event.event.title,
-          eventPhoto: event.event.photo,
-          eventStartAt: event.event.startAt,
+          id: event.id,
+          eventTitle: event.title,
+          eventPhoto: event.photo,
+          eventStartAt: event.startAt,
+          eventSlug: event.slug,
+          eventLatitude: event.latitude,
+          eventLocation: event.location,
+          eventLongitude: event.longitude,
+          state: event.state,
+          city: event.city,
+          address: event.address,
+          complement: event.complement,
+          country: event.country,
+          number: event.number,
+          district: event.district,
         };
       });
 
@@ -544,7 +750,76 @@ export class EventParticipantService {
       const event = await this.prisma.event.findUnique({
         where: {
           slug: eventSlug,
+          eventTicket: {
+            some: {
+              eventTicketPrice: {
+                some: {
+                  EventTicketLink: {
+                    some: {
+                      userId,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
+        include: {
+          eventTicket: {
+            include: {
+              eventTicketPrice: {
+                include: {
+                  EventTicketLink: {
+                    include: {
+                      eventParticipant: {
+                        include: {
+                          eventTicket: true,
+                          user: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!event) throw new NotFoundException('Event not found');
+
+      let avaibleGuests = 0;
+
+      const guests = [];
+      const links = [];
+
+      event.eventTicket.map((ticket) => {
+        ticket.eventTicketPrice.map((price) => {
+          price.EventTicketLink.map((link) => {
+            avaibleGuests += link.invite - link.eventParticipant.length;
+
+            if (link.status !== 'FULL') {
+              links.push({
+                id: link.id,
+                ticketId: link.eventTicketId,
+                ticketName: ticket.title,
+                limit: link.invite,
+                guests: link.eventParticipant.length,
+              });
+            }
+
+            link.eventParticipant.map((part) => {
+              if (part.user.id !== userId) {
+                guests.push({
+                  participantId: part.id,
+                  name: part.user.name,
+                  ticketName: part.eventTicket.title,
+                  document: part.user.document,
+                });
+              }
+            });
+          });
+        });
       });
 
       const eventParticipant = await this.prisma.eventParticipant.findFirst({
@@ -555,16 +830,44 @@ export class EventParticipantService {
         include: {
           event: true,
           eventTicket: true,
+          user: true,
         },
       });
 
       const response: EventTicketInfoDto = {
-        eventDescription: eventParticipant.event.description,
-        eventParticipantId: eventParticipant.id,
-        eventParticipantQrcode: eventParticipant.qrcode,
-        eventPhoto: eventParticipant.event.photo,
-        eventStartAt: eventParticipant.event.startAt,
-        eventTitle: eventParticipant.event.title,
+        eventPhoto: event.photo,
+        eventTitle: event.title,
+        eventDescription: event.description,
+        eventState: event.state,
+        eventCity: event.city,
+        eventAddress: event.address,
+        eventNumber: event.number,
+        eventDistrict: event.district,
+        eventComplement: event.complement,
+        eventLatitude: event.latitude,
+        eventLongitude: event.longitude,
+        eventStartAt: event.startAt,
+        eventEndAt: event.endAt,
+
+        eventParticipantId: eventParticipant ? eventParticipant.id : null,
+        eventParticipantName: eventParticipant
+          ? eventParticipant.user.name
+          : null,
+        eventParticipantDocument: eventParticipant
+          ? eventParticipant.user.document
+          : null,
+        eventParticipantQrcode: eventParticipant
+          ? eventParticipant.qrcode
+          : null,
+        eventTicketTitle: eventParticipant
+          ? eventParticipant.eventTicket.title
+          : null,
+
+        avaibleGuests: avaibleGuests,
+
+        links: links,
+
+        guests: guests,
       };
 
       return response;
@@ -576,18 +879,273 @@ export class EventParticipantService {
   async eventTicketSell(
     userId: string,
     body: EventTicketSellDto,
-  ): Promise<string> {
+    updateUser: boolean,
+  ) {
     try {
-      const user = await this.prisma.user.findUnique({
+      const userExist = await this.prisma.user.findUnique({
         where: {
           id: userId,
         },
       });
 
-      if (!user) throw new NotFoundException('User not found');
+      if (!userExist) throw new NotFoundException('User not found');
 
-      const { eventSlug, eventTickets } = body;
+      const { eventSlug, eventTickets, networks, user } = body;
+      const { name, phone, city, state, document } = user;
 
+      if (updateUser) {
+        await this.prisma.user.update({
+          where: { id: userExist.id },
+          data: {
+            name: name,
+            phoneNumber: phone,
+            document: document,
+            city: city,
+            state: state,
+          },
+        });
+      }
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: eventSlug,
+        },
+        include: {
+          eventTerm: {
+            include: {
+              term: true,
+            },
+          },
+        },
+      });
+
+      if (!event) throw new NotFoundException('Event not found');
+
+      if (event.eventTerm && !userExist.validAt) {
+        throw new ConflictException(
+          'O evento requer que o participante seja verificado',
+        );
+      }
+
+      let partId = null;
+      const links = [];
+      const lineItems = [];
+
+      await Promise.all(
+        eventTickets.map(async (ticket) => {
+          const ticketPriceExist =
+            await this.prisma.eventTicketPrice.findUnique({
+              where: {
+                id: ticket.ticketPriceId,
+              },
+              include: {
+                eventTicket: {
+                  include: {
+                    event: true,
+                    EventTicketBonus: true,
+                  },
+                },
+                EventParticipant: true,
+              },
+            });
+
+          if (!ticketPriceExist)
+            throw new NotFoundException('Ticket not found');
+
+          const limitBatch =
+            ticketPriceExist.guests - ticketPriceExist.EventParticipant.length;
+
+          if (limitBatch <= ticket.ticketQuantity) {
+            throw new ConflictException(
+              `O limite de ingressos para o lote ${ticketPriceExist.batch} do ingresso ${ticketPriceExist.eventTicket.title} foi atingido`,
+            );
+          }
+
+          if (
+            Number(ticketPriceExist.price) > 0 &&
+            ticketPriceExist.stripePriceId
+          ) {
+            lineItems.push({
+              price: ticketPriceExist.stripePriceId,
+              quantity: ticket.ticketQuantity,
+            });
+          }
+          console.log(ticket.participant);
+          console.log(user.email);
+          if (ticket.participant === user.email) {
+            const participantExists =
+              await this.prisma.eventParticipant.findFirst({
+                where: {
+                  userId,
+                  eventTicketId: ticketPriceExist.eventTicketId,
+                  eventTicketPriceId: ticketPriceExist.id,
+                  eventId: ticketPriceExist.eventTicket.eventId,
+                },
+              });
+
+            if (!participantExists) {
+              const qrcode = randomUUID();
+              const fully = concatTitleAndCategoryEvent(
+                event.title,
+                ticketPriceExist.eventTicket.title,
+              );
+
+              const sequential = await this.prisma.eventParticipant.count({
+                where: {
+                  eventId: ticketPriceExist.eventTicket.eventId,
+                },
+              });
+
+              const part = await this.prisma.eventParticipant.create({
+                data: {
+                  userId,
+                  eventTicketId: ticketPriceExist.eventTicketId,
+                  eventTicketPriceId: ticketPriceExist.id,
+                  eventId: ticketPriceExist.eventTicket.eventId,
+                  qrcode,
+                  sequential: sequential + 1,
+                  status: 'AWAITING_PAYMENT',
+                  fullySearch: fully,
+                  signature: true,
+                },
+              });
+
+              partId = part.id;
+
+              await this.createParticipantNetworks(part.id, networks);
+
+              await Promise.all(
+                ticketPriceExist.eventTicket.EventTicketBonus.map(
+                  async (bonus) => {
+                    const ticketBonus = await this.prisma.eventTicket.findFirst(
+                      {
+                        where: {
+                          eventId: event.id,
+                          title: bonus.eventTicketBonusTitle,
+                        },
+                      },
+                    );
+
+                    if (!ticketBonus)
+                      throw new NotFoundException('Ticket bonus not found');
+
+                    const linkCreated =
+                      await this.prisma.eventTicketLink.create({
+                        data: {
+                          invite: bonus.qtd,
+                          eventTicketId: ticketBonus.id,
+                          eventTicketPriceId: ticketPriceExist.id,
+                          userId: userExist.id,
+                        },
+                      });
+
+                    links.push(linkCreated);
+                  },
+                ),
+              );
+            }
+          } else {
+            const linkCreated = await this.prisma.eventTicketLink.create({
+              data: {
+                invite: ticket.ticketQuantity,
+                eventTicketId: ticketPriceExist.eventTicketId,
+                eventTicketPriceId: ticketPriceExist.id,
+                userId: userExist.id,
+              },
+            });
+
+            await Promise.all(
+              ticketPriceExist.eventTicket.EventTicketBonus.map(
+                async (bonus) => {
+                  const ticketBonus = await this.prisma.eventTicket.findFirst({
+                    where: {
+                      eventId: event.id,
+                      title: bonus.eventTicketBonusTitle,
+                    },
+                  });
+
+                  if (!ticketBonus)
+                    throw new NotFoundException('Ticket bonus not found');
+
+                  const linkCreated = await this.prisma.eventTicketLink.create({
+                    data: {
+                      invite: bonus.qtd,
+                      eventTicketId: ticketBonus.id,
+                      eventTicketPriceId: ticketPriceExist.id,
+                      userId: userExist.id,
+                    },
+                  });
+
+                  links.push(linkCreated);
+                },
+              ),
+            );
+
+            links.push(linkCreated);
+          }
+        }),
+      );
+
+      let sessionId = null;
+      let sessionUrl = null;
+      if (lineItems.length > 0) {
+        const created = await this.stripe.checkoutSessionEventParticipant(
+          lineItems,
+          partId ? partId : null,
+        );
+
+        sessionId = created.id;
+        sessionUrl = created.url;
+      }
+
+      await Promise.all(
+        eventTickets.map(async (ticket) => {
+          const ticketId = await this.prisma.eventTicketPrice.findUnique({
+            where: {
+              id: ticket.ticketPriceId,
+            },
+          });
+
+          const total = Number(ticketId.price) * ticket.ticketQuantity;
+
+          await this.prisma.userTicket.create({
+            data: {
+              userId: userId,
+              eventId: event.id,
+              eventTicketId: ticketId.eventTicketId,
+              eventTicketPriceId: ticketId.id,
+              qtd: ticket.ticketQuantity,
+            },
+          });
+
+          await this.prisma.balanceHistoric.create({
+            data: {
+              userId: userId,
+              paymentId: sessionId ? sessionId : null,
+              value: total.toFixed(2),
+              eventId: event.id,
+              eventTicketId: ticketId.eventTicketId,
+              status:
+                sessionId || Number(ticketId.price) > 0
+                  ? 'PENDING'
+                  : 'RECEIVED',
+            },
+          });
+        }),
+      );
+
+      return {
+        sessionId: sessionId,
+        participantId: partId,
+        sessionUrl: sessionUrl,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async eventAddViewCount(eventSlug: string) {
+    try {
       const event = await this.prisma.event.findUnique({
         where: {
           slug: eventSlug,
@@ -596,40 +1154,233 @@ export class EventParticipantService {
 
       if (!event) throw new NotFoundException('Event not found');
 
-      const lineItems: CheckoutSessionEventParticipantDto = [];
-
-      eventTickets.forEach(async (ticket) => {
-        const ticketExist = await this.prisma.eventTicket.findUnique({
-          where: {
-            id: ticket.ticketId,
-            eventId: event.id,
-          },
-          include: {
-            eventTicketPrice: true,
-          },
-        });
-
-        if (!ticketExist) throw new NotFoundException('Ticket not found');
-
-        lineItems.push({
-          //ALTERAR ISSO DEPOIS TAMBEM
-          price: ticketExist.eventTicketPrice[0].stripePriceId,
-          quantity: ticket.ticketQuantity,
-        });
-      });
-
-      const session =
-        await this.stripe.checkoutSessionEventParticipant(lineItems);
-
-      await this.prisma.balanceHistoric.create({
+      await this.prisma.event.update({
+        where: {
+          id: event.id,
+        },
         data: {
-          userId: userId,
-          paymentId: session.id,
-          value: Number(session.value / 100),
+          viewsCount: event.viewsCount + 1,
         },
       });
 
-      return session.url;
+      return;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async networkParticipant(qrcode: string): Promise<NetworkParticipantDto> {
+    try {
+      const participant = await this.prisma.eventParticipant.findFirst({
+        where: {
+          qrcode: qrcode,
+        },
+        include: {
+          user: {
+            include: {
+              userHobbie: true,
+              userSocials: true,
+            },
+          },
+        },
+      });
+
+      const response: NetworkParticipantDto = {
+        name: participant.user.name,
+        profilePhoto: participant.user.profilePhoto,
+
+        userNetwork: participant.user.userSocials.map((social) => {
+          return {
+            id: social.id,
+            network: social.network,
+            username: social.username,
+          };
+        }),
+
+        userHobbie: participant.user.userHobbie.map((hobbie) => {
+          return {
+            id: hobbie.id,
+            description: hobbie.description,
+            rating: hobbie.rating,
+          };
+        }),
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async createNetwork(userEmail: string, qrcode: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email: userEmail.toLowerCase(),
+        },
+      });
+
+      if (!user) throw new NotFoundException('User not found');
+
+      const participant = await this.prisma.eventParticipant.findFirst({
+        where: {
+          qrcode: qrcode,
+        },
+      });
+
+      if (!participant) throw new NotFoundException('Participant not found');
+
+      if (user.id === participant.userId)
+        throw new ConflictException('User is the participant');
+
+      const networkExistis =
+        await this.prisma.userEventNetworkHistoric.findFirst({
+          where: {
+            userId: user.id,
+            eventParticipantId: participant.id,
+          },
+        });
+
+      if (networkExistis) throw new ConflictException('Network already exists');
+
+      await this.prisma.userEventNetworkHistoric.create({
+        data: {
+          userId: user.id,
+          eventParticipantId: participant.id,
+        },
+      });
+
+      return 'success';
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async networkHistoric(
+    userEmail: string,
+    page: number,
+    perPage: number,
+  ): Promise<NetworkHistoric> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email: userEmail.toLowerCase(),
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const historic = await this.prisma.userEventNetworkHistoric.findMany({
+        where: {
+          userId: user.id,
+        },
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          eventParticipant: {
+            include: {
+              user: true,
+              event: true,
+            },
+          },
+        },
+      });
+
+      const totalItems = await this.prisma.userEventNetworkHistoric.count({
+        where: { userId: user.id },
+      });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const data: NetworkHistoricDto[] = [];
+
+      historic.map((historic) => {
+        data.push({
+          id: historic.id,
+          name: historic.eventParticipant.user.name,
+          eventName: historic.eventParticipant.event.title,
+          profilePhoto: historic.eventParticipant.user.profilePhoto,
+        });
+      });
+
+      const response: NetworkHistoric = {
+        data: data,
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async findByEmail(email: string): Promise<FindByEmailDto | null> {
+    try {
+      const userExist = await this.prisma.user.findUnique({
+        where: {
+          email: email.toLowerCase(),
+        },
+      });
+
+      if (!userExist) {
+        return null;
+      }
+
+      const response: FindByEmailDto = {
+        city: userExist.cep,
+        email: userExist.email,
+        id: userExist.id,
+        name: userExist.name,
+        phoneNumber: userExist.phoneNumber,
+        phoneCountry: userExist.phoneCountry,
+        validAt: userExist.validAt,
+        state: userExist.state,
+        country: userExist.country,
+        document: userExist.document,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async thanksScreen(partId: string): Promise<ThanksScreenDto> {
+    try {
+      const part = await this.prisma.eventParticipant.findUnique({
+        where: {
+          id: partId,
+        },
+        include: {
+          event: true,
+          eventTicket: true,
+          user: true,
+        },
+      });
+
+      const response: ThanksScreenDto = {
+        evenState: part.event.state,
+        eventSlug: part.event.slug,
+        eventCity: part.event.city,
+        eventPhoto: part.event.photo,
+        eventEndAt: part.event.endAt,
+        eventParticipantName: part.user.name,
+        eventParticipantQrcode: part.qrcode,
+        eventParticipantTicketTitle: part.eventTicket.title,
+        eventStartAt: part.event.startAt,
+        eventTitle: part.event.title,
+      };
+
+      return response;
     } catch (error) {
       throw error;
     }
@@ -698,8 +1449,6 @@ export class EventParticipantService {
       const fileBase64 = file.toString('base64');
       const mimeType = mime.lookup(documentPath) || 'application/octet-stream';
 
-      console.log(`MIME type: ${mimeType}`);
-
       const contentBase64 = `data:${mimeType};base64,${fileBase64}`;
 
       const clickSignResponseDoc = await this.clickSignApiService.postDocument(
@@ -717,73 +1466,5 @@ export class EventParticipantService {
     } catch (error) {
       throw error;
     }
-  }
-
-  @Cron(CronExpression.EVERY_30_SECONDS, {
-    name: 'eventParticipantSendEmails',
-  })
-  async sendCronEmail() {
-    const eventParticipants = await this.prisma.eventParticipant.findMany({
-      where: {
-        sendEmailAt: null,
-      },
-      take: 1,
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-            document: true,
-          },
-        },
-        event: {
-          select: {
-            title: true,
-            startAt: true,
-            endAt: true,
-            description: true,
-          },
-        },
-        eventTicket: {
-          select: {
-            title: true,
-          },
-        },
-      },
-    });
-
-    eventParticipants.forEach(async (eventParticipant) => {
-      const { user, event, eventTicket } = eventParticipant;
-      const { name, email } = user;
-      const { startAt, endAt, description, title: nameEvent } = event;
-      const { title: nameTicket } = eventTicket;
-
-      const qrCodeBase64 = await QRCode.toDataURL(eventParticipant.qrcode);
-
-      const data = {
-        to: email.toLowerCase(),
-        name: name,
-        type: 'sendEmailParticipantQRcode',
-      };
-
-      this.emailService.sendEmail(data, {
-        eventName: nameEvent,
-        ticketName: nameTicket,
-        description: description,
-        startDate: startAt,
-        endDate: endAt,
-        qrCodeHtml: qrCodeBase64,
-        qrCode: eventParticipant.qrcode,
-        invictaClub: '',
-        eventSlug: '',
-        staffEmail: '',
-        staffPassword: '',
-      });
-
-      await this.prisma.eventParticipant.update({
-        where: { id: eventParticipant.id },
-        data: { sendEmailAt: new Date() },
-      });
-    });
   }
 }

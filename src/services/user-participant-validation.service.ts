@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -47,12 +46,6 @@ export class UserParticipantValidationService {
 
         return userCreated;
       }
-      if (body.document) {
-        const documentValid = validateCPF(body.document);
-        if (!documentValid) {
-          throw new BadRequestException('Invalid CPF document');
-        }
-      }
 
       return user;
     } catch (error) {
@@ -64,23 +57,15 @@ export class UserParticipantValidationService {
     email: string,
     body: UserEventParticipantCreateDto,
   ) {
-    const {
-      cep,
-      country,
-      dateBirth,
-      document,
-      name,
-      phoneCountry,
-      phoneNumber,
-      state,
-    } = body;
+    const { country, document, name, phoneCountry, phoneNumber, state, city } =
+      body;
 
-    validateBirth(dateBirth, false);
-
-    if (country === 'Brasil' || phoneCountry === '55') {
-      const documentValid = validateCPF(document);
-      if (!documentValid) {
-        throw new UnprocessableEntityException('Invalid CPF document');
+    if (document) {
+      if (country === 'Brasil' || phoneCountry === '55') {
+        const documentValid = validateCPF(document);
+        if (!documentValid) {
+          throw new UnprocessableEntityException('Invalid CPF document');
+        }
       }
     }
     const validName = name.trim().split(' ');
@@ -92,14 +77,13 @@ export class UserParticipantValidationService {
     const user = await this.prisma.user.create({
       data: {
         email: email.toLowerCase(),
-        cep,
         country,
-        dateBirth,
-        document,
+        document: document ? document : null,
         name,
         phoneCountry,
         phoneNumber,
         state,
+        city,
       },
       include: {
         userFacials: true,
@@ -111,39 +95,66 @@ export class UserParticipantValidationService {
     return user;
   }
 
-  async eventTicketExists(eventTicketId: string) {
-    const eventTicket = await this.prisma.eventTicket.findUnique({
+  async eventTicketPriceExists(eventTicketPriceId: string) {
+    const eventTicketPrice = await this.prisma.eventTicketPrice.findUnique({
       where: {
-        id: eventTicketId,
+        id: eventTicketPriceId,
+      },
+      include: {
+        EventParticipant: true,
+        eventTicket: true,
+      },
+    });
+
+    const prevBatch = await this.prisma.eventTicketPrice.findFirst({
+      where: {
+        batch: eventTicketPrice.batch - 1,
+        eventTicketId: eventTicketPrice.eventTicketId,
       },
       include: {
         EventParticipant: true,
       },
     });
 
-    if (!eventTicket) {
+    if (!eventTicketPrice) {
       throw new NotFoundException('Event Ticket not found');
     }
 
-    return eventTicket;
+    if (prevBatch !== null) {
+      if (
+        (prevBatch.status !== 'FULL' && prevBatch.status !== 'DISABLE') ||
+        prevBatch.endPublishAt < new Date()
+      ) {
+        throw new BadRequestException('The previous batch is still available');
+      }
+    }
+
+    console.log(new Date());
+
+    if (eventTicketPrice.startPublishAt > new Date()) {
+      throw new BadRequestException('The batch not available');
+    }
+
+    return eventTicketPrice;
   }
 
-  async updateEventTicketStatus(eventTicketId: string) {
-    const eventTicket = await this.eventTicketExists(eventTicketId);
-    //ARRUMAR ESSA MERDA
-    /*  const status =
-      eventTicket.guest == eventTicket.EventParticipant.length + 1
+  async updateEventTicketPriceStatus(eventTicketPriceId: string) {
+    const eventTicketPrice =
+      await this.eventTicketPriceExists(eventTicketPriceId);
+
+    const status =
+      eventTicketPrice.guests == eventTicketPrice.EventParticipant.length + 1
         ? 'FULL'
         : 'PART_FULL';
 
-    await this.prisma.eventTicket.update({
+    await this.prisma.eventTicketPrice.update({
       where: {
-        id: eventTicketId,
+        id: eventTicketPriceId,
       },
       data: {
         status: status,
       },
-    }); */
+    });
 
     return;
   }
@@ -156,12 +167,13 @@ export class UserParticipantValidationService {
       include: {
         eventParticipant: true,
         eventTicket: true,
+        eventTicketPrice: true,
       },
     });
 
     if (
-      eventTicketLink.status === 'FULL'
-      //eventTicketLink.eventTicket.status === 'FULL' ALTERAR ESSA MERDA
+      eventTicketLink.status === 'FULL' ||
+      eventTicketLink.eventTicketPrice.status === 'FULL'
     ) {
       throw new ConflictException('Ticket or Link already full');
     }
@@ -202,7 +214,7 @@ export class UserParticipantValidationService {
       },
     });
 
-    await this.updateEventTicketStatus(eventTicketLink.eventTicketId);
+    await this.updateEventTicketPriceStatus(eventTicketLink.eventTicketPriceId);
 
     return eventTicketLinkUpdated;
   }

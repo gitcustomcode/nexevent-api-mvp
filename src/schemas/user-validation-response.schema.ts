@@ -19,6 +19,7 @@ export const UserValidationEmailResponseSchema = z.object({
   cep: z.string().nullish(),
   type: z.nativeEnum(UserType),
   dateBirth: z.string().nullish(),
+  validAt: z.date().nullish(),
   createdAt: z.date(),
 });
 
@@ -35,5 +36,6 @@ export const UserEventParticipantCreateSchema = z.object({
   phoneNumber: z.string().nullish().describe('Event participant phone number'),
   state: z.string().nullish().describe('Event participant state'),
   country: z.string().nullish().describe('Event participant country'),
+  city: z.string().nullish(),
   cep: z.string().nullish().describe('Event participant cep'),
 });

@@ -1,10 +1,7 @@
-import {
-  BadRequestException,
-  ConflictException,
+import {  ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { genSaltSync, hashSync } from 'bcrypt';
@@ -28,8 +25,9 @@ export class OtpService {
 
   async forgotPassword(email: string): Promise<string> {
     try {
-      const user =
-        await this.userProducerValidationService.findUserByEmail(email.toLowerCase());
+      const user = await this.userProducerValidationService.findUserByEmail(
+        email.toLowerCase(),
+      );
 
       if (!user) {
         throw new NotFoundException('User not found');
@@ -159,7 +157,101 @@ export class OtpService {
         data: { verified: true },
       });
 
-      return await this.authService.login(userUpdated.email.toLowerCase(), password);
+      return await this.authService.login(
+        userUpdated.email.toLowerCase(),
+        password,
+      );
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async verifyEmail(email: string) {
+    let user = null;
+    const userExist =
+      await this.userProducerValidationService.findUserByEmail(email);
+
+    user = userExist ? userExist : null;
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email: email.toLowerCase(),
+          name: 'Novo usuário',
+        },
+      });
+    }
+
+    if (user.validAt) {
+      throw new ConflictException('User already verified');
+    }
+
+    await this.updateVerified(user.id);
+
+    const otpCod = otpCodeGenerate();
+
+    const now = new Date();
+    const timeExpire = createDateExpiration(now);
+
+    await this.prisma.otp.create({
+      data: {
+        userId: user.id,
+        type: 'VERIFY',
+        number: otpCod,
+        dateExpiration: timeExpire,
+      },
+    });
+
+    const data = {
+      to: email.toLowerCase(),
+      name: user.name,
+      type: 'verifyEmail',
+      code: otpCod.toString(),
+    };
+
+    await this.emailService.sendEmail(data);
+
+    return 'Verify your email';
+  }
+
+  async verifyEmailCode(email: string, code: string) {
+    try {
+      console.log(email);
+      const user =
+        await this.userProducerValidationService.findUserByEmail(email);
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      if (user.validAt) {
+        throw new ConflictException('User already verified');
+      }
+
+      const otpExists = await this.prisma.otp.findFirst({
+        where: {
+          userId: user.id,
+          type: 'VERIFY',
+          number: Number(code),
+          verified: false,
+        },
+      });
+
+      if (!otpExists) {
+        throw new ConflictException('Code not found');
+      }
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { validAt: new Date() },
+      });
+
+      await this.prisma.otp.update({
+        where: { id: otpExists.id },
+        data: { verified: true },
+      });
+
+      return 'Verified successfully';
     } catch (error) {
       throw error;
     }
