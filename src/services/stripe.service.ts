@@ -87,6 +87,10 @@ export class StripeService {
     lineItems: CheckoutSessionEventParticipantDto,
     partId?: string,
   ) {
+    console.log(partId);
+    console.log(
+      `https://sistema-dev.nexevent.com.br/event-private/event/finished/${partId ? partId : ''}`,
+    );
     const session = await this.stripe.checkout.sessions.create({
       line_items: lineItems,
       mode: 'payment',

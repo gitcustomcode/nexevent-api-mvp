@@ -506,6 +506,7 @@ model EventQuiz {
   anonimousResponse Boolean?        @default(false) @map("anonimous_response")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
+  deletedAt         DateTime?       @map("deleted_at")
 
   event                Event                  @relation(fields: [eventId], references: [id])
   user                 User                   @relation(fields: [userId], references: [id])
@@ -526,17 +527,20 @@ model EventQuizQuestion {
 
   eventQuiz                    EventQuiz                      @relation(fields: [eventQuizId], references: [id])
   EventQuizParticipantResponse EventQuizParticipantResponse[]
+  EventQuizQuestionOption      EventQuizQuestionOption[]
 
   @@map("event_quiz_questions")
 }
 
 model EventQuizQuestionOption {
-  id                           String                         @id @default(uuid())
-  sequential                   Int
-  description                  String
-  isOther                      Boolean                        @default(false) @map("is_other")
-  other                        String?
+  id                  String  @id @default(uuid())
+  eventQuizQuestionId String
+  sequential          Int
+  description         String
+  isOther             Boolean @default(false) @map("is_other")
+
   EventQuizParticipantResponse EventQuizParticipantResponse[]
+  eventQuizQuestion            EventQuizQuestion              @relation(fields: [eventQuizQuestionId], references: [id])
 }
 
 model EventQuizParticipant {

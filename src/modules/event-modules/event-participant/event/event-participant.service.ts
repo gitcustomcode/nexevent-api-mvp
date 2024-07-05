@@ -970,7 +970,8 @@ export class EventParticipantService {
               quantity: ticket.ticketQuantity,
             });
           }
-
+          console.log(ticket.participant);
+          console.log(user.email);
           if (ticket.participant === user.email) {
             const participantExists =
               await this.prisma.eventParticipant.findFirst({
