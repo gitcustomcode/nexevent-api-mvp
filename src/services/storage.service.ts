@@ -81,6 +81,28 @@ export class StorageService {
     }
   }
 
+  async uploadVideo(
+    provider: StorageServiceType,
+    key: string,
+    body: Buffer,
+  ): Promise<void> {
+    try {
+      switch (provider) {
+        case StorageServiceType.S3:
+          await this.uploadToS3(
+            this.configService.get<string>('app.awsS3BucketPhoto'),
+            key,
+            body,
+          );
+          break;
+        default:
+          throw new Error('Invalid storage provider');
+      }
+    } catch (error) {
+      throw new ConflictException(`Error: ${error}`);
+    }
+  }
+
   private async getToS3(bucket: string, key: string): Promise<Buffer> {
     const getParams = {
       Bucket: bucket,
