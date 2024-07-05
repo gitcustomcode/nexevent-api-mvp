@@ -169,10 +169,25 @@ export const FindByEmailSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string(),
-  phone: z.string(),
+  phoneNumber: z.string(),
+  phoneCountry: z.string(),
   city: z.string(),
   country: z.string(),
   state: z.string(),
   document: z.string(),
   validAt: z.date().nullish(),
+});
+
+export const ThanksScreenSchema = z.object({
+  eventTitle: z.string(),
+  eventCity: z.string(),
+  evenState: z.string(),
+  eventPhoto: z.string(),
+  eventStartAt: z.date().nullish(),
+  eventEndAt: z.date().nullish(),
+  eventSlug: z.string(),
+
+  eventParticipantTicketTitle: z.string(),
+  eventParticipantName: z.string(),
+  eventParticipantQrcode: z.string(),
 });

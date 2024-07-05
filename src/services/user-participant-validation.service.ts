@@ -46,12 +46,6 @@ export class UserParticipantValidationService {
 
         return userCreated;
       }
-      if (body.document) {
-        const documentValid = validateCPF(body.document);
-        if (!documentValid) {
-          throw new BadRequestException('Invalid CPF document');
-        }
-      }
 
       return user;
     } catch (error) {
@@ -126,7 +120,7 @@ export class UserParticipantValidationService {
       throw new NotFoundException('Event Ticket not found');
     }
 
-    if (prevBatch) {
+    if (prevBatch !== null) {
       if (
         (prevBatch.status !== 'FULL' && prevBatch.status !== 'DISABLE') ||
         prevBatch.endPublishAt < new Date()
@@ -134,6 +128,8 @@ export class UserParticipantValidationService {
         throw new BadRequestException('The previous batch is still available');
       }
     }
+
+    console.log(new Date());
 
     if (eventTicketPrice.startPublishAt > new Date()) {
       throw new BadRequestException('The batch not available');

@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -152,7 +153,6 @@ export class AuthService {
 
         return accessToken;
       } else {
-        console.log('deu erro');
         throw new ConflictException('Login with facial failed');
       }
     } catch (error) {

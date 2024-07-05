@@ -41,6 +41,7 @@ import {
   ListTickets,
   NetworkParticipantDto,
   ParticipantTicketDto,
+  ThanksScreenDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
@@ -166,6 +167,25 @@ export class EventParticipantController {
     @Param('slug') slug: string,
   ): Promise<FindOnePublicEventsDto> {
     return await this.eventParticipantService.findOnePublicEvent(slug);
+  }
+
+  @Get('v1/event-participant/:partId/thanks-screen')
+  @ApiOperation({ summary: 'Get one event public' })
+  @ApiResponse({
+    type: ThanksScreenDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'partId',
+    type: String,
+    required: true,
+    description: 'Participant ID',
+  })
+  async thanksScreen(
+    @Param('partId') partId: string,
+  ): Promise<ThanksScreenDto> {
+    return await this.eventParticipantService.thanksScreen(partId);
   }
 
   @Post('v1/event-participant/:eventTicketLinkId/create-participant')

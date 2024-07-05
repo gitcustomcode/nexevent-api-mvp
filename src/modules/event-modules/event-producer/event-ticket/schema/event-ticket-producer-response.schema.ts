@@ -1,4 +1,5 @@
-import { EventTicketLinkStatus, EventTicketStatus } from '@prisma/client';import { z } from 'nestjs-zod/z';
+import { EventTicketLinkStatus, EventTicketStatus } from '@prisma/client';
+import { z } from 'nestjs-zod/z';
 
 export const EventTicketDashboardResponseSchema = z.array(
   z.object({
@@ -20,6 +21,21 @@ export const EventTicketDashboardResponseSchema = z.array(
         sells: z.number(),
         limit: z.number(),
         currency: z.string(),
+        isPrivate: z.boolean(),
+        link: z.array(
+          z.object({
+            id: z.string(),
+            eventTicketId: z.string(),
+            eventTicketPriceId: z.string(),
+            userId: z.string(),
+            userTicketId: z.string(),
+            isBonus: z.boolean(),
+            invite: z.number(),
+            status: z.nativeEnum(EventTicketLinkStatus),
+            createdAt: z.date(),
+            updatedAt: z.date(),
+          }),
+        ),
       }),
     ),
   }),

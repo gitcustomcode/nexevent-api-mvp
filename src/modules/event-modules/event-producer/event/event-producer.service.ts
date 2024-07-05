@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -275,7 +276,6 @@ export class EventProducerService {
           eventConfig.printAutomatic,
           eventConfig.credentialType,
         );
-        console.log(checkoutSession);
         eventType = 'PAID_OUT';
         stripeCheckoutUrl = checkoutSession.sessionUrl;
         stripeCheckoutValue = checkoutSession.value;
@@ -394,28 +394,37 @@ export class EventProducerService {
       const {
         category,
         description,
-        endAt,
-        endPublishAt,
         location,
-        eventPublic,
-        startAt,
-        startPublishAt,
         title,
-        latitude,
-        longitude,
+        address,
+        city,
+        complement,
+        country,
+        district,
+        number,
+        state,
       } = body;
-
-      if (location === 'DEFINED' && (!latitude || !longitude)) {
-        throw new BadRequestException(
-          'É necessário informar latitude e longitude para o local definido',
-        );
-      }
 
       const fullySearch = concatTitleAndCategoryEvent(
         title ? title : event.title,
         category ? category : event.category,
       );
 
+      if (
+        location === 'DEFINED' &&
+        (!district ||
+          !state ||
+          !number ||
+          !complement ||
+          !country ||
+          !district ||
+          !city ||
+          !address)
+      ) {
+        throw new BadRequestException(
+          'Location must be DEFINED when address, city, complement, country, district, number and state are provided',
+        );
+      }
       await this.prisma.event.update({
         where: {
           id: event.id,
@@ -423,18 +432,16 @@ export class EventProducerService {
         data: {
           category: category ? category : event.category,
           description: description ? description : event.description,
-          endAt: endAt ? endAt : event.endAt,
-          endPublishAt: endPublishAt ? endPublishAt : event.endPublishAt,
           fullySearch,
-          location: location ? location : event.location,
-          public: eventPublic ? eventPublic : event.public,
-          startAt: startAt ? startAt : event.startAt,
-          startPublishAt: startPublishAt
-            ? startPublishAt
-            : event.startPublishAt,
           title: title ? title : event.title,
-          latitude: latitude ? latitude : event.latitude,
-          longitude: longitude ? longitude : event.longitude,
+          address: address ? address : event.address,
+          city: city ? city : event.city,
+          complement: complement ? complement : event.complement,
+          country: country ? country : event.country,
+          district: district ? district : event.district,
+          number: number ? number : event.number,
+          state: state ? state : event.state,
+          location: location ? location : event.location,
         },
       });
 
@@ -531,7 +538,13 @@ export class EventProducerService {
 
       const eventTicketsArr = new Map<
         string,
-        { ticketId: string; price: number; title: string }
+        {
+          ticketId: string;
+          price: number;
+          title: string;
+          partQtd: number;
+          limit: number;
+        }
       >();
 
       const eventTicketPercentualSellArr = new Map<
@@ -542,10 +555,18 @@ export class EventProducerService {
       const salesByDayMap = new Map<string, number>();
 
       event.eventTicket.forEach((ticket) => {
+        let ticketLimit = 0;
+
+        ticket.eventTicketPrice.forEach((price) => {
+          ticketLimit += price.guests;
+        });
+
         eventTicketsArr.set(ticket.id, {
           ticketId: ticket.id,
           price: 0,
           title: ticket.title,
+          partQtd: ticket.EventParticipant.length,
+          limit: ticketLimit,
         });
 
         eventTicketPercentualSellArr.set(ticket.title, {
@@ -578,7 +599,7 @@ export class EventProducerService {
 
       event.BalanceHistoric.map((balance) => {
         const value = Number(balance.value);
-        if (value > 0) {
+        if (value > 0 && balance.eventTicketId !== null) {
           const date = balance.createdAt.toISOString().split('T')[0];
 
           if (salesByDayMap.has(date)) {
@@ -721,8 +742,6 @@ export class EventProducerService {
         { participantId: string; status: string }
       >();
 
-      console.log(event.eventParticipant);
-
       event.eventParticipant.forEach((participant) => {
         if (participant.status !== 'AWAITING_PAYMENT') {
           eventParticipantsCount += 1;
@@ -821,8 +840,6 @@ export class EventProducerService {
       if (status) {
         where.status = status === 'ENABLE' ? 'ENABLE' : 'DISABLE';
       }
-
-      console.log('aqui');
 
       const event = await this.prisma.event.findMany({
         where,
@@ -1294,13 +1311,31 @@ export class EventProducerService {
         },
       });
 
+      const ticketPrice = await this.prisma.eventTicket.findMany({
+        where: {
+          eventId: event.id,
+        },
+        include: {
+          eventTicketPrice: true,
+        },
+      });
+
       let total = 0;
       let totalReceived = 0;
+      let currency = null;
       const balancesByDay = new Map<string, number>();
       const sellDiaryByTicket = new Map<
         string,
         Map<string, { ticket: string; date: string; total: number }>
       >();
+
+      ticketPrice.forEach((ticket) => {
+        ticket.eventTicketPrice.forEach((price) => {
+          if (currency == null) {
+            currency = price.currency;
+          }
+        });
+      });
 
       balances.map((balance) => {
         const value = Number(balance.value);
@@ -1357,6 +1392,7 @@ export class EventProducerService {
         totalDisponible: total + totalReceived,
         sellDiary: sellDiary,
         sellDiaryByTicket: sellDiaryByArray,
+        currency: currency,
       };
 
       return response;

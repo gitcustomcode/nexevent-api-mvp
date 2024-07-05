@@ -48,6 +48,8 @@ model User {
   EventTicketLink          EventTicketLink[]
   UserEventNetworkHistoric UserEventNetworkHistoric[]
   UserTicket               UserTicket[]
+  EventQuiz                EventQuiz[]
+  EventQuizParticipant     EventQuizParticipant[]
 
   @@map("users")
 }
@@ -238,6 +240,7 @@ model Event {
   BalanceHistoric  BalanceHistoric[]
   EventTicketCupom EventTicketCupom[]
   UserTicket       UserTicket[]
+  EventQuiz        EventQuiz[]
 
   @@map("events")
 }
@@ -474,6 +477,7 @@ model EventParticipant {
   event                    Event                      @relation(fields: [eventId], references: [id])
   BalanceHistoric          BalanceHistoric[]
   UserEventNetworkHistoric UserEventNetworkHistoric[]
+  EventQuizParticipant     EventQuizParticipant[]
 
   @@unique([userId, eventTicketId])
   @@map("event_participants")
@@ -489,6 +493,80 @@ model EventParticipantHistoric {
   eventParticipant EventParticipant @relation(fields: [eventParticipantId], references: [id])
 
   @@map("event_participant_historic")
+}
+
+model EventQuiz {
+  id                String          @id @default(uuid())
+  eventId           String          @map("event_id")
+  userId            String          @map("user_id")
+  title             String?
+  startAt           DateTime?       @map("start_at")
+  endAt             DateTime?       @map("end_at")
+  status            EventQuizStatus @default(ENABLE)
+  anonimousResponse Boolean?        @default(false) @map("anonimous_response")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  deletedAt         DateTime?       @map("deleted_at")
+
+  event                Event                  @relation(fields: [eventId], references: [id])
+  user                 User                   @relation(fields: [userId], references: [id])
+  EventQuizQuestion    EventQuizQuestion[]
+  EventQuizParticipant EventQuizParticipant[]
+
+  @@map("event_quiz")
+}
+
+model EventQuizQuestion {
+  id             String       @id @default(uuid())
+  eventQuizId    String       @map("event_quiz_id")
+  description    String
+  sequential     Int
+  questionType   QuestionType @map("question_type")
+  isMandatory    Boolean      @default(true) @map("is_mandatory")
+  multipleChoice Boolean      @default(false) @map("multiple_choice")
+
+  eventQuiz                    EventQuiz                      @relation(fields: [eventQuizId], references: [id])
+  EventQuizParticipantResponse EventQuizParticipantResponse[]
+  EventQuizQuestionOption      EventQuizQuestionOption[]
+
+  @@map("event_quiz_questions")
+}
+
+model EventQuizQuestionOption {
+  id                  String  @id @default(uuid())
+  eventQuizQuestionId String
+  sequential          Int
+  description         String
+  isOther             Boolean @default(false) @map("is_other")
+
+  EventQuizParticipantResponse EventQuizParticipantResponse[]
+  eventQuizQuestion            EventQuizQuestion              @relation(fields: [eventQuizQuestionId], references: [id])
+}
+
+model EventQuizParticipant {
+  id                 String  @id @default(uuid())
+  userId             String  @map("user_id")
+  eventQuizId        String  @map("event_quiz_id")
+  eventParticipantId String? @map("event_participant_id")
+  isAnonimous        Boolean @default(false) @map("is_anonimous")
+
+  eventQuiz                    EventQuiz                      @relation(fields: [eventQuizId], references: [id])
+  eventParticipant             EventParticipant?              @relation(fields: [eventParticipantId], references: [id])
+  user                         User                           @relation(fields: [userId], references: [id])
+  EventQuizParticipantResponse EventQuizParticipantResponse[]
+}
+
+model EventQuizParticipantResponse {
+  id                        String  @id @default(uuid())
+  eventQuizQuestionId       String
+  eventQuizParticipantId    String
+  eventQuizQuestionOptionId String?
+  rating                    Int?
+  response                  String?
+
+  eventQuizQuestionOption EventQuizQuestionOption? @relation(fields: [eventQuizQuestionOptionId], references: [id])
+  eventQuizQuestion       EventQuizQuestion        @relation(fields: [eventQuizQuestionId], references: [id])
+  eventQuizParticipant    EventQuizParticipant     @relation(fields: [eventQuizParticipantId], references: [id])
 }
 
 enum UserType {
@@ -575,4 +653,15 @@ enum EventParticipantHistoricStatus {
   CHECK_OUT
   CANCELED
   ENABLE
+}
+
+enum EventQuizStatus {
+  ENABLE
+  DISABLE
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  RATING
+  DESCRIPTIVE
 }

@@ -167,12 +167,19 @@ export class OtpService {
   }
 
   async verifyEmail(email: string) {
-    const user = await this.userProducerValidationService.findUserByEmail(
-      email.toLowerCase(),
-    );
+    let user = null;
+    const userExist =
+      await this.userProducerValidationService.findUserByEmail(email);
+
+    user = userExist ? userExist : null;
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      user = await this.prisma.user.create({
+        data: {
+          email: email.toLowerCase(),
+          name: 'Novo usuário',
+        },
+      });
     }
 
     if (user.validAt) {
@@ -209,9 +216,9 @@ export class OtpService {
 
   async verifyEmailCode(email: string, code: string) {
     try {
-      const user = await this.userProducerValidationService.findUserByEmail(
-        email.toLowerCase(),
-      );
+      console.log(email);
+      const user =
+        await this.userProducerValidationService.findUserByEmail(email);
 
       if (!user) {
         throw new NotFoundException('User not found');

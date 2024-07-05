@@ -189,6 +189,9 @@ export class UserProducerValidationService {
       },
     });
 
+    console.log(slug);
+    console.log(userEmail);
+
     await this.validateUserProducerByEmail(
       userEmail.toLowerCase(),
       null,

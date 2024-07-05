@@ -12,7 +12,7 @@ export class StripeService {
 
   async createProduct(name: string, amount: number, currency: string) {
     let newAmount = parseFloat((amount * 100).toFixed(2));
-    console.log(newAmount);
+
     const product = await this.stripe.products.create({
       name,
       default_price_data: {
@@ -28,8 +28,6 @@ export class StripeService {
 
   async listPrices(productId: string) {
     const prices = await this.stripe.products.retrieve(productId);
-
-    console.log(prices);
 
     return prices;
   }
@@ -87,11 +85,16 @@ export class StripeService {
 
   async checkoutSessionEventParticipant(
     lineItems: CheckoutSessionEventParticipantDto,
+    partId?: string,
   ) {
+    console.log(partId);
+    console.log(
+      `https://sistema-dev.nexevent.com.br/event-private/event/finished/${partId ? partId : ''}`,
+    );
     const session = await this.stripe.checkout.sessions.create({
       line_items: lineItems,
       mode: 'payment',
-      success_url: 'https://sistema-dev.nexevent.com.br/',
+      success_url: `https://sistema-dev.nexevent.com.br/event-private/event/finished/${partId ? partId : ''}`,
       cancel_url: 'https://sistema-dev.nexevent.com.br/',
       payment_method_types: ['card', 'boleto'],
       allow_promotion_codes: true,
@@ -138,7 +141,6 @@ export class StripeService {
 
   async webhook(req: Request) {
     if (req.body.type === 'checkout.session.completed') {
-      console.log('Webhook\n', req.body.data.object);
       const balanceHistorics = await this.prisma.balanceHistoric.findMany({
         where: {
           paymentId: req.body.data.object.id,

@@ -119,8 +119,6 @@ export class EventProducerAccreditationService {
 
       const results = await Promise.all(validationPromises);
 
-      console.log(results);
-
       const filteredResults = results.filter((result) => result !== undefined);
 
       return filteredResults.length > 0 ? filteredResults[0] : false;
@@ -156,8 +154,6 @@ export class EventProducerAccreditationService {
       const validDay = eventTicketValidDay.find((day) =>
         isSameDay(day.date, today),
       );
-
-      console.log(validDay);
 
       if (!validDay) throw new ConflictException(`Invalid day`);
 
