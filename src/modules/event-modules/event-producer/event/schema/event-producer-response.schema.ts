@@ -22,6 +22,8 @@ export const EventDashboardResponseSchema = z.object({
   eventParcitipantAccreditationsCount: z.number(),
   eventParcitipantAccreditationsPercentual: z.number(),
 
+  currency: z.string(),
+
   eventTotal: z.number(),
   eventTickets: z.array(
     z.object({

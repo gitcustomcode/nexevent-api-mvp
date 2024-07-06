@@ -72,8 +72,8 @@ export class StripeService {
     const session = await this.stripe.checkout.sessions.create({
       line_items: lineItems,
       mode: 'payment',
-      success_url: 'https://sistema-dev.nexevent.com.br/events/my-events',
-      cancel_url: 'https://sistema-dev.nexevent.com.br/events/new-event',
+      success_url: process.env.STRIPE_SUCCESS_PRODUCTOR_URL,
+      cancel_url: process.env.STRIPE_CANCEL_PRODUCTOR_URL,
     });
 
     return {
@@ -87,15 +87,11 @@ export class StripeService {
     lineItems: CheckoutSessionEventParticipantDto,
     partId?: string,
   ) {
-    console.log(partId);
-    console.log(
-      `https://sistema-dev.nexevent.com.br/event-private/event/finished/${partId ? partId : ''}`,
-    );
     const session = await this.stripe.checkout.sessions.create({
       line_items: lineItems,
       mode: 'payment',
-      success_url: `https://sistema-dev.nexevent.com.br/event-private/event/finished/${partId ? partId : ''}`,
-      cancel_url: 'https://sistema-dev.nexevent.com.br/',
+      success_url: `${process.env.STRIPE_SUCCESS_PARTICIPANT_URL}${partId ? partId : ''}`,
+      cancel_url: process.env.STRIPE_CANCEL_PARTICIPANT_URL,
       payment_method_types: ['card', 'boleto'],
       allow_promotion_codes: true,
     });
