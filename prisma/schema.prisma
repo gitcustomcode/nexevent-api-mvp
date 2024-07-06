@@ -429,7 +429,7 @@ model EventTicketPrice {
 model EventTicketLink {
   id                 String                @id @default(uuid())
   eventTicketId      String                @map("event_ticket_id")
-  eventTicketPriceId String                @map("event_ticket_price_id")
+  eventTicketPriceId String?               @map("event_ticket_price_id")
   userId             String?               @map("user_id")
   userTicketId       String?               @map("user_ticket_id")
   isBonus            Boolean?              @default(false) @map("is_bonus")
@@ -440,7 +440,7 @@ model EventTicketLink {
 
   user             User?              @relation(fields: [userId], references: [id])
   eventTicket      EventTicket        @relation(fields: [eventTicketId], references: [id])
-  eventTicketPrice EventTicketPrice   @relation(fields: [eventTicketPriceId], references: [id])
+  eventTicketPrice EventTicketPrice?  @relation(fields: [eventTicketPriceId], references: [id])
   eventParticipant EventParticipant[]
   userTicket       UserTicket?        @relation(fields: [userTicketId], references: [id])
 

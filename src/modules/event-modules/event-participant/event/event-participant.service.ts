@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,6 +10,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserParticipantValidationService } from 'src/services/user-participant-validation.service';
 import {
+  CreateParticipantQuizDto,
   EventParticipantCreateDto,
   EventParticipantCreateNetworksDto,
   EventTicketSellDto,
@@ -31,6 +33,8 @@ import {
   NetworkHistoricDto,
   FindByEmailDto,
   ThanksScreenDto,
+  QuizDto,
+  QuizQuestionDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
@@ -103,6 +107,36 @@ export class EventParticipantService {
           eventTicketLinkId,
         );
 
+      const haveBonusTicket = await this.prisma.eventTicketBonus.findMany({
+        where: {
+          eventTicketId: eventTicketLink.eventTicketId,
+        },
+      });
+
+      await Promise.all(
+        haveBonusTicket.map(async (bonus) => {
+          const ticketBonus = await this.prisma.eventTicket.findFirst({
+            where: {
+              title: bonus.eventTicketBonusTitle,
+            },
+            include: {
+              eventTicketPrice: true,
+            },
+          });
+
+          if (ticketBonus) {
+            await this.prisma.eventTicketLink.create({
+              data: {
+                eventTicketId: ticketBonus.id,
+                userId: user.id,
+                isBonus: true,
+                invite: bonus.qtd,
+              },
+            });
+          }
+        }),
+      );
+
       await this.userParticipantValidationService.userAlreadyUsedTicket(
         user.id,
         eventTicketLink.eventTicketId,
@@ -159,15 +193,11 @@ export class EventParticipantService {
 
       delete loginUser.password;
 
-      console.log(loginUser);
-
       const payload = { user: loginUser };
 
       const accessToken = await this.jwtService.signAsync(payload, {
         secret: this.jwtSecret,
       });
-
-      console.log(accessToken);
 
       return {
         eventParticipantId: eventParticipant.id,
@@ -845,9 +875,8 @@ export class EventParticipantService {
       event.eventTicket.map((ticket) => {
         ticket.eventTicketPrice.map((price) => {
           price.EventTicketLink.map((link) => {
-            avaibleGuests += link.invite - link.eventParticipant.length;
-
-            if (link.status !== 'FULL') {
+            if (link.userId === userId) {
+              avaibleGuests += link.invite - link.eventParticipant.length;
               links.push({
                 id: link.id,
                 ticketId: link.eventTicketId,
@@ -1389,7 +1418,7 @@ export class EventParticipantService {
       }
 
       const response: FindByEmailDto = {
-        city: userExist.cep,
+        city: userExist.city,
         email: userExist.email,
         id: userExist.id,
         name: userExist.name,
@@ -1434,6 +1463,220 @@ export class EventParticipantService {
       };
 
       return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getQuiz(quizId: string): Promise<QuizDto> {
+    try {
+      const quizExist = await this.prisma.eventQuiz.findUnique({
+        where: {
+          id: quizId,
+        },
+        include: {
+          EventQuizQuestion: {
+            include: {
+              EventQuizQuestionOption: true,
+            },
+          },
+        },
+      });
+
+      if (!quizExist) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      const eventExist = await this.prisma.event.findUnique({
+        where: {
+          id: quizExist.eventId,
+        },
+      });
+
+      if (!eventExist) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const questions: QuizQuestionDto[] = [];
+
+      await Promise.all(
+        quizExist.EventQuizQuestion.map((question) => {
+          const options = [];
+
+          if (question.EventQuizQuestionOption.length > 0) {
+            question.EventQuizQuestionOption.map((option) => {
+              options.push({
+                optionId: option.id,
+                sequential: option.sequential,
+                description: option.description,
+                isOther: option.isOther,
+              });
+            });
+          }
+
+          questions.push({
+            questionId: question.id,
+            description: question.description,
+            isMandatory: question.isMandatory,
+            multipleChoice: question.multipleChoice,
+            questionType: question.questionType,
+            sequential: question.sequential,
+            options: options.length > 0 ? options : null,
+          });
+        }),
+      );
+
+      const response: QuizDto = {
+        quizId: quizExist.id,
+        title: quizExist.title,
+        startAt: quizExist.startAt,
+        endAt: quizExist.endAt,
+        status: quizExist.status,
+        anonimousResponse: quizExist.anonimousResponse,
+        questions: questions,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async createQuizResponses(
+    quizId: string,
+    userEmail: string,
+    body: CreateParticipantQuizDto,
+  ) {
+    try {
+      const userExist = await this.prisma.user.findUnique({
+        where: {
+          email: userEmail.toLowerCase(),
+        },
+      });
+
+      if (!userExist) {
+        throw new NotFoundException('User not found');
+      }
+
+      const quizExist = await this.prisma.eventQuiz.findUnique({
+        where: {
+          id: quizId,
+        },
+        include: {
+          EventQuizQuestion: {
+            include: {
+              EventQuizQuestionOption: true,
+            },
+          },
+        },
+      });
+
+      if (!quizExist) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      const eventExist = await this.prisma.event.findUnique({
+        where: {
+          id: quizExist.eventId,
+        },
+      });
+
+      if (!eventExist) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const participant = await this.prisma.eventParticipant.findFirst({
+        where: {
+          userId: userExist.id,
+          eventId: eventExist.id,
+        },
+      });
+
+      if (!participant) {
+        throw new NotFoundException('User not participate in this event');
+      }
+
+      const { isAnonimous, responses } = body;
+      const responsesFormatted = [];
+
+      responses.map(async (response) => {
+        const question = await this.prisma.eventQuizQuestion.findUnique({
+          where: {
+            id: response.eventQuizQuestionId,
+          },
+        });
+
+        const alreadyResponse =
+          await this.prisma.eventQuizParticipantResponse.findFirst({
+            where: {
+              eventQuizParticipantId: participant.id,
+              eventQuizQuestionId: question.id,
+            },
+          });
+
+        if (alreadyResponse && !question.multipleChoice) {
+          throw new BadRequestException(
+            'You already answered ' + question.description + ' this question',
+          );
+        }
+
+        if (question.questionType === 'MULTIPLE_CHOICE') {
+          if (!response.eventQuizQuestionOptionId) {
+            throw new BadRequestException(
+              'You must select a option for multiple choice question',
+            );
+          }
+
+          const optionExist =
+            await this.prisma.eventQuizQuestionOption.findUnique({
+              where: {
+                id: response.eventQuizQuestionOptionId,
+              },
+            });
+
+          if (!optionExist) {
+            throw new NotFoundException('Option not found');
+          }
+
+          if (optionExist.isOther && !response.response) {
+            throw new BadRequestException(
+              'You must fill the other field for other option question',
+            );
+          }
+
+          responsesFormatted.push({
+            eventQuizQuestionId: response.eventQuizQuestionId,
+            eventQuizQuestionOptionId: response.eventQuizQuestionOptionId,
+            response: optionExist.isOther ? response.response : null,
+          });
+        } else if (question.questionType === 'RATING') {
+          responsesFormatted.push({
+            eventQuizQuestionId: response.eventQuizQuestionId,
+            rating: response.rating,
+          });
+        } else {
+          responsesFormatted.push({
+            eventQuizQuestionId: response.eventQuizQuestionId,
+            response: response.response,
+          });
+        }
+      });
+
+      await this.prisma.eventQuizParticipant.create({
+        data: {
+          eventParticipantId: participant.id,
+          eventQuizId: quizExist.id,
+          userId: participant.userId,
+          isAnonimous,
+          EventQuizParticipantResponse: {
+            createMany: {
+              data: responsesFormatted,
+            },
+          },
+        },
+      });
+
+      return;
     } catch (error) {
       throw error;
     }
