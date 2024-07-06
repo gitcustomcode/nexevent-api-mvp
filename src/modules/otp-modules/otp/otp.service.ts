@@ -1,4 +1,5 @@
-import {  ConflictException,
+import {
+  ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -216,7 +217,6 @@ export class OtpService {
 
   async verifyEmailCode(email: string, code: string) {
     try {
-      console.log(email);
       const user =
         await this.userProducerValidationService.findUserByEmail(email);
 

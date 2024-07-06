@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -150,11 +151,23 @@ export class EventParticipantService {
 
       await this.createParticipantNetworks(eventParticipant.id, body.networks);
 
-      const payload = { user: user };
+      const loginUser = await this.prisma.user.findUnique({
+        where: {
+          id: user.id,
+        },
+      });
 
-      const accessToken = this.jwtService.signAsync(payload, {
+      delete loginUser.password;
+
+      console.log(loginUser);
+
+      const payload = { user: loginUser };
+
+      const accessToken = await this.jwtService.signAsync(payload, {
         secret: this.jwtSecret,
       });
+
+      console.log(accessToken);
 
       return {
         eventParticipantId: eventParticipant.id,
