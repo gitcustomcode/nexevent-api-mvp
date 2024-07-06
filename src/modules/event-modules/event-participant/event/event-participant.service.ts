@@ -921,7 +921,11 @@ export class EventParticipantService {
 
       if (!event) throw new NotFoundException('Event not found');
 
-      if (event.eventTerm && !userExist.validAt) {
+      if (
+        event.eventTerm.length > 0 &&
+        event.eventTerm[0].signature &&
+        userExist.validAt === null
+      ) {
         throw new ConflictException(
           'O evento requer que o participante seja verificado',
         );
