@@ -1,4 +1,10 @@
-import { CredentialType, EventLocation } from '@prisma/client';import { z } from 'nestjs-zod/z';
+import {
+  CredentialType,
+  EventLocation,
+  EventQuizStatus,
+  QuestionType,
+} from '@prisma/client';
+import { z } from 'nestjs-zod/z';
 
 export const ParticipantTicketSchema = z.object({
   id: z.string(),
@@ -190,4 +196,34 @@ export const ThanksScreenSchema = z.object({
   eventParticipantTicketTitle: z.string(),
   eventParticipantName: z.string(),
   eventParticipantQrcode: z.string(),
+});
+
+export const QuizQuestionSchema = z.object({
+  questionId: z.string(),
+  description: z.string(),
+  sequential: z.number(),
+  questionType: z.nativeEnum(QuestionType),
+  isMandatory: z.boolean(),
+  multipleChoice: z.boolean(),
+  options: z
+    .array(
+      z.object({
+        optionId: z.string(),
+        sequential: z.number(),
+        description: z.string(),
+        isOther: z.boolean(),
+      }),
+    )
+    .optional(),
+});
+
+export const QuizSchema = z.object({
+  quizId: z.string(),
+  title: z.string(),
+  startAt: z.date(),
+  endAt: z.date(),
+  status: z.nativeEnum(EventQuizStatus),
+  anonimousResponse: z.boolean(),
+
+  questions: z.array(QuizQuestionSchema),
 });

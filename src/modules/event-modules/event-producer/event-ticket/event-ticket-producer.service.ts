@@ -41,7 +41,6 @@ export class EventTicketProducerService {
         description,
         title,
         isFree,
-
         eventTicketPrices,
         eventTicketBonuses,
         eventTicketDays,
@@ -118,7 +117,7 @@ export class EventTicketProducerService {
               currency === 'eur'
             ) {
               let stripePriceId = null;
-              if (ticketPrice.price > 0) {
+              if (newPrice > 0) {
                 const newTitle = `${title} - Lote ${ticketPrice.batch} ${ticketPrice.isPromotion ? 'Promoção' : ''}`;
 
                 const stripePrice = await this.stripe.createProduct(
@@ -154,6 +153,7 @@ export class EventTicketProducerService {
               });
 
               if (body.isPrivate) {
+                console.log(ticketPrice.guests);
                 eventLinks.push({
                   eventTicketId: ticketId,
                   eventTicketPriceId: eventTicketPriceId,
@@ -301,6 +301,7 @@ export class EventTicketProducerService {
 
       const where: Prisma.EventTicketWhereInput = {
         eventId: event.id,
+        isBonus: false,
       };
 
       if (title) {

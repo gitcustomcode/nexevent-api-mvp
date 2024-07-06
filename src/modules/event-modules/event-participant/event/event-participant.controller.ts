@@ -41,6 +41,7 @@ import {
   ListTickets,
   NetworkParticipantDto,
   ParticipantTicketDto,
+  QuizDto,
   ThanksScreenDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
@@ -323,6 +324,23 @@ export class EventParticipantController {
     @Param('eventTicketLinkId') eventTicketLinkId: string,
   ): Promise<FindEventInfoDto> {
     return await this.eventParticipantService.findEventInfo(eventTicketLinkId);
+  }
+
+  @Get('v1/event-participant/:quizId/get-quiz')
+  @ApiOperation({ summary: 'Get quiz' })
+  @ApiResponse({
+    description: 'event quiz',
+    type: QuizDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'quizId',
+    required: true,
+    type: String,
+  })
+  async getQuiz(@Param('quizId') quizId: string): Promise<QuizDto> {
+    return await this.eventParticipantService.getQuiz(quizId);
   }
 
   @Get('v1/event-participant/:email/find-user-by-email')

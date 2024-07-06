@@ -1,4 +1,5 @@
-import { UserNetworkType } from '@prisma/client';import { z } from 'nestjs-zod/z';
+import { UserNetworkType } from '@prisma/client';
+import { z } from 'nestjs-zod/z';
 
 export const EventParticipantCreateNetworksSchema = z.array(
   z.object({
@@ -45,3 +46,14 @@ export const EventTicketSellSchema = z.object({
   networks: EventParticipantCreateNetworksSchema.optional(),
 });
 
+export const CreateParticipantQuizResponses = z.object({
+  isAnonimous: z.boolean(),
+  responses: z.array(
+    z.object({
+      eventQuizQuestionId: z.string(),
+      eventQuizQuestionOptionId: z.string().nullish(),
+      rating: z.number().nullish(),
+      response: z.string().nullish(),
+    }),
+  ),
+});
