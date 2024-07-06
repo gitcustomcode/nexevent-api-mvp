@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -151,11 +150,14 @@ export class EventProducerAccreditationService {
       });
 
       const today = new Date();
-      const validDay = eventTicketValidDay.find((day) =>
-        isSameDay(day.date, today),
-      );
 
-      if (!validDay) throw new ConflictException(`Invalid day`);
+      if (eventTicketValidDay.length > 0) {
+        const validDay = eventTicketValidDay.find((day) => {
+          isSameDay(day.date, today);
+        });
+
+        if (!validDay) throw new ConflictException(`Invalid day`);
+      }
 
       let participantStatus: EventParticipantHistoricStatus = 'CHECK_IN';
 

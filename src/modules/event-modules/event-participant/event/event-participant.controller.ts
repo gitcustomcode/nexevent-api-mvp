@@ -26,6 +26,7 @@ import {
 } from '@nestjs/swagger';
 import { EventParticipantService } from './event-participant.service';
 import {
+  CreateParticipantQuizDto,
   EventParticipantCreateDto,
   EventParticipantCreateNetworksDto,
   EventTicketSellDto,
@@ -41,6 +42,7 @@ import {
   ListTickets,
   NetworkParticipantDto,
   ParticipantTicketDto,
+  QuizDto,
   ThanksScreenDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
@@ -323,6 +325,52 @@ export class EventParticipantController {
     @Param('eventTicketLinkId') eventTicketLinkId: string,
   ): Promise<FindEventInfoDto> {
     return await this.eventParticipantService.findEventInfo(eventTicketLinkId);
+  }
+
+  @Get('v1/event-participant/:quizId/get-quiz')
+  @ApiOperation({ summary: 'Get quiz' })
+  @ApiResponse({
+    description: 'event quiz',
+    type: QuizDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'quizId',
+    required: true,
+    type: String,
+  })
+  async getQuiz(@Param('quizId') quizId: string): Promise<QuizDto> {
+    return await this.eventParticipantService.getQuiz(quizId);
+  }
+
+  @Post('v1/event-participant/:quizId/response-quiz')
+  @ApiOperation({ summary: 'Get quiz' })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'quizId',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'userEmail',
+    required: true,
+    type: String,
+  })
+  @ApiBody({
+    type: CreateParticipantQuizDto,
+  })
+  async createQuizResponses(
+    @Param('quizId') quizId: string,
+    @Query('userEmail') userEmail: string,
+    @Body() body: CreateParticipantQuizDto,
+  ) {
+    return await this.eventParticipantService.createQuizResponses(
+      quizId,
+      userEmail,
+      body,
+    );
   }
 
   @Get('v1/event-participant/:email/find-user-by-email')

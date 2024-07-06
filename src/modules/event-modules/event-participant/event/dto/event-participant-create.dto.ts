@@ -1,5 +1,5 @@
-import { createZodDto } from 'nestjs-zod';
-import {
+import { createZodDto } from 'nestjs-zod';import {
+  CreateParticipantQuizResponses,
   EventParticipantCreateNetworksSchema,
   EventParticipantCreateSchema,
   EventTicketSellSchema,
@@ -14,3 +14,7 @@ export class EventParticipantCreateNetworksDto extends createZodDto(
 ) {}
 
 export class EventTicketSellDto extends createZodDto(EventTicketSellSchema) {}
+
+export class CreateParticipantQuizDto extends createZodDto(
+  CreateParticipantQuizResponses,
+) {}
