@@ -664,19 +664,30 @@ export class EventParticipantService {
   ): Promise<ListTickets> {
     try {
       const where: Prisma.EventWhereInput = {
-        eventTicket: {
-          some: {
-            eventTicketPrice: {
+        OR: [
+          {
+            eventTicket: {
               some: {
-                EventTicketLink: {
+                eventTicketPrice: {
                   some: {
-                    userId,
+                    EventTicketLink: {
+                      some: {
+                        userId,
+                      },
+                    },
                   },
                 },
               },
             },
           },
-        },
+          {
+            eventParticipant: {
+              some: {
+                userId,
+              },
+            },
+          },
+        ],
       };
 
       if (searchable) {
