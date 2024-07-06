@@ -761,19 +761,30 @@ export class EventParticipantService {
       const event = await this.prisma.event.findUnique({
         where: {
           slug: eventSlug,
-          eventTicket: {
-            some: {
-              eventTicketPrice: {
+          OR: [
+            {
+              eventTicket: {
                 some: {
-                  EventTicketLink: {
+                  eventTicketPrice: {
                     some: {
-                      userId,
+                      EventTicketLink: {
+                        some: {
+                          userId,
+                        },
+                      },
                     },
                   },
                 },
               },
             },
-          },
+            {
+              eventParticipant: {
+                some: {
+                  userId,
+                },
+              },
+            },
+          ],
         },
         include: {
           eventTicket: {
