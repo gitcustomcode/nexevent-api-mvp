@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -40,9 +39,13 @@ import { FaceValidationService } from 'src/services/face-validation.service';
 import { StripeService } from 'src/services/stripe.service';
 import { CheckoutSessionEventParticipantDto } from 'src/dtos/stripe.dto';
 import { concatTitleAndCategoryEvent } from 'src/utils/concat-title-category-event';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class EventParticipantService {
+  private readonly jwtSecret: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly userParticipantValidationService: UserParticipantValidationService,
@@ -51,7 +54,11 @@ export class EventParticipantService {
     private readonly paginationService: PaginationService,
     private readonly faceValidationService: FaceValidationService,
     private readonly stripe: StripeService,
-  ) {}
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {
+    this.jwtSecret = this.configService.get<string>('app.jwtSecret');
+  }
 
   async createParticipant(
     userEmail: string,
@@ -143,9 +150,16 @@ export class EventParticipantService {
 
       await this.createParticipantNetworks(eventParticipant.id, body.networks);
 
+      const payload = { user: user };
+
+      const accessToken = this.jwtService.signAsync(payload, {
+        secret: this.jwtSecret,
+      });
+
       return {
         eventParticipantId: eventParticipant.id,
         participantStatus: eventParticipant.status,
+        accessToken: accessToken,
       };
     } catch (error) {
       throw error;

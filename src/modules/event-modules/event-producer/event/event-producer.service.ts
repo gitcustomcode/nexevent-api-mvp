@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -658,6 +657,8 @@ export class EventProducerService {
         eventCity: event.city,
         eventState: event.state,
         startAt: event.startAt,
+
+        currency: event.eventTicket[0].eventTicketPrice[0].currency,
 
         eventParticipantsCount: event.eventParticipant.length,
         eventParticipantLimitCount: event.eventConfig[0].limit,
