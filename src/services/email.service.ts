@@ -1,4 +1,5 @@
-import Mailgun from 'mailgun.js';import * as formData from 'form-data';
+import Mailgun from 'mailgun.js';
+import * as formData from 'form-data';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
@@ -107,7 +108,7 @@ export class EmailService {
         .replace('[EVENTNAME]', generatorEmailParticipant.eventName)
         .replace('[STAFFEMAIL]', generatorEmailParticipant.staffEmail)
         .replace('[STAFFPASSWORD]', generatorEmailParticipant.staffPassword)
-        .replace('[URL]', process.env.EMAIL_URL)
+        .replaceAll('[URL]', process.env.EMAIL_URL)
         .replaceAll('[EVENTSLUG]', generatorEmailParticipant.eventSlug);
 
       subject =
