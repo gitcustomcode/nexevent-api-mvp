@@ -455,15 +455,9 @@ export class EventProducerService {
     slug: string,
   ): Promise<EventDashboardResponseDto> {
     try {
-      const user =
-        await this.userProducerValidationService.validateUserProducerByEmail(
-          email.toLowerCase(),
-        );
-
       const event = await this.prisma.event.findUnique({
         where: {
           slug: slug,
-          userId: user.id,
         },
         include: {
           eventTicket: {
@@ -529,6 +523,12 @@ export class EventProducerService {
       if (!event) {
         throw new NotFoundException('Event not found');
       }
+
+      await this.userProducerValidationService.validateUserProducerByEmail(
+        email.toLowerCase(),
+        null,
+        event.id,
+      );
 
       const checkInArr = new Map<
         string,
@@ -685,15 +685,9 @@ export class EventProducerService {
     slug: string,
   ): Promise<FindOneDashboardParticipantPanelDto> {
     try {
-      const user =
-        await this.userProducerValidationService.validateUserProducerByEmail(
-          email.toLowerCase(),
-        );
-
       const event = await this.prisma.event.findUnique({
         where: {
           slug: slug,
-          userId: user.id,
         },
         include: {
           eventParticipant: {
@@ -723,6 +717,12 @@ export class EventProducerService {
           eventConfig: true,
         },
       });
+
+      await this.userProducerValidationService.validateUserProducerByEmail(
+        email.toLowerCase(),
+        null,
+        event.id,
+      );
 
       let eventParticipantsCount = 0;
       let eventParticipantAwaitPayment = 0;
