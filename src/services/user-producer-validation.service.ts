@@ -1,4 +1,5 @@
-import {  ConflictException,
+import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -72,6 +73,10 @@ export class UserProducerValidationService {
           },
         });
 
+        if (staff) {
+          return staff;
+        }
+
         const event = await this.prisma.event.findUnique({
           where: {
             id: eventId,
@@ -115,8 +120,6 @@ export class UserProducerValidationService {
         if (!staff) {
           throw new NotFoundException('Staff not found');
         }
-
-        return staff;
       }
 
       const user = await this.prisma.user.findUnique({
@@ -188,9 +191,6 @@ export class UserProducerValidationService {
         eventTicket: true,
       },
     });
-
-    console.log(slug);
-    console.log(userEmail);
 
     await this.validateUserProducerByEmail(
       userEmail.toLowerCase(),
