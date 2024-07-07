@@ -62,6 +62,45 @@ export class EventParticipantCronService {
     }
   }
 
+  @Cron(CronExpression.EVERY_10_SECONDS, {
+    name: 'disableEventsThatArrivedOnTheEndDate',
+  })
+  async disableEventsThatArrivedOnTheEndDate() {
+    const today = new Date();
+
+    const events = await this.prisma.event.findMany({
+      where: {
+        endAt: {
+          lt: today,
+        },
+      },
+      take: 10,
+    });
+
+    if (events.length === 0) {
+      return;
+    }
+
+    console.log(events);
+
+    const arrIDs = [];
+
+    events.forEach((event) => {
+      arrIDs.push(event.id);
+    });
+
+    await this.prisma.event.updateMany({
+      where: {
+        id: { in: arrIDs },
+      },
+      data: {
+        status: 'DISABLE',
+      },
+    });
+
+    return;
+  }
+
   @Cron(CronExpression.EVERY_30_SECONDS, {
     name: 'eventParticipantSendEmails',
   })

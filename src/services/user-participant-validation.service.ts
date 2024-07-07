@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -60,14 +61,6 @@ export class UserParticipantValidationService {
     const { country, document, name, phoneCountry, phoneNumber, state, city } =
       body;
 
-    if (document) {
-      if (country === 'Brasil' || phoneCountry === '55') {
-        const documentValid = validateCPF(document);
-        if (!documentValid) {
-          throw new UnprocessableEntityException('Invalid CPF document');
-        }
-      }
-    }
     const validName = name.trim().split(' ');
 
     if (validName.length < 2) {
