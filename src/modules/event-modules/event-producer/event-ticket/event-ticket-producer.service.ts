@@ -474,6 +474,16 @@ export class EventTicketProducerService {
         }),
       );
 
+      const codeExists = await this.prisma.eventTicketCupom.findFirst({
+        where: {
+          code,
+        },
+      });
+
+      if (codeExists) {
+        throw new UnprocessableEntityException('The code already exists');
+      }
+
       const stripe = await this.stripe.createCupom(
         percentOff,
         stripePriceIds,

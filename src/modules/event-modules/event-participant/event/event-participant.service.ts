@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -632,6 +631,7 @@ export class EventParticipantService {
       const event = await this.prisma.event.findUnique({
         where: {
           slug,
+          status: 'ENABLE',
         },
         include: {
           eventTicket: {
@@ -999,6 +999,9 @@ export class EventParticipantService {
 
       if (!event) throw new NotFoundException('Event not found');
 
+      if (event.status === 'DISABLE')
+        throw new ConflictException('Event is disabled');
+
       if (
         event.eventTerm.length > 0 &&
         event.eventTerm[0].signature &&
@@ -1231,10 +1234,11 @@ export class EventParticipantService {
       const event = await this.prisma.event.findUnique({
         where: {
           slug: eventSlug,
+          status: 'ENABLE',
         },
       });
 
-      if (!event) throw new NotFoundException('Event not found');
+      if (!event) throw new NotFoundException('Event not found or disabled');
 
       await this.prisma.event.update({
         where: {
