@@ -70,6 +70,7 @@ export class EventProducerAccreditationService {
     participantPhoto: Express.Multer.File,
   ) {
     try {
+      console.log('TESTE', slug);
       const event = await this.userProducerValidationService.eventExists(
         slug,
         userEmail,
@@ -132,6 +133,7 @@ export class EventProducerAccreditationService {
     participantId: string,
   ) {
     try {
+      console.log('TESTE', slug);
       const event = await this.userProducerValidationService.eventExists(
         slug,
         userEmail,

@@ -1,5 +1,4 @@
-import {
-  ConflictException,
+import {  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -709,8 +708,6 @@ export class EventTicketProducerService {
         take: Number(perPage),
         skip: (page - 1) * perPage,
       });
-
-      console.log(links);
 
       const totalItems = await this.prisma.eventTicketLink.count({
         where,
