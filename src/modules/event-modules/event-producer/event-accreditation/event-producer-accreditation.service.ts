@@ -70,7 +70,6 @@ export class EventProducerAccreditationService {
     participantPhoto: Express.Multer.File,
   ) {
     try {
-      console.log('TESTE', slug);
       const event = await this.userProducerValidationService.eventExists(
         slug,
         userEmail,
@@ -97,6 +96,7 @@ export class EventProducerAccreditationService {
 
       const validationPromises = eventParticipants.map(async (participant) => {
         if (participant.user.userFacials.length > 0) {
+          console.log(participant.user.userFacials);
           const photo = await this.storageService.getFile(
             StorageServiceType.S3,
             participant.user.userFacials[0].path,
