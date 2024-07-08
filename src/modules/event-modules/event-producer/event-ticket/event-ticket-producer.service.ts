@@ -1,5 +1,4 @@
-import {
-  ConflictException,
+import {  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -153,12 +152,13 @@ export class EventTicketProducerService {
               });
 
               if (body.isPrivate) {
-                console.log(ticketPrice.guests);
-                eventLinks.push({
-                  eventTicketId: ticketId,
-                  eventTicketPriceId: eventTicketPriceId,
-                  invite: ticketPrice.guests,
-                });
+                for (let i = 0; i <= ticketPrice.guests; i++) {
+                  eventLinks.push({
+                    eventTicketId: ticketId,
+                    eventTicketPriceId: eventTicketPriceId,
+                    invite: 1,
+                  });
+                }
               }
             } else {
               throw new UnprocessableEntityException(`Currency not accepted`);
