@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -818,50 +819,6 @@ export class EventParticipantService {
       const event = await this.prisma.event.findUnique({
         where: {
           slug: eventSlug,
-          OR: [
-            {
-              eventTicket: {
-                some: {
-                  eventTicketPrice: {
-                    some: {
-                      EventTicketLink: {
-                        some: {
-                          userId,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-            {
-              eventParticipant: {
-                some: {
-                  userId,
-                },
-              },
-            },
-          ],
-        },
-        include: {
-          eventTicket: {
-            include: {
-              eventTicketPrice: {
-                include: {
-                  EventTicketLink: {
-                    include: {
-                      eventParticipant: {
-                        include: {
-                          eventTicket: true,
-                          user: true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
         },
       });
 
@@ -871,34 +828,6 @@ export class EventParticipantService {
 
       const guests = [];
       const links = [];
-
-      event.eventTicket.map((ticket) => {
-        ticket.eventTicketPrice.map((price) => {
-          price.EventTicketLink.map((link) => {
-            if (link.userId === userId) {
-              avaibleGuests += link.invite - link.eventParticipant.length;
-              links.push({
-                id: link.id,
-                ticketId: link.eventTicketId,
-                ticketName: ticket.title,
-                limit: link.invite,
-                guests: link.eventParticipant.length,
-              });
-            }
-
-            link.eventParticipant.map((part) => {
-              if (part.user.id !== userId) {
-                guests.push({
-                  participantId: part.id,
-                  name: part.user.name,
-                  ticketName: part.eventTicket.title,
-                  document: part.user.document,
-                });
-              }
-            });
-          });
-        });
-      });
 
       const eventParticipant = await this.prisma.eventParticipant.findFirst({
         where: {
@@ -911,6 +840,61 @@ export class EventParticipantService {
           user: true,
         },
       });
+
+      const ticket = await this.prisma.eventTicket.findUnique({
+        where: {
+          id: eventParticipant.eventTicketId,
+        },
+        include: {
+          EventTicketBonus: true,
+        },
+      });
+
+      await Promise.all(
+        ticket.EventTicketBonus.map(async (b) => {
+          const bonus = await this.prisma.eventTicket.findFirst({
+            where: {
+              title: b.eventTicketBonusTitle,
+              isBonus: true,
+            },
+          });
+
+          const link = await this.prisma.eventTicketLink.findFirst({
+            where: {
+              eventTicketId: bonus.id,
+              userId: userId,
+            },
+            include: {
+              eventTicket: true,
+              eventParticipant: {
+                include: {
+                  user: true,
+                  eventTicket: true,
+                },
+              },
+            },
+          });
+
+          link.eventParticipant.map((part) => {
+            guests.push({
+              participantId: part.id,
+              name: part.user.name,
+              ticketName: part.eventTicket.title,
+              document: part.user.document,
+            });
+          });
+
+          avaibleGuests += link.invite - link.eventParticipant.length;
+
+          links.push({
+            id: link.id,
+            ticketId: link.eventTicketId,
+            ticketName: link.eventTicket.title,
+            guests: link.eventParticipant.length,
+            limit: link.invite,
+          });
+        }),
+      );
 
       const response: EventTicketInfoDto = {
         eventPhoto: event.photo,
