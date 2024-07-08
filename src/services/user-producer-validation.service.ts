@@ -192,12 +192,12 @@ export class UserProducerValidationService {
       },
     });
 
-    console.log(userEmail);
-    console.log('AQUI ERA PRA SER O SLUG DO FRONT', slug);
-    console.log('AQUI ERA PRA SER O EVENT ID', event.id);
-
     if (paramPica) {
-      await this.validateUserProducerByEmail(userEmail.toLowerCase(), event.id);
+      await this.validateUserProducerByEmail(
+        userEmail.toLowerCase(),
+        null,
+        event.id,
+      );
     } else {
       await this.validateUserProducerByEmail(
         userEmail.toLowerCase(),
