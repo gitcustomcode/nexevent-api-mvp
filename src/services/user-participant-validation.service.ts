@@ -89,65 +89,73 @@ export class UserParticipantValidationService {
   }
 
   async eventTicketPriceExists(eventTicketPriceId: string) {
-    const eventTicketPrice = await this.prisma.eventTicketPrice.findUnique({
-      where: {
-        id: eventTicketPriceId,
-      },
-      include: {
-        EventParticipant: true,
-        eventTicket: true,
-      },
-    });
+    if (eventTicketPriceId) {
+      const eventTicketPrice = await this.prisma.eventTicketPrice.findUnique({
+        where: {
+          id: eventTicketPriceId,
+        },
+        include: {
+          EventParticipant: true,
+          eventTicket: true,
+        },
+      });
 
-    const prevBatch = await this.prisma.eventTicketPrice.findFirst({
-      where: {
-        batch: eventTicketPrice.batch - 1,
-        eventTicketId: eventTicketPrice.eventTicketId,
-      },
-      include: {
-        EventParticipant: true,
-      },
-    });
+      const prevBatch = await this.prisma.eventTicketPrice.findFirst({
+        where: {
+          batch: eventTicketPrice.batch - 1,
+          eventTicketId: eventTicketPrice.eventTicketId,
+        },
+        include: {
+          EventParticipant: true,
+        },
+      });
 
-    if (!eventTicketPrice) {
-      throw new NotFoundException('Event Ticket not found');
-    }
-
-    if (prevBatch !== null) {
-      if (
-        (prevBatch.status !== 'FULL' && prevBatch.status !== 'DISABLE') ||
-        prevBatch.endPublishAt < new Date()
-      ) {
-        throw new BadRequestException('The previous batch is still available');
+      if (!eventTicketPrice) {
+        throw new NotFoundException('Event Ticket not found');
       }
+
+      if (prevBatch !== null) {
+        if (
+          (prevBatch.status !== 'FULL' && prevBatch.status !== 'DISABLE') ||
+          prevBatch.endPublishAt < new Date()
+        ) {
+          throw new BadRequestException(
+            'The previous batch is still available',
+          );
+        }
+      }
+
+      console.log(new Date());
+
+      if (eventTicketPrice.startPublishAt > new Date()) {
+        throw new BadRequestException('The batch not available');
+      }
+
+      return eventTicketPrice;
     }
 
-    console.log(new Date());
-
-    if (eventTicketPrice.startPublishAt > new Date()) {
-      throw new BadRequestException('The batch not available');
-    }
-
-    return eventTicketPrice;
+    return;
   }
 
   async updateEventTicketPriceStatus(eventTicketPriceId: string) {
     const eventTicketPrice =
       await this.eventTicketPriceExists(eventTicketPriceId);
 
-    const status =
-      eventTicketPrice.guests == eventTicketPrice.EventParticipant.length + 1
-        ? 'FULL'
-        : 'PART_FULL';
+    if (eventTicketPrice != null) {
+      const status =
+        eventTicketPrice.guests == eventTicketPrice.EventParticipant.length + 1
+          ? 'FULL'
+          : 'PART_FULL';
 
-    await this.prisma.eventTicketPrice.update({
-      where: {
-        id: eventTicketPriceId,
-      },
-      data: {
-        status: status,
-      },
-    });
+      await this.prisma.eventTicketPrice.update({
+        where: {
+          id: eventTicketPriceId,
+        },
+        data: {
+          status: status,
+        },
+      });
+    }
 
     return;
   }
@@ -163,12 +171,17 @@ export class UserParticipantValidationService {
         eventTicketPrice: true,
       },
     });
-
-    if (
-      eventTicketLink.status === 'FULL' ||
-      eventTicketLink.eventTicketPrice.status === 'FULL'
-    ) {
-      throw new ConflictException('Ticket or Link already full');
+    if (eventTicketLink.eventTicketPrice) {
+      if (
+        eventTicketLink.status === 'FULL' ||
+        eventTicketLink.eventTicketPrice.status === 'FULL'
+      ) {
+        throw new ConflictException('Ticket or Link already full');
+      }
+    } else {
+      if (eventTicketLink.status === 'FULL') {
+        throw new ConflictException('Ticket or Link already full');
+      }
     }
 
     return eventTicketLink;

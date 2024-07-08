@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -172,7 +173,9 @@ export class EventParticipantService {
           fullySearch: fully,
           eventId: event.id,
           eventTicketLinkId: eventTicketLink.id,
-          eventTicketPriceId: eventTicketLink.eventTicketPriceId,
+          eventTicketPriceId: eventTicketLink.eventTicketPriceId
+            ? eventTicketLink.eventTicketPriceId
+            : null,
           eventTicketId: eventTicketLink.eventTicketId,
           qrcode,
           sequential: sequential + 1,
@@ -816,7 +819,6 @@ export class EventParticipantService {
           EventTicketBonus: true,
         },
       });
-
       await Promise.all(
         ticket.EventTicketBonus.map(async (b) => {
           const bonus = await this.prisma.eventTicket.findFirst({
