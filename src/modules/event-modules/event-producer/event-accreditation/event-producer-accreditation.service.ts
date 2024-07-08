@@ -133,7 +133,6 @@ export class EventProducerAccreditationService {
     participantId: string,
   ) {
     try {
-      console.log('TESTE', slug);
       const event = await this.userProducerValidationService.eventExists(
         slug,
         userEmail,
@@ -155,7 +154,7 @@ export class EventProducerAccreditationService {
 
       if (eventTicketValidDay.length > 0) {
         const validDay = eventTicketValidDay.find((day) => {
-          isSameDay(day.date, today);
+          return isSameDay(day.date, today);
         });
 
         if (!validDay) throw new ConflictException(`Invalid day`);
