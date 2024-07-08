@@ -1,5 +1,4 @@
-import {
-  ConflictException,
+import {  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -181,7 +180,7 @@ export class UserProducerValidationService {
     }
   }
 
-  async eventExists(slug: string, userEmail: String) {
+  async eventExists(slug: string, userEmail: String, paramPica?: string) {
     const event = await this.prisma.event.findUnique({
       where: {
         slug: slug,
@@ -192,11 +191,18 @@ export class UserProducerValidationService {
       },
     });
 
-    await this.validateUserProducerByEmail(
-      userEmail.toLowerCase(),
-      null,
-      event.id,
-    );
+    console.log(userEmail);
+    console.log(event.id);
+
+    if (paramPica) {
+      await this.validateUserProducerByEmail(userEmail.toLowerCase(), event.id);
+    } else {
+      await this.validateUserProducerByEmail(
+        userEmail.toLowerCase(),
+        null,
+        event.id,
+      );
+    }
 
     if (!event) {
       throw new NotFoundException('Event not found');

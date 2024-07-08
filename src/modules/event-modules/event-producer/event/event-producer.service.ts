@@ -269,7 +269,7 @@ export class EventProducerService {
         });
       });
 
-      if ((!taxToClient && eventLimit > 20) || ticketPriceNegative) {
+      if ((!taxToClient && eventLimit > 0) || ticketPriceNegative) {
         const checkoutSession = await this.stripe.checkoutSessionEventProducer(
           eventLimit,
           eventConfig.printAutomatic,
