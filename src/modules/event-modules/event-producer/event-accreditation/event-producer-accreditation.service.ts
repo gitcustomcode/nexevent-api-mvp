@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -332,6 +333,7 @@ export class EventProducerAccreditationService {
       const event = await this.userProducerValidationService.eventExists(
         slug,
         userEmail,
+        'null',
       );
 
       const eventConfig = await this.prisma.eventConfig.findUnique({
