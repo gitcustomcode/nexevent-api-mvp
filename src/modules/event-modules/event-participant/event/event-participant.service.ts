@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -264,28 +263,12 @@ export class EventParticipantService {
         },
       });
 
-      const userUpdated = await this.prisma.user.findUnique({
-        where: {
-          id: participantExists.userId,
-        },
-        include: {
-          userFacials: true,
-          userSocials: true,
-          userHobbie: true,
-        },
-      });
-
-      const participantStatus = await this.updateUserParticipantStatus(
-        participantExists.event,
-        userUpdated,
-      );
-
       const participantUpdated = await this.prisma.eventParticipant.update({
         where: {
           id: participantExists.id,
         },
         data: {
-          status: participantStatus,
+          status: 'COMPLETE',
         },
       });
 
@@ -326,28 +309,12 @@ export class EventParticipantService {
         data: userSocialsFormatted,
       });
 
-      const userUpdated = await this.prisma.user.findUnique({
-        where: {
-          id: participantExists.userId,
-        },
-        include: {
-          userFacials: true,
-          userSocials: true,
-          userHobbie: true,
-        },
-      });
-
-      const participantStatus = await this.updateUserParticipantStatus(
-        participantExists.event,
-        userUpdated,
-      );
-
       const participantUpdated = await this.prisma.eventParticipant.update({
         where: {
           id: participantExists.id,
         },
         data: {
-          status: participantStatus,
+          status: 'COMPLETE',
         },
       });
 

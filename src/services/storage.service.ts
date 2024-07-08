@@ -1,5 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
-import * as AWS from 'aws-sdk';
+import { ConflictException, Injectable } from '@nestjs/common';import * as AWS from 'aws-sdk';
 import { ConfigService } from '@nestjs/config';
 
 export enum StorageServiceType {
@@ -76,7 +75,6 @@ export class StorageService {
         return false;
       }
     } catch (err) {
-      console.error('Erro ao comparar rostos:', err);
       throw err;
     }
   }
