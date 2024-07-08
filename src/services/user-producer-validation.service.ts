@@ -1,4 +1,5 @@
-import {  ConflictException,
+import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -191,11 +192,12 @@ export class UserProducerValidationService {
       },
     });
 
-    console.log(userEmail);
-    console.log(event.id);
-
     if (paramPica) {
-      await this.validateUserProducerByEmail(userEmail.toLowerCase(), event.id);
+      await this.validateUserProducerByEmail(
+        userEmail.toLowerCase(),
+        null,
+        event.id,
+      );
     } else {
       await this.validateUserProducerByEmail(
         userEmail.toLowerCase(),
