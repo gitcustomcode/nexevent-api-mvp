@@ -162,7 +162,7 @@ export class EventTicketProducerService {
                     invite: ticketPrice.guests,
                   });
                 } else {
-                  for (let i = 0; i <= ticketPrice.guests; i++) {
+                  for (let i = 0; i < ticketPrice.guests; i++) {
                     eventLinks.push({
                       eventTicketId: ticketId,
                       eventTicketPriceId: eventTicketPriceId,
@@ -670,7 +670,6 @@ export class EventTicketProducerService {
     perPage: number,
   ): Promise<EventTicketLinkResponse> {
     try {
-      console.log(userEmail);
       const user = await this.prisma.user.findUnique({
         where: {
           email: userEmail.toLowerCase(),
