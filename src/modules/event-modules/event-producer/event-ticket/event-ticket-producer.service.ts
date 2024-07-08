@@ -1,4 +1,5 @@
-import {  ConflictException,
+import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -695,7 +696,7 @@ export class EventTicketProducerService {
       const links = await this.prisma.eventTicketLink.findMany({
         where,
         orderBy: {
-          createdAt: 'desc',
+          updatedAt: 'desc',
         },
         include: {
           eventParticipant: {
