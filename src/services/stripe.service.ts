@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';import { CredentialType } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
+import { CredentialType } from '@prisma/client';
 import { Request } from 'express';
 import { CheckoutSessionEventParticipantDto } from 'src/dtos/stripe.dto';
 import Stripe from 'stripe';
@@ -169,6 +170,15 @@ export class StripeService {
                 req.body.data.object.payment_status === 'paid'
                   ? 'RECEIVED'
                   : 'PENDING',
+            },
+          });
+
+          await this.prisma.eventParticipant.update({
+            where: {
+              id: balanceHistoric.eventParticipantId,
+            },
+            data: {
+              status: 'COMPLETE',
             },
           });
         }),
