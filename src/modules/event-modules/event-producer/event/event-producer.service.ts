@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -352,6 +353,7 @@ export class EventProducerService {
           eventTicketBonuses: ticket.eventTicketBonuses,
           eventTicketDays: ticket.eventTicketDays,
           isBonus: ticket.isBonus,
+          joker: ticket.joker,
         };
 
         await this.eventTicketProducerService.createEventTicket(

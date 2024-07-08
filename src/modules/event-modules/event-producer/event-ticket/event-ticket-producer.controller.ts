@@ -30,6 +30,7 @@ import { EventTicketUpdateDto } from './dto/event-ticket-producer-update.dto';
 import {
   EventTicketCouponDashboardDto,
   EventTicketCouponsResponse,
+  EventTicketLinkResponse,
   EventTicketsResponse,
 } from './dto/event-ticket-producer-response.dto';
 
@@ -255,5 +256,53 @@ export class EventTicketProducerController {
   ): Promise<EventTicketCouponDashboardDto> {
     const email = req.auth.user.email;
     return this.eventTicketProducerService.cuponsDashboard(email, eventSlug);
+  }
+
+  @Get('v1/event-producer/:eventSlug/tickets/:ticketId/links')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get all links with one ticket' })
+  @ApiResponse({
+    status: 200,
+    description: 'Links retrieved successfully',
+    type: EventTicketLinkResponse,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    required: true,
+    type: String,
+  })
+  @ApiParam({
+    name: 'ticketId',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: true,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'perPage',
+    required: true,
+    type: Number,
+  })
+  async getAllLinksWithOneTicket(
+    @Request() req: any,
+    @Param('eventSlug') eventSlug: string,
+    @Param('ticketId') ticketId: string,
+    @Query('page') page: number = 1,
+    @Query('perPage') perPage: number = 10,
+  ): Promise<EventTicketLinkResponse> {
+    const userEmail = req.auth.user.email;
+    return this.eventTicketProducerService.getAllLinksWithOneTicket(
+      userEmail,
+      eventSlug,
+      ticketId,
+      Number(page),
+      Number(perPage),
+    );
   }
 }

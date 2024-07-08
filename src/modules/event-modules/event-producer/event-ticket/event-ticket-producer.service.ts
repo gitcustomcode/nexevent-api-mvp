@@ -1,5 +1,4 @@
-import {
-  ConflictException,
+import {  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -15,6 +14,8 @@ import { EventTicketUpdateDto } from './dto/event-ticket-producer-update.dto';
 import {
   EventTicketCouponDashboardDto,
   EventTicketCouponsResponse,
+  EventTicketLinkResponse,
+  EventTicketLinkResponseDto,
   EventTicketsResponse,
 } from './dto/event-ticket-producer-response.dto';
 import { Prisma } from '@prisma/client';
@@ -45,6 +46,7 @@ export class EventTicketProducerService {
         eventTicketBonuses,
         eventTicketDays,
         isBonus,
+        joker,
       } = body;
       const slug = generateSlug(title);
       const ticketId = randomUUID();
@@ -153,12 +155,21 @@ export class EventTicketProducerService {
               });
 
               if (body.isPrivate) {
-                console.log(ticketPrice.guests);
-                eventLinks.push({
-                  eventTicketId: ticketId,
-                  eventTicketPriceId: eventTicketPriceId,
-                  invite: ticketPrice.guests,
-                });
+                if (joker) {
+                  eventLinks.push({
+                    eventTicketId: ticketId,
+                    eventTicketPriceId: eventTicketPriceId,
+                    invite: ticketPrice.guests,
+                  });
+                } else {
+                  for (let i = 0; i <= ticketPrice.guests; i++) {
+                    eventLinks.push({
+                      eventTicketId: ticketId,
+                      eventTicketPriceId: eventTicketPriceId,
+                      invite: 1,
+                    });
+                  }
+                }
               }
             } else {
               throw new UnprocessableEntityException(`Currency not accepted`);
@@ -643,6 +654,103 @@ export class EventTicketProducerService {
         cuponsCreated: cupons.length,
         cuponsActives: cupons.length - cuponsExpired,
         cuponsExpired: cuponsExpired,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getAllLinksWithOneTicket(
+    userEmail: string,
+    eventSlug: string,
+    ticketId: string,
+    page: number,
+    perPage: number,
+  ): Promise<EventTicketLinkResponse> {
+    try {
+      console.log(userEmail);
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email: userEmail.toLowerCase(),
+        },
+      });
+
+      if (!user) throw new NotFoundException('User not found');
+
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: eventSlug,
+          userId: user.id,
+        },
+      });
+
+      if (!event) throw new NotFoundException('Event not found');
+
+      const where: Prisma.EventTicketLinkWhereInput = {
+        eventTicketId: ticketId,
+        userId: null,
+      };
+
+      const links = await this.prisma.eventTicketLink.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          eventParticipant: {
+            include: {
+              user: true,
+            },
+          },
+        },
+        take: Number(perPage),
+        skip: (page - 1) * perPage,
+      });
+
+      const totalItems = await this.prisma.eventTicketLink.count({
+        where,
+      });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage,
+        totalItems,
+      });
+
+      const linksArr: EventTicketLinkResponseDto = [];
+
+      await Promise.all(
+        links.map(async (link) => {
+          const part = [];
+
+          if (link.eventParticipant.length > 0) {
+            link.eventParticipant.map((p) => {
+              part.push({
+                partId: p.id,
+                userName: p.user.name,
+                userEmail: p.user.email,
+                createdAt: p.createdAt,
+              });
+            });
+          }
+
+          linksArr.push({
+            id: link.id,
+            createdAt: link.createdAt,
+            eventTicketId: link.eventTicketId,
+            invite: link.invite,
+            status: link.status,
+            updatedAt: link.updatedAt,
+            participant: part,
+          });
+        }),
+      );
+
+      const response: EventTicketLinkResponse = {
+        data: linksArr,
+        pageInfo: pagination,
       };
 
       return response;
