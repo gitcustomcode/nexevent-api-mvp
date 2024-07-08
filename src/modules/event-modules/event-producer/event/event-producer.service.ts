@@ -558,9 +558,11 @@ export class EventProducerService {
       event.eventTicket.forEach((ticket) => {
         let ticketLimit = 0;
 
-        ticket.eventTicketPrice.forEach((price) => {
-          ticketLimit += price.guests;
-        });
+        if (ticket.eventTicketPrice.length > 0) {
+          ticket.eventTicketPrice.forEach((price) => {
+            ticketLimit += price.guests;
+          });
+        }
 
         eventTicketsArr.set(ticket.id, {
           ticketId: ticket.id,
@@ -591,7 +593,7 @@ export class EventProducerService {
 
         if (eventTicketsArr.has(participant.eventTicketId)) {
           const ticket = eventTicketsArr.get(participant.eventTicketId);
-          if (ticket) {
+          if (ticket && participant.eventTicketPrice) {
             ticket.price += Number(participant.eventTicketPrice.price);
             eventTicketsArr.set(participant.eventTicketId, ticket);
           }
