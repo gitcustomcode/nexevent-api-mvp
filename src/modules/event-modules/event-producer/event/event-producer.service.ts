@@ -235,7 +235,7 @@ export class EventProducerService {
       let stripeCheckoutUrl = null;
       let stripeCheckoutValue = 0;
       let stripeId = null;
-      let eventLimit = 20;
+      let eventLimit = 0;
       let eventType: EventType = 'FREE';
       let ticketPriceNegative = false;
 
