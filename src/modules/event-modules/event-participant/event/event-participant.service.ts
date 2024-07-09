@@ -623,6 +623,8 @@ export class EventParticipantService {
         },
       });
 
+      if (!event) throw new NotFoundException('Event not found or disabled');
+
       const ticketsPrice = [];
 
       if (event.eventTicket) {
