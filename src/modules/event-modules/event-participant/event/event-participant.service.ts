@@ -1440,6 +1440,8 @@ export class EventParticipantService {
         },
       });
 
+      console.log(quizExist);
+
       if (!quizExist) {
         throw new NotFoundException('Quiz not found');
       }
