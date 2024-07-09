@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -43,8 +44,16 @@ export class EventQuizService {
         },
       });
 
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
       const { title, status, startAt, endAt, anonimousResponse, questions } =
         body;
+
+      if (questions.length <= 0) {
+        throw new BadRequestException('The quiz does not have questions');
+      }
 
       const quiz = await this.prisma.eventQuiz.create({
         data: {
@@ -58,8 +67,7 @@ export class EventQuizService {
         },
       });
 
-      questions.forEach(async (question) => {
-        const options = [];
+      const questionPromises = questions.map(async (question) => {
         if (question.questionType === 'MULTIPLE_CHOICE') {
           if (question.questionOptions.length < 2) {
             await this.prisma.eventQuiz.delete({
@@ -69,17 +77,9 @@ export class EventQuizService {
             });
 
             throw new ConflictException(
-              `Perguntas objetivas precisam pelo menos de 2 opções de resposta`,
+              'Multiple choice questions need at least 2 options',
             );
           }
-
-          question.questionOptions.map((option) => {
-            options.push({
-              sequential: option.sequential,
-              description: option.description,
-              isOther: option.isOther,
-            });
-          });
 
           const questionCreated = await this.prisma.eventQuizQuestion.create({
             data: {
@@ -92,32 +92,30 @@ export class EventQuizService {
             },
           });
 
-          if (question.questionOptions.length > 0) {
-            const dataFormetted = question.questionOptions.map((o) => {
-              return {
-                description: o.description,
-                sequential: o.sequential,
-                eventQuizQuestionId: questionCreated.id,
-                isOther: o.isOther,
-              };
-            });
+          const options = question.questionOptions.map((option) => ({
+            description: option.description,
+            sequential: option.sequential,
+            eventQuizQuestionId: questionCreated.id,
+            isOther: option.isOther,
+          }));
 
-            await this.prisma.eventQuizQuestionOption.createMany({
-              data: dataFormetted,
-            });
-          }
+          await this.prisma.eventQuizQuestionOption.createMany({
+            data: options,
+          });
+        } else {
+          await this.prisma.eventQuizQuestion.create({
+            data: {
+              eventQuizId: quiz.id,
+              description: question.description,
+              questionType: question.questionType,
+              sequential: question.sequential,
+              isMandatory: question.isMandatory,
+            },
+          });
         }
-
-        await this.prisma.eventQuizQuestion.create({
-          data: {
-            eventQuizId: quiz.id,
-            description: question.description,
-            questionType: question.questionType,
-            sequential: question.sequential,
-            isMandatory: question.isMandatory,
-          },
-        });
       });
+
+      await Promise.all(questionPromises);
 
       return 'Quiz created successfully';
     } catch (error) {
@@ -433,6 +431,15 @@ export class EventQuizService {
       let sequential = quiz.EventQuizQuestion.length;
 
       body.map(async (q) => {
+        if (
+          q.questionType === 'MULTIPLE_CHOICE' &&
+          q.questionOptions.length < 2
+        ) {
+          throw new BadRequestException(
+            'At least two options required for multiple choice question',
+          );
+        }
+
         const questionCreated = await this.prisma.eventQuizQuestion.create({
           data: {
             eventQuizId: quiz.id,
