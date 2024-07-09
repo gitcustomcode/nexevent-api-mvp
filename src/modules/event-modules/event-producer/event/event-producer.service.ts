@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -1053,63 +1052,73 @@ export class EventProducerService {
       const participantsCheckIn = [];
       const eventSales = [];
 
-      events.map(async (event) => {
-        totalTickets += event.eventTicket.length;
-        totalParticipants += event.eventParticipant.length;
+      const processEvents = async () => {
+        const sellPromises = events.map(async (event) => {
+          totalTickets += event.eventTicket.length;
+          totalParticipants += event.eventParticipant.length;
 
-        const eventDrawee = await this.prisma.balanceHistoric.findMany({
-          where: {
-            userId: user.id,
-            eventId: event.id,
-            status: 'RECEIVED',
-          },
-        });
-
-        eventDrawee.forEach((drawee) => {
-          if (Number(drawee.value) < 0) {
-            totalDrawee += Number(drawee.value);
-          }
-        });
-
-        let eventTotalSales = 0;
-
-        for (const participant of event.eventParticipant) {
-          const sell = await this.prisma.balanceHistoric.findMany({
+          const eventDrawee = await this.prisma.balanceHistoric.findMany({
             where: {
-              userId: participant.userId,
-              eventId: participant.eventId,
+              userId: user.id,
+              eventId: event.id,
               status: 'RECEIVED',
             },
           });
 
-          if (sell.length > 0) {
-            sell.forEach((s) => {
-              if (Number(s.value) > 0) {
-                totalBrute += Number(s.value);
-                totalLiquid += Number(s.value) - Number(s.fee);
-                eventTotalSales += Number(s.value);
-              }
-            });
-          }
-
-          participant.eventParticipantHistoric.forEach((historic) => {
-            if (historic.status === 'CHECK_IN') {
-              participantsCheckIn.push({
-                id: historic.eventParticipantId,
-                status: historic.status,
-              });
+          eventDrawee.forEach((drawee) => {
+            if (Number(drawee.value) < 0) {
+              totalDrawee += Number(drawee.value);
             }
           });
-        }
 
-        if (eventTotalSales > 0) {
-          eventSales.push({
-            id: event.id,
-            title: event.title,
-            total: eventTotalSales,
-          });
-        }
-      });
+          let eventTotalSales = 0;
+
+          const participantPromises = event.eventParticipant.map(
+            async (participant) => {
+              const sell = await this.prisma.balanceHistoric.findMany({
+                where: {
+                  userId: participant.userId,
+                  eventId: participant.eventId,
+                  status: 'RECEIVED',
+                },
+              });
+
+              if (sell.length > 0) {
+                sell.forEach((s) => {
+                  if (Number(s.value) > 0) {
+                    totalBrute += Number(s.value);
+                    totalLiquid += Number(s.value) - Number(s.fee);
+                    eventTotalSales += Number(s.value);
+                  }
+                });
+              }
+
+              participant.eventParticipantHistoric.forEach((historic) => {
+                if (historic.status === 'CHECK_IN') {
+                  participantsCheckIn.push({
+                    id: historic.eventParticipantId,
+                    status: historic.status,
+                  });
+                }
+              });
+            },
+          );
+
+          await Promise.all(participantPromises);
+
+          if (eventTotalSales > 0) {
+            eventSales.push({
+              id: event.id,
+              title: event.title,
+              total: eventTotalSales,
+            });
+          }
+        });
+
+        await Promise.all(sellPromises);
+      };
+
+      await processEvents();
 
       const uniqueArray = Array.from(
         new Map(participantsCheckIn.map((item) => [item.id, item])).values(),
