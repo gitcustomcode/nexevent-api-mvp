@@ -1,5 +1,4 @@
-import {
-  ConflictException,
+import {  ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -7,6 +6,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { genSaltSync, hashSync } from 'bcrypt';
 import { AuthService } from 'src/modules/auth-modules/auth/auth.service';
+import { LoginResponseDto } from 'src/modules/auth-modules/auth/dto/auth-response.dto';
 import { CryptoPassword } from 'src/services/crypto.service';
 import { EmailService } from 'src/services/email.service';
 import { PrismaService } from 'src/services/prisma.service';
@@ -121,7 +121,7 @@ export class OtpService {
     hash: string,
     number: string,
     password: string,
-  ): Promise<string> {
+  ): Promise<LoginResponseDto> {
     try {
       const decoded = await this.cryptoPassword.decode(hash);
 
@@ -158,10 +158,12 @@ export class OtpService {
         data: { verified: true },
       });
 
-      return await this.authService.login(
+      const auth = await this.authService.login(
         userUpdated.email.toLowerCase(),
         password,
       );
+
+      return auth;
     } catch (error) {
       throw error;
     }

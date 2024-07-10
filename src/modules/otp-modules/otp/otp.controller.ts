@@ -1,5 +1,4 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Get,
   Patch,
@@ -14,10 +13,12 @@ import {
   ApiInternalServerErrorResponse,
   ApiOperation,
   ApiQuery,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { OtpService } from './otp.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
+import { LoginResponseDto } from 'src/modules/auth-modules/auth/dto/auth-response.dto';
 
 @ApiTags('Otp')
 @Controller('otp')
@@ -54,6 +55,9 @@ export class OtpController {
   @ApiOperation({
     summary: 'Validate otp code',
   })
+  @ApiResponse({
+    type: LoginResponseDto,
+  })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
   @ApiQuery({ name: 'hash', required: true, type: String })
@@ -63,7 +67,7 @@ export class OtpController {
     @Query('hash') hash: string,
     @Query('number') number: string,
     @Query('password') password: string,
-  ): Promise<string> {
+  ): Promise<LoginResponseDto> {
     return await this.otpService.changePassword(hash, number, password);
   }
 

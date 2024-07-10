@@ -14,6 +14,7 @@ import {
   StorageServiceType,
 } from 'src/services/storage.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
+import { LoginResponseDto } from './dto/auth-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -29,7 +30,7 @@ export class AuthService {
     this.jwtSecret = this.configService.get<string>('app.jwtSecret');
   }
 
-  async login(email: string, password: string): Promise<string> {
+  async login(email: string, password: string): Promise<LoginResponseDto> {
     try {
       const user =
         await this.userProducerValidationService.validateUserProducerByEmail(
@@ -53,11 +54,41 @@ export class AuthService {
 
       const payload = { user: user };
 
-      const accessToken = this.jwtService.signAsync(payload, {
+      const accessToken = await this.jwtService.signAsync(payload, {
         secret: this.jwtSecret,
       });
 
-      return accessToken;
+      let haveTickets = false;
+      let haveEvents = false;
+
+      const tickets = await this.prisma.eventParticipant.findMany({
+        where: {
+          userId: user.id,
+        },
+      });
+
+      if (tickets.length > 0) {
+        haveTickets = true;
+      }
+
+      const events = await this.prisma.event.findMany({
+        where: {
+          userId: user.id,
+        },
+      });
+
+      if (events.length > 0) {
+        haveEvents = true;
+      }
+
+      const response: LoginResponseDto = {
+        token: accessToken,
+        userType: user.type,
+        haveEvents,
+        haveTickets,
+      };
+
+      return response;
     } catch (error) {
       throw error;
     }
@@ -109,7 +140,7 @@ export class AuthService {
   async loginWithFacial(
     email: string,
     userPhoto: Express.Multer.File,
-  ): Promise<string> {
+  ): Promise<LoginResponseDto> {
     try {
       const user = await this.prisma.user.findUnique({
         where: {
@@ -147,11 +178,41 @@ export class AuthService {
         delete user.password;
         const payload = { user: user };
 
-        const accessToken = this.jwtService.signAsync(payload, {
+        const accessToken = await this.jwtService.signAsync(payload, {
           secret: this.jwtSecret,
         });
 
-        return accessToken;
+        let haveTickets = false;
+        let haveEvents = false;
+
+        const tickets = await this.prisma.eventParticipant.findMany({
+          where: {
+            userId: user.id,
+          },
+        });
+
+        if (tickets.length > 0) {
+          haveTickets = true;
+        }
+
+        const events = await this.prisma.event.findMany({
+          where: {
+            userId: user.id,
+          },
+        });
+
+        if (events.length > 0) {
+          haveEvents = true;
+        }
+
+        const response: LoginResponseDto = {
+          token: accessToken,
+          userType: user.type,
+          haveEvents,
+          haveTickets,
+        };
+
+        return response;
       } else {
         throw new ConflictException('Login with facial failed');
       }

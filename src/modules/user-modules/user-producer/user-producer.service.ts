@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -69,7 +68,10 @@ export class UserProducerService {
         },
       });
 
-      const token = await this.authService.login(createUser.email, password);
+      const { token } = await this.authService.login(
+        createUser.email,
+        password,
+      );
 
       return token;
     } catch (error) {

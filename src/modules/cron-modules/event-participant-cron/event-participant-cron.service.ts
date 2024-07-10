@@ -1,5 +1,4 @@
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from 'src/services/prisma.service';
+import { Cron, CronExpression } from '@nestjs/schedule';import { PrismaService } from 'src/services/prisma.service';
 import { EventParticipant, Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import * as QRCode from 'qrcode';
@@ -83,8 +82,6 @@ export class EventParticipantCronService {
       return;
     }
 
-    console.log(events);
-
     const arrIDs = [];
 
     events.forEach((event) => {
@@ -97,6 +94,40 @@ export class EventParticipantCronService {
       },
       data: {
         status: 'DISABLE',
+      },
+    });
+
+    return;
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, {
+    name: 'deleteExpiredUserFacial',
+  })
+  async deleteExpiredUserFacial() {
+    const today = new Date();
+
+    const faces = await this.prisma.userFacial.findMany({
+      where: {
+        expirationDate: {
+          lt: today,
+        },
+      },
+      take: 10,
+    });
+
+    if (faces.length === 0) {
+      return;
+    }
+
+    const arrIDs = [];
+
+    faces.forEach((face) => {
+      arrIDs.push(face.id);
+    });
+
+    await this.prisma.userFacial.deleteMany({
+      where: {
+        id: { in: arrIDs },
       },
     });
 
