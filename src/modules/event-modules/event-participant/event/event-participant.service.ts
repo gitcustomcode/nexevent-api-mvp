@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -36,6 +35,7 @@ import {
   QuizDto,
   QuizQuestionDto,
   QuizCreateResponseDto,
+  FindTicketByLinkResponseDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
@@ -915,6 +915,53 @@ export class EventParticipantService {
         links: links,
 
         guests: guests,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getTicketInfoByLink(
+    eventTicketId: string,
+  ): Promise<FindTicketByLinkResponseDto> {
+    try {
+      const link = await this.prisma.eventTicketLink.findUnique({
+        where: {
+          id: eventTicketId,
+        },
+      });
+
+      if (!link) throw new NotFoundException('Link not found');
+
+      const ticket = await this.prisma.eventTicket.findUnique({
+        where: {
+          id: link.eventTicketId,
+        },
+        include: {
+          eventTicketDays: true,
+        },
+      });
+
+      if (!ticket) throw new NotFoundException('Link not found');
+
+      const days = [];
+
+      await Promise.all(
+        ticket.eventTicketDays.map((day) => {
+          days.push({
+            id: day.id,
+            date: day.date,
+          });
+        }),
+      );
+
+      const response: FindTicketByLinkResponseDto = {
+        id: ticket.id,
+        ticketName: ticket.title,
+        description: ticket.description,
+        ticketDays: days,
       };
 
       return response;
