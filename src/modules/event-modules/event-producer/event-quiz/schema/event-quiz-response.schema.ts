@@ -56,3 +56,7 @@ export const EventQuizParticipantsResponseSchema = z.array(
     responses: z.string(),
   }),
 );
+
+export const EventQuizCreatedResponseSchema = z.object({
+  ok: z.string(),
+});

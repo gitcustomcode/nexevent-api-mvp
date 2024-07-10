@@ -28,6 +28,7 @@ import {
   EventQuizQuestionCreateDto,
 } from './dto/event-quiz-create.dto';
 import {
+  EventQuizCreatedResponseDto,
   EventQuizDashboarDto,
   EventQuizFindAllResponse,
   EventQuizParticipantsResponse,
@@ -44,7 +45,7 @@ export class EventQuizController {
   @ApiOperation({ summary: 'Create event quiz' })
   @ApiCreatedResponse({
     description: 'Event quiz created successfully',
-    type: String,
+    type: EventQuizCreatedResponseDto,
   })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
@@ -60,7 +61,7 @@ export class EventQuizController {
     @Param('slug') slug: string,
     @Body() body: EventQuizCreateDto,
     @Request() req: any,
-  ): Promise<string> {
+  ): Promise<EventQuizCreatedResponseDto> {
     const email = req.auth.user.email;
     return this.eventQuizService.createQuiz(email, slug, body);
   }
@@ -202,7 +203,7 @@ export class EventQuizController {
     @Param('slug') slug: string,
     @Param('quizId') quizId: string,
     @Request() req: any,
-  ): Promise<string> {
+  ) {
     const email = req.auth.user.email;
     return this.eventQuizService.alterStatus(email, slug, quizId);
   }
@@ -211,6 +212,9 @@ export class EventQuizController {
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Create new quiz questions' })
+  @ApiCreatedResponse({
+    type: EventQuizCreatedResponseDto,
+  })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
   @ApiParam({
     name: 'slug',
@@ -231,7 +235,7 @@ export class EventQuizController {
     @Param('quizId') quizId: string,
     @Body() body: EventQuizQuestionCreateDto[],
     @Request() req: any,
-  ): Promise<string> {
+  ): Promise<EventQuizCreatedResponseDto> {
     const userEmail = req.auth.user.email;
     return this.eventQuizService.createNewQuestion(
       userEmail,

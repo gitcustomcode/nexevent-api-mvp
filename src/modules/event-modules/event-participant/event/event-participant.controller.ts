@@ -44,6 +44,7 @@ import {
   ParticipantTicketDto,
   QuizDto,
   ThanksScreenDto,
+  QuizCreateResponseDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
@@ -347,6 +348,10 @@ export class EventParticipantController {
   @Post('v1/event-participant/:quizId/response-quiz')
   @ApiOperation({ summary: 'Get quiz' })
   @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiCreatedResponse({
+    description: 'event quiz response',
+    type: QuizCreateResponseDto,
+  })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
   @ApiParam({
     name: 'quizId',
@@ -365,7 +370,7 @@ export class EventParticipantController {
     @Param('quizId') quizId: string,
     @Query('userEmail') userEmail: string,
     @Body() body: CreateParticipantQuizDto,
-  ) {
+  ): Promise<QuizCreateResponseDto> {
     return await this.eventParticipantService.createQuizResponses(
       quizId,
       userEmail,
