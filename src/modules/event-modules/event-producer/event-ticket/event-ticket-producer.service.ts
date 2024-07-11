@@ -1,4 +1,5 @@
-import {  ConflictException,
+import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -74,18 +75,32 @@ export class EventTicketProducerService {
 
       const newStartAt = new Date(event.startAt);
       const newEndAt = new Date(event.endAt);
+      const eventTicketDayFormatted = [];
 
-      const eventTicketDayFormatted = eventTicketDays.map((day) => {
-        if (day.date < newStartAt && day.date > newEndAt) {
-          throw new ConflictException(
-            'O ingresso possui um ou mais dias que não estão no periodo do evento',
-          );
+      if (eventTicketDays.length > 0) {
+        eventTicketDays.map((day) => {
+          if (day.date < newStartAt && day.date > newEndAt) {
+            throw new ConflictException(
+              'O ingresso possui um ou mais dias que não estão no periodo do evento',
+            );
+          }
+
+          eventTicketDayFormatted.push({
+            date: day.date,
+          });
+        });
+      } else {
+        const currentDate = new Date(newStartAt);
+        const endDate = new Date(newEndAt);
+
+        while (currentDate <= endDate) {
+          eventTicketDayFormatted.push({
+            date: new Date(currentDate),
+          });
+
+          currentDate.setDate(currentDate.getDate() + 1);
         }
-
-        return {
-          date: day.date,
-        };
-      });
+      }
 
       if (isFree === false) {
         const printAutomatic = event.eventConfig[0].printAutomatic ? 2 : 0;

@@ -1,5 +1,7 @@
 import { createZodDto } from 'nestjs-zod';
 import {
+  EventParticipantQuestionResponseSchema,
+  EventParticipantResponseSchema,
   EventQuizCreatedResponseSchema,
   EventQuizDashboardSchema,
   EventQuizFindAllResponseSchema,
@@ -22,6 +24,14 @@ export class EventQuizParticipantsResponseDto extends createZodDto(
 
 export class EventQuizCreatedResponseDto extends createZodDto(
   EventQuizCreatedResponseSchema,
+) {}
+
+export class EventParticipantResponseDto extends createZodDto(
+  EventParticipantResponseSchema,
+) {}
+
+export class EventParticipantQuestionResponseDto extends createZodDto(
+  EventParticipantQuestionResponseSchema,
 ) {}
 
 export class EventQuizFindAllResponse {
