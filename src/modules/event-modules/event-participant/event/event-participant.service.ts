@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -944,7 +945,7 @@ export class EventParticipantService {
         },
       });
 
-      if (!ticket) throw new NotFoundException('Link not found');
+      if (!ticket) throw new NotFoundException('ticket not found');
 
       const days = [];
 
