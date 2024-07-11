@@ -1,5 +1,4 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Get,
   Param,
@@ -192,7 +191,7 @@ export class EventParticipantController {
     return await this.eventParticipantService.thanksScreen(partId);
   }
 
-  @Get('v1/event-participant/:eventTicketLinkId')
+  @Get('v1/event-participant/:eventTicketLinkId/get-info')
   @ApiOperation({ summary: 'Get one event public' })
   @ApiResponse({
     type: FindTicketByLinkResponseDto,
