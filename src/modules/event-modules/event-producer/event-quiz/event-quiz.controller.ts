@@ -1,5 +1,4 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Get,
   Param,
@@ -28,6 +27,7 @@ import {
   EventQuizQuestionCreateDto,
 } from './dto/event-quiz-create.dto';
 import {
+  EventParticipantResponseDto,
   EventQuizCreatedResponseDto,
   EventQuizDashboarDto,
   EventQuizFindAllResponse,
@@ -177,6 +177,45 @@ export class EventQuizController {
       quizId,
       page,
       perPage,
+    );
+  }
+
+  @Get('v1/event-quiz/:slug/quiz-participants/:quizId/:quizParticipantId')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get quiz participants responses' })
+  @ApiResponse({
+    description: 'Quiz participants responses',
+    type: EventParticipantResponseDto,
+  })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'slug',
+    required: true,
+    type: String,
+  })
+  @ApiParam({
+    name: 'quizId',
+    required: true,
+    type: String,
+  })
+  @ApiParam({
+    name: 'quizParticipantId',
+    required: true,
+    type: String,
+  })
+  async quizParticipantResponse(
+    @Param('slug') slug: string,
+    @Param('quizId') quizId: string,
+    @Param('quizParticipantId') quizParticipantId: string,
+    @Request() req: any,
+  ): Promise<EventParticipantResponseDto> {
+    const email = req.auth.user.email;
+    return this.eventQuizService.quizParticipantResponse(
+      email,
+      slug,
+      quizParticipantId,
+      quizId,
     );
   }
 
