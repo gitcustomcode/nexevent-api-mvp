@@ -1,5 +1,5 @@
-import { EventQuizStatus } from '@prisma/client';
-import { z } from 'nestjs-zod/z';
+import { EventQuizStatus, QuestionType } from '@prisma/client';import { z } from 'nestjs-zod/z';
+import { QuizQuestionSchema } from 'src/modules/event-modules/event-participant/event/schema/event-participant-response.schema';
 
 export const EventQuizFindAllResponseSchema = z.array(
   z.object({
@@ -56,3 +56,39 @@ export const EventQuizParticipantsResponseSchema = z.array(
     responses: z.string(),
   }),
 );
+
+export const EventParticipantQuestionResponseSchema = z.object({
+  responseId: z.string(),
+  eventQuizQuestionId: z.string(),
+  questionDescription: z.string(),
+  sequential: z.number(),
+  questionType: z.nativeEnum(QuestionType),
+  isMandatory: z.boolean(),
+  multipleChoice: z.boolean(),
+
+  rating: z.number().optional(),
+  response: z.string().nullish().optional(),
+  eventQuizQuestionOption: z
+    .array(
+      z.object({
+        eventQuizQuestionOptionId: z.string(),
+        optionDescription: z.string(),
+        isOther: z.boolean(),
+        userResponse: z.boolean(),
+      }),
+    )
+    .optional(),
+});
+
+export const EventParticipantResponseSchema = z.object({
+  quizParticipantId: z.string(),
+  quizTitle: z.string(),
+  participantName: z.string(),
+  participantEmail: z.string(),
+
+  questionsResponses: z.array(EventParticipantQuestionResponseSchema),
+});
+
+export const EventQuizCreatedResponseSchema = z.object({
+  ok: z.string(),
+});

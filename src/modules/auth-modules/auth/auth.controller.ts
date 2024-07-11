@@ -1,4 +1,5 @@
-import {  Controller,
+import {
+  Controller,
   Get,
   Param,
   Post,
@@ -22,6 +23,7 @@ import { AuthService } from './auth.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FaceValidationService } from 'src/services/face-validation.service';
 import { StripeService } from 'src/services/stripe.service';
+import { LoginResponseDto } from './dto/auth-response.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -43,7 +45,7 @@ export class AuthController {
   })
   @ApiResponse({
     description: 'the auth has been successfully',
-    type: String,
+    type: LoginResponseDto,
   })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
@@ -60,7 +62,7 @@ export class AuthController {
   async login(
     @Query('userEmail') userEmail: string,
     @Query('userPassword') userPassword: string,
-  ): Promise<String> {
+  ): Promise<LoginResponseDto> {
     /*   const string = `vbvcbcv&nbsp;
     <div><br></div><div>
     <img src="blob:http://localhost:5173/40755f1f-d989-4098-aa78-9878c837aee7" id="Screenshot_2">
@@ -140,6 +142,9 @@ export class AuthController {
 
   @Post('v1/auth/login-with-facial')
   @ApiOperation({ summary: 'Login user with facial' })
+  @ApiResponse({
+    type: LoginResponseDto,
+  })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
   @ApiConsumes('multipart/form-data')
@@ -163,7 +168,7 @@ export class AuthController {
   async loginWithFacial(
     @UploadedFile() file: Express.Multer.File,
     @Query('email') email: string,
-  ) {
+  ): Promise<LoginResponseDto> {
     return await this.authService.loginWithFacial(email, file);
   }
 }

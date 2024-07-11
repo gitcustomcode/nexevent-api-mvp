@@ -75,18 +75,32 @@ export class EventTicketProducerService {
 
       const newStartAt = new Date(event.startAt);
       const newEndAt = new Date(event.endAt);
+      const eventTicketDayFormatted = [];
 
-      const eventTicketDayFormatted = eventTicketDays.map((day) => {
-        if (day.date < newStartAt && day.date > newEndAt) {
-          throw new ConflictException(
-            'O ingresso possui um ou mais dias que não estão no periodo do evento',
-          );
+      if (eventTicketDays.length > 0) {
+        eventTicketDays.map((day) => {
+          if (day.date < newStartAt && day.date > newEndAt) {
+            throw new ConflictException(
+              'O ingresso possui um ou mais dias que não estão no periodo do evento',
+            );
+          }
+
+          eventTicketDayFormatted.push({
+            date: day.date,
+          });
+        });
+      } else {
+        const currentDate = new Date(newStartAt);
+        const endDate = new Date(newEndAt);
+
+        while (currentDate <= endDate) {
+          eventTicketDayFormatted.push({
+            date: new Date(currentDate),
+          });
+
+          currentDate.setDate(currentDate.getDate() + 1);
         }
-
-        return {
-          date: day.date,
-        };
-      });
+      }
 
       if (isFree === false) {
         const printAutomatic = event.eventConfig[0].printAutomatic ? 2 : 0;
@@ -110,7 +124,7 @@ export class EventTicketProducerService {
             }
             let newPrice = ticketPrice.passOnFee
               ? ticketPrice.price + printAutomatic + credential + bonusPrice
-              : ticketPrice.price + bonusPrice;
+              : ticketPrice.price;
 
             const currency = ticketPrice.currency;
 
@@ -334,7 +348,15 @@ export class EventTicketProducerService {
           },
           EventParticipant: {
             include: {
-              eventTicketPrice: true,
+              eventTicketPrice: {
+                include: {
+                  eventTicket: {
+                    include: {
+                      EventTicketBonus: true,
+                    },
+                  },
+                },
+              },
             },
           },
           eventTicketGuest: {
@@ -371,38 +393,42 @@ export class EventTicketProducerService {
         tickets.map(async (ticket) => {
           let limit = 0;
           let totalBrute = 0;
+          let bonusQtd = 0;
           const ticketBatch = [];
 
-          ticket.eventTicketPrice.map((price) => {
+          ticket.eventTicketPrice.forEach((price) => {
             limit += price.guests;
 
-            if (ticket.isPrivate) {
-              ticketBatch.push({
-                id: price.id,
-                batch: price.batch,
-                price: price.price,
-                isPrivate: ticket.isPrivate,
-                sells: price.EventParticipant.length,
-                limit: price.guests,
-                link: price.EventTicketLink,
-                currency: price.currency,
-              });
-            } else {
-              ticketBatch.push({
-                id: price.id,
-                batch: price.batch,
-                price: price.price,
-                isPrivate: ticket.isPrivate,
-                sells: price.EventParticipant.length,
-                limit: price.guests,
-                currency: price.currency,
-              });
-            }
+            const batchInfo = {
+              id: price.id,
+              batch: price.batch,
+              price: price.price,
+              isPrivate: ticket.isPrivate,
+              sells: price.EventParticipant.length,
+              limit: price.guests,
+              link: price.EventTicketLink,
+              currency: price.currency,
+            };
+
+            ticketBatch.push(batchInfo);
           });
 
-          ticket.EventParticipant.map((participant) => {
-            totalBrute += Number(participant.eventTicketPrice.price);
-          });
+          await Promise.all(
+            ticket.EventParticipant.map(async (participant) => {
+              const bonus = await this.prisma.eventTicketBonus.findMany({
+                where: {
+                  eventTicketId: participant.eventTicketId,
+                },
+              });
+
+              if (bonus.length > 0) {
+                bonus.forEach((b) => {
+                  bonusQtd += b.qtd;
+                });
+              }
+              totalBrute += Number(participant.eventTicketPrice.price);
+            }),
+          );
 
           const printAutomatic = event.eventConfig[0].printAutomatic ? 2 : 0;
           const credentialType = event.eventConfig[0].credentialType;
@@ -418,6 +444,8 @@ export class EventTicketProducerService {
           const tax =
             (printAutomatic + credential) * ticket.EventParticipant.length;
 
+          const guestTax = bonusQtd * (printAutomatic + credential);
+
           ticketsArr.push({
             id: ticket.id,
             title: ticket.title,
@@ -425,7 +453,7 @@ export class EventTicketProducerService {
             ticketLimit: limit,
             price: totalBrute,
             participantsCount: ticket.EventParticipant.length,
-            priceLiquid: totalBrute - tax,
+            priceLiquid: totalBrute - (tax + guestTax),
             isBonus: ticket.isBonus,
             ticketPercentualSell: Number(
               (ticket.EventParticipant.length / limit) * 100,
@@ -437,7 +465,6 @@ export class EventTicketProducerService {
 
       const response: EventTicketsResponse = {
         data: ticketsArr,
-
         pageInfo: pagination,
       };
 

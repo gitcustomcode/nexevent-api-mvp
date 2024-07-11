@@ -65,6 +65,12 @@ export const FindOnePublicEventsSchema = z.object({
       description: z.string(),
       price: z.number(),
       currency: z.string(),
+      ticketDays: z.array(
+        z.object({
+          id: z.number(),
+          day: z.date(),
+        }),
+      ),
     }),
   ),
   config: z.object({
@@ -226,4 +232,20 @@ export const QuizSchema = z.object({
   anonimousResponse: z.boolean(),
 
   questions: z.array(QuizQuestionSchema),
+});
+
+export const QuizCreateResponseSchema = z.object({
+  ok: z.string(),
+});
+
+export const FindTicketByLinkResponseSchema = z.object({
+  id: z.string(),
+  ticketName: z.string(),
+  description: z.string(),
+  ticketDays: z.array(
+    z.object({
+      id: z.number(),
+      date: z.date(),
+    }),
+  ),
 });

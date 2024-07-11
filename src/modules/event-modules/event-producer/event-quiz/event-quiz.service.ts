@@ -11,6 +11,9 @@ import {
 } from './dto/event-quiz-create.dto';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import {
+  EventParticipantQuestionResponseDto,
+  EventParticipantResponseDto,
+  EventQuizCreatedResponseDto,
   EventQuizDashboarDto,
   EventQuizFindAllResponse,
   EventQuizFindAllResponseDto,
@@ -27,8 +30,13 @@ export class EventQuizService {
     private readonly paginationService: PaginationService,
   ) {}
 
-  async createQuiz(userEmail: string, slug: string, body: EventQuizCreateDto) {
+  async createQuiz(
+    userEmail: string,
+    slug: string,
+    body: EventQuizCreateDto,
+  ): Promise<EventQuizCreatedResponseDto> {
     try {
+      console.log(body);
       const event = await this.userProducerValidationService.eventExists(
         slug,
         userEmail.toLowerCase(),
@@ -117,7 +125,9 @@ export class EventQuizService {
 
       await Promise.all(questionPromises);
 
-      return 'Quiz created successfully';
+      return {
+        ok: 'Quiz created successfully',
+      };
     } catch (error) {
       throw error;
     }
@@ -344,17 +354,142 @@ export class EventQuizService {
 
       const quizFormatted: EventQuizParticipantsResponseDto = [];
 
-      quiz.map((p) => {
+      quiz.forEach((p) => {
+        const uniqueResponses = [];
+        const seenQuestionIds = new Set();
+
+        p.EventQuizParticipantResponse.forEach((response) => {
+          if (!seenQuestionIds.has(response.eventQuizQuestionId)) {
+            uniqueResponses.push(response);
+            seenQuestionIds.add(response.eventQuizQuestionId);
+          }
+        });
+
         quizFormatted.push({
           id: p.id,
           name: p.user.name,
-          responses: `${p.EventQuizParticipantResponse.length}/${p.eventQuiz.EventQuizQuestion.length}`,
+          responses: `${uniqueResponses.length}/${p.eventQuiz.EventQuizQuestion.length}`,
         });
       });
 
       const response: EventQuizParticipantsResponse = {
         data: quizFormatted,
         pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async quizParticipantResponse(
+    userEmail: string,
+    slug: string,
+    eventQuizParticipantId: string,
+    eventQuizId: string,
+  ): Promise<EventParticipantResponseDto> {
+    try {
+      const event = await this.userProducerValidationService.eventExists(
+        slug,
+        userEmail.toLowerCase(),
+      );
+
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const eventQuizParticipant =
+        await this.prisma.eventQuizParticipant.findUnique({
+          where: {
+            id: eventQuizParticipantId,
+            eventQuizId: eventQuizId,
+          },
+          include: {
+            user: true,
+            eventQuiz: true,
+            EventQuizParticipantResponse: {
+              include: {
+                eventQuizQuestion: true,
+              },
+            },
+          },
+        });
+
+      const questionsResponsesMap = new Map<
+        string,
+        EventParticipantQuestionResponseDto
+      >();
+
+      await Promise.all(
+        eventQuizParticipant.EventQuizParticipantResponse.map(
+          async (response) => {
+            if (response.eventQuizQuestion.questionType === 'DESCRIPTIVE') {
+              questionsResponsesMap.set(response.eventQuizQuestionId, {
+                responseId: response.id,
+                eventQuizQuestionId: response.eventQuizQuestionId,
+                questionDescription: response.eventQuizQuestion.description,
+                sequential: response.eventQuizQuestion.sequential,
+                questionType: response.eventQuizQuestion.questionType,
+                isMandatory: response.eventQuizQuestion.isMandatory,
+                multipleChoice: response.eventQuizQuestion.multipleChoice,
+                response: response.response,
+              });
+            } else if (response.eventQuizQuestion.questionType === 'RATING') {
+              questionsResponsesMap.set(response.eventQuizQuestionId, {
+                responseId: response.id,
+                eventQuizQuestionId: response.eventQuizQuestionId,
+                questionDescription: response.eventQuizQuestion.description,
+                sequential: response.eventQuizQuestion.sequential,
+                questionType: response.eventQuizQuestion.questionType,
+                isMandatory: response.eventQuizQuestion.isMandatory,
+                multipleChoice: response.eventQuizQuestion.multipleChoice,
+                rating: response.rating,
+              });
+            } else if (
+              response.eventQuizQuestion.questionType === 'MULTIPLE_CHOICE'
+            ) {
+              const questionOptions =
+                await this.prisma.eventQuizQuestionOption.findMany({
+                  where: {
+                    eventQuizQuestionId: response.eventQuizQuestionId,
+                  },
+                });
+
+              const eventQuizQuestionOption = questionOptions.map((option) => ({
+                eventQuizQuestionOptionId: option.id,
+                optionDescription: option.description,
+                isOther: option.isOther,
+                userResponse: response.eventQuizQuestionOptionId === option.id,
+              }));
+
+              questionsResponsesMap.set(response.eventQuizQuestionId, {
+                responseId: response.id,
+                eventQuizQuestionId: response.eventQuizQuestionId,
+                questionDescription: response.eventQuizQuestion.description,
+                sequential: response.eventQuizQuestion.sequential,
+                questionType: response.eventQuizQuestion.questionType,
+                isMandatory: response.eventQuizQuestion.isMandatory,
+                multipleChoice: response.eventQuizQuestion.multipleChoice,
+                response: response.response,
+                eventQuizQuestionOption,
+              });
+            }
+          },
+        ),
+      );
+
+      const questionsResponsesArray = Array.from(
+        questionsResponsesMap.values(),
+      );
+
+      const response: EventParticipantResponseDto = {
+        quizParticipantId: eventQuizParticipant.id,
+        participantEmail: eventQuizParticipant.user.email,
+        participantName: eventQuizParticipant.user.name,
+        quizTitle: eventQuizParticipant.eventQuiz.title,
+
+        questionsResponses: questionsResponsesArray,
       };
 
       return response;
@@ -404,7 +539,7 @@ export class EventQuizService {
     slug: string,
     quizId: string,
     body: EventQuizQuestionCreateDto[],
-  ) {
+  ): Promise<EventQuizCreatedResponseDto> {
     try {
       const event = await this.userProducerValidationService.eventExists(
         slug,
@@ -468,7 +603,9 @@ export class EventQuizService {
         sequential++;
       });
 
-      return 'Question created successfully';
+      return {
+        ok: 'Question created successfully',
+      };
     } catch (error) {
       throw error;
     }

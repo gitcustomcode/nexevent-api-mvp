@@ -803,6 +803,7 @@ export class EventProducerService {
         eventLimit: event.eventConfig[0].limit,
         eventParticipantsCount: eventParticipantsCount,
         eventParticipantAwaitPayment: eventParticipantAwaitPayment,
+        eventEndDate: event.endAt,
 
         eventParcitipantAccreditationsCount: uniqueCheckInArr.length,
         eventParcitipantAccreditationsPercentual:
