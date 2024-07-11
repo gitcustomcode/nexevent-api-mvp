@@ -942,6 +942,7 @@ export class EventParticipantService {
         },
         include: {
           eventTicketDays: true,
+          event: true,
         },
       });
 
@@ -949,14 +950,26 @@ export class EventParticipantService {
 
       const days = [];
 
-      await Promise.all(
-        ticket.eventTicketDays.map((day) => {
+      if (ticket.eventTicketDays.length > 0) {
+        ticket.eventTicketDays.forEach((day) => {
           days.push({
             id: day.id,
             date: day.date,
           });
-        }),
-      );
+        });
+      } else {
+        const newStartAt = new Date(ticket.event.startAt);
+        const newEndAt = new Date(ticket.event.endAt);
+        let currentDate = newStartAt;
+
+        while (currentDate <= newEndAt) {
+          days.push({
+            date: new Date(currentDate),
+          });
+
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      }
 
       const response: FindTicketByLinkResponseDto = {
         id: ticket.id,
