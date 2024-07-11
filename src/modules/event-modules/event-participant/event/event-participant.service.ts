@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -35,6 +34,8 @@ import {
   ThanksScreenDto,
   QuizDto,
   QuizQuestionDto,
+  QuizCreateResponseDto,
+  FindTicketByLinkResponseDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
@@ -607,6 +608,7 @@ export class EventParticipantService {
         include: {
           eventTicket: {
             include: {
+              eventTicketDays: true,
               eventTicketPrice: {
                 include: {
                   EventParticipant: true,
@@ -629,6 +631,17 @@ export class EventParticipantService {
 
       if (event.eventTicket) {
         event.eventTicket.map((ticket) => {
+          const ticketDays = [];
+
+          if (ticket.eventTicketDays.length > 0) {
+            ticket.eventTicketDays.map((day) => {
+              ticketDays.push({
+                id: day.id,
+                date: day.date,
+              });
+            });
+          }
+
           if (ticket.isBonus === false) {
             ticket.eventTicketPrice.map((price) => {
               if (ticket.isPrivate === false) {
@@ -640,6 +653,7 @@ export class EventParticipantService {
                   description: ticket.description,
                   avaible: price.guests - price.EventParticipant.length,
                   currency: price.currency,
+                  ticketDays: ticketDays,
                 });
               }
             });
@@ -901,6 +915,53 @@ export class EventParticipantService {
         links: links,
 
         guests: guests,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getTicketInfoByLink(
+    eventTicketId: string,
+  ): Promise<FindTicketByLinkResponseDto> {
+    try {
+      const link = await this.prisma.eventTicketLink.findUnique({
+        where: {
+          id: eventTicketId,
+        },
+      });
+
+      if (!link) throw new NotFoundException('Link not found');
+
+      const ticket = await this.prisma.eventTicket.findUnique({
+        where: {
+          id: link.eventTicketId,
+        },
+        include: {
+          eventTicketDays: true,
+        },
+      });
+
+      if (!ticket) throw new NotFoundException('Link not found');
+
+      const days = [];
+
+      await Promise.all(
+        ticket.eventTicketDays.map((day) => {
+          days.push({
+            id: day.id,
+            date: day.date,
+          });
+        }),
+      );
+
+      const response: FindTicketByLinkResponseDto = {
+        id: ticket.id,
+        ticketName: ticket.title,
+        description: ticket.description,
+        ticketDays: days,
       };
 
       return response;
@@ -1442,7 +1503,7 @@ export class EventParticipantService {
         },
       });
 
-      console.log(quizExist);
+      console.log('test');
 
       if (!quizExist) {
         throw new NotFoundException('Quiz not found');
@@ -1507,13 +1568,15 @@ export class EventParticipantService {
     quizId: string,
     userEmail: string,
     body: CreateParticipantQuizDto,
-  ) {
+  ): Promise<QuizCreateResponseDto> {
     try {
       const userExist = await this.prisma.user.findUnique({
         where: {
           email: userEmail.toLowerCase(),
         },
       });
+
+      console.log('criando response', body);
 
       if (!userExist) {
         throw new NotFoundException('User not found');
@@ -1560,68 +1623,75 @@ export class EventParticipantService {
       const { isAnonimous, responses } = body;
       const responsesFormatted = [];
 
-      responses.map(async (response) => {
-        const question = await this.prisma.eventQuizQuestion.findUnique({
-          where: {
-            id: response.eventQuizQuestionId,
-          },
-        });
-
-        const alreadyResponse =
-          await this.prisma.eventQuizParticipantResponse.findFirst({
+      // Usando Promise.all para aguardar todas as operações assíncronas dentro do map
+      await Promise.all(
+        responses.map(async (response) => {
+          const question = await this.prisma.eventQuizQuestion.findUnique({
             where: {
-              eventQuizParticipantId: participant.id,
-              eventQuizQuestionId: question.id,
+              id: response.eventQuizQuestionId,
             },
           });
 
-        if (alreadyResponse && !question.multipleChoice) {
-          throw new BadRequestException(
-            'You already answered ' + question.description + ' this question',
-          );
-        }
-
-        if (question.questionType === 'MULTIPLE_CHOICE') {
-          if (!response.eventQuizQuestionOptionId) {
-            throw new BadRequestException(
-              'You must select a option for multiple choice question',
-            );
+          if (!question) {
+            throw new NotFoundException('Question not found');
           }
 
-          const optionExist =
-            await this.prisma.eventQuizQuestionOption.findUnique({
+          const alreadyResponse =
+            await this.prisma.eventQuizParticipantResponse.findFirst({
               where: {
-                id: response.eventQuizQuestionOptionId,
+                eventQuizParticipantId: participant.id,
+                eventQuizQuestionId: question.id,
               },
             });
 
-          if (!optionExist) {
-            throw new NotFoundException('Option not found');
-          }
-
-          if (optionExist.isOther && !response.response) {
+          if (alreadyResponse && !question.multipleChoice) {
             throw new BadRequestException(
-              'You must fill the other field for other option question',
+              `You already answered '${question.description}' this question`,
             );
           }
 
-          responsesFormatted.push({
-            eventQuizQuestionId: response.eventQuizQuestionId,
-            eventQuizQuestionOptionId: response.eventQuizQuestionOptionId,
-            response: optionExist.isOther ? response.response : null,
-          });
-        } else if (question.questionType === 'RATING') {
-          responsesFormatted.push({
-            eventQuizQuestionId: response.eventQuizQuestionId,
-            rating: response.rating,
-          });
-        } else {
-          responsesFormatted.push({
-            eventQuizQuestionId: response.eventQuizQuestionId,
-            response: response.response,
-          });
-        }
-      });
+          if (question.questionType === 'MULTIPLE_CHOICE') {
+            if (!response.eventQuizQuestionOptionId) {
+              throw new BadRequestException(
+                'You must select an option for a multiple choice question',
+              );
+            }
+
+            const optionExist =
+              await this.prisma.eventQuizQuestionOption.findUnique({
+                where: {
+                  id: response.eventQuizQuestionOptionId,
+                },
+              });
+
+            if (!optionExist) {
+              throw new NotFoundException('Option not found');
+            }
+
+            if (optionExist.isOther && !response.response) {
+              throw new BadRequestException(
+                'You must fill the other field for other option question',
+              );
+            }
+
+            responsesFormatted.push({
+              eventQuizQuestionId: response.eventQuizQuestionId,
+              eventQuizQuestionOptionId: response.eventQuizQuestionOptionId,
+              response: optionExist.isOther ? response.response : null,
+            });
+          } else if (question.questionType === 'RATING') {
+            responsesFormatted.push({
+              eventQuizQuestionId: response.eventQuizQuestionId,
+              rating: response.rating,
+            });
+          } else {
+            responsesFormatted.push({
+              eventQuizQuestionId: response.eventQuizQuestionId,
+              response: response.response,
+            });
+          }
+        }),
+      );
 
       await this.prisma.eventQuizParticipant.create({
         data: {
@@ -1637,7 +1707,9 @@ export class EventParticipantService {
         },
       });
 
-      return;
+      return {
+        ok: 'Quiz responses created successfully',
+      };
     } catch (error) {
       throw error;
     }

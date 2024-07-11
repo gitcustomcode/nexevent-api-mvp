@@ -44,6 +44,8 @@ import {
   ParticipantTicketDto,
   QuizDto,
   ThanksScreenDto,
+  QuizCreateResponseDto,
+  FindTicketByLinkResponseDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
@@ -188,6 +190,26 @@ export class EventParticipantController {
     @Param('partId') partId: string,
   ): Promise<ThanksScreenDto> {
     return await this.eventParticipantService.thanksScreen(partId);
+  }
+
+  @Get('v1/event-participant/:eventTicketLinkId')
+  @ApiOperation({ summary: 'Get one event public' })
+  @ApiResponse({
+    type: FindTicketByLinkResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventTicketLinkId',
+    required: true,
+    type: String,
+  })
+  async getTicketInfoByLink(
+    @Param('eventTicketLinkId') eventTicketLinkId: string,
+  ): Promise<FindTicketByLinkResponseDto> {
+    return await this.eventParticipantService.getTicketInfoByLink(
+      eventTicketLinkId,
+    );
   }
 
   @Post('v1/event-participant/:eventTicketLinkId/create-participant')
@@ -347,6 +369,10 @@ export class EventParticipantController {
   @Post('v1/event-participant/:quizId/response-quiz')
   @ApiOperation({ summary: 'Get quiz' })
   @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiCreatedResponse({
+    description: 'event quiz response',
+    type: QuizCreateResponseDto,
+  })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
   @ApiParam({
     name: 'quizId',
@@ -365,7 +391,7 @@ export class EventParticipantController {
     @Param('quizId') quizId: string,
     @Query('userEmail') userEmail: string,
     @Body() body: CreateParticipantQuizDto,
-  ) {
+  ): Promise<QuizCreateResponseDto> {
     return await this.eventParticipantService.createQuizResponses(
       quizId,
       userEmail,

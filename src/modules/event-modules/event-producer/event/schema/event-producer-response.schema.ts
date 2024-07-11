@@ -1,5 +1,4 @@
-import {
-  CredentialType,
+import {  CredentialType,
   EventParticipantHistoricStatus,
   EventStatus,
   EventTicketStatus,
@@ -99,6 +98,7 @@ export const FindOneDashboardParticipantPanelSchema = z.object({
   eventLimit: z.number(),
   eventParticipantsCount: z.number(),
   eventParticipantAwaitPayment: z.number(),
+  eventEndDate: z.date(),
 
   eventParcitipantAccreditationsCount: z.number(),
   eventParcitipantAccreditationsPercentual: z.number(),

@@ -11,6 +11,7 @@ import {
 } from './dto/event-quiz-create.dto';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import {
+  EventQuizCreatedResponseDto,
   EventQuizDashboarDto,
   EventQuizFindAllResponse,
   EventQuizFindAllResponseDto,
@@ -27,8 +28,13 @@ export class EventQuizService {
     private readonly paginationService: PaginationService,
   ) {}
 
-  async createQuiz(userEmail: string, slug: string, body: EventQuizCreateDto) {
+  async createQuiz(
+    userEmail: string,
+    slug: string,
+    body: EventQuizCreateDto,
+  ): Promise<EventQuizCreatedResponseDto> {
     try {
+      console.log(body);
       const event = await this.userProducerValidationService.eventExists(
         slug,
         userEmail.toLowerCase(),
@@ -117,7 +123,9 @@ export class EventQuizService {
 
       await Promise.all(questionPromises);
 
-      return 'Quiz created successfully';
+      return {
+        ok: 'Quiz created successfully',
+      };
     } catch (error) {
       throw error;
     }
@@ -404,7 +412,7 @@ export class EventQuizService {
     slug: string,
     quizId: string,
     body: EventQuizQuestionCreateDto[],
-  ) {
+  ): Promise<EventQuizCreatedResponseDto> {
     try {
       const event = await this.userProducerValidationService.eventExists(
         slug,
@@ -468,7 +476,9 @@ export class EventQuizService {
         sequential++;
       });
 
-      return 'Question created successfully';
+      return {
+        ok: 'Question created successfully',
+      };
     } catch (error) {
       throw error;
     }

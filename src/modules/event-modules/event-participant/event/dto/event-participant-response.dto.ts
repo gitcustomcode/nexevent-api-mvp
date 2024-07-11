@@ -11,6 +11,8 @@ import { createZodDto } from 'nestjs-zod';import {
   ThanksScreenSchema,
   QuizSchema,
   QuizQuestionSchema,
+  QuizCreateResponseSchema,
+  FindTicketByLinkResponseSchema,
 } from '../schema/event-participant-response.schema';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationResponse } from 'src/dtos/pagination.dto';
@@ -46,6 +48,14 @@ export class ThanksScreenDto extends createZodDto(ThanksScreenSchema) {}
 export class QuizDto extends createZodDto(QuizSchema) {}
 
 export class QuizQuestionDto extends createZodDto(QuizQuestionSchema) {}
+
+export class QuizCreateResponseDto extends createZodDto(
+  QuizCreateResponseSchema,
+) {}
+
+export class FindTicketByLinkResponseDto extends createZodDto(
+  FindTicketByLinkResponseSchema,
+) {}
 
 export class FindAllPublicEvents {
   @ApiProperty({
