@@ -1865,7 +1865,7 @@ export class EventParticipantService {
           },
         });
       }
-      //testar emoji pq o medina me deixou com vontade
+
       return {
         isParticipant: participant ? true : false,
         haveFacial: userFacials.length > 0 ? true : false,
