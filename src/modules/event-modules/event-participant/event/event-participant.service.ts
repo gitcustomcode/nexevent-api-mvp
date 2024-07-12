@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { EventParticipantStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -37,6 +38,7 @@ import {
   QuizQuestionDto,
   QuizCreateResponseDto,
   FindTicketByLinkResponseDto,
+  UserIsParticipantInEventByLinkIdResponseDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
@@ -228,6 +230,14 @@ export class EventParticipantService {
       if (!allowedMimeTypes.includes(photo.mimetype)) {
         throw new BadRequestException(
           'Only JPEG, JPG and PNG files are allowed.',
+        );
+      }
+
+      const validFace = await this.storageService.isFaceValid(photo.buffer);
+
+      if (!validFace.isValid) {
+        throw new UnprocessableEntityException(
+          'A foto não possui um rosto, por favor tente novamente',
         );
       }
 
@@ -1445,11 +1455,25 @@ export class EventParticipantService {
         where: {
           email: email.toLowerCase(),
         },
+        include: {
+          userFacials: true,
+        },
       });
 
       if (!userExist) {
         return null;
       }
+
+      let facial = null;
+
+      await Promise.all(
+        userExist.userFacials.map((face) => {
+          const today = new Date();
+          if (face.expirationDate > today && facial == null) {
+            facial = face.path;
+          }
+        }),
+      );
 
       const response: FindByEmailDto = {
         city: userExist.city,
@@ -1462,6 +1486,7 @@ export class EventParticipantService {
         state: userExist.state,
         country: userExist.country,
         document: userExist.document,
+        userFace: facial,
       };
 
       return response;
@@ -1589,8 +1614,6 @@ export class EventParticipantService {
           email: userEmail.toLowerCase(),
         },
       });
-
-      console.log('criando response', body);
 
       if (!userExist) {
         throw new NotFoundException('User not found');
@@ -1723,6 +1746,130 @@ export class EventParticipantService {
 
       return {
         ok: 'Quiz responses created successfully',
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async userIsParticipantInEventByQuizId(
+    quizId: string,
+    userEmail: string,
+  ): Promise<Boolean> {
+    try {
+      const userExist = await this.prisma.user.findUnique({
+        where: {
+          email: userEmail.toLowerCase(),
+        },
+      });
+
+      if (!userExist) {
+        throw new NotFoundException('User not found');
+      }
+
+      const quizExist = await this.prisma.eventQuiz.findUnique({
+        where: {
+          id: quizId,
+        },
+        include: {
+          EventQuizQuestion: {
+            include: {
+              EventQuizQuestionOption: true,
+            },
+          },
+        },
+      });
+
+      if (!quizExist) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      const eventExist = await this.prisma.event.findUnique({
+        where: {
+          id: quizExist.eventId,
+        },
+      });
+
+      if (!eventExist) {
+        throw new NotFoundException('Event not found');
+      }
+
+      const participant = await this.prisma.eventParticipant.findFirst({
+        where: {
+          userId: userExist.id,
+          eventId: eventExist.id,
+        },
+      });
+
+      if (!participant) {
+        throw new NotFoundException('User not participate in this event');
+      }
+
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async userIsParticipantInEventByLinkId(
+    linkId: string,
+    userEmail: string,
+  ): Promise<UserIsParticipantInEventByLinkIdResponseDto> {
+    try {
+      const userExist = await this.prisma.user.findUnique({
+        where: {
+          email: userEmail.toLowerCase(),
+        },
+      });
+
+      let userFacials = null;
+      let participant = null;
+
+      if (userExist) {
+        const link = await this.prisma.eventTicketLink.findUnique({
+          where: {
+            id: linkId,
+          },
+          include: {
+            eventTicket: true,
+          },
+        });
+
+        if (!link) {
+          throw new NotFoundException('Event ticket link not found');
+        }
+
+        const eventExist = await this.prisma.event.findUnique({
+          where: {
+            id: link.eventTicket.eventId,
+          },
+        });
+
+        if (!eventExist) {
+          throw new NotFoundException('Event not found');
+        }
+
+        participant = await this.prisma.eventParticipant.findFirst({
+          where: {
+            userId: userExist.id,
+            eventId: eventExist.id,
+          },
+        });
+
+        userFacials = await this.prisma.userFacial.findMany({
+          where: {
+            userId: userExist.id,
+            expirationDate: {
+              lte: new Date(),
+            },
+          },
+        });
+      }
+
+      return {
+        isParticipant: participant ? true : false,
+        haveFacial: userFacials ? true : false,
+        participantId: participant ? participant.id : null,
       };
     } catch (error) {
       throw error;

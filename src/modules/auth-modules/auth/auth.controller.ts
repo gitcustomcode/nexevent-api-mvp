@@ -1,10 +1,12 @@
-import {
-  Controller,
+import {  Controller,
   Get,
+  Header,
+  NotFoundException,
   Param,
   Post,
   Query,
   Request,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -13,8 +15,11 @@ import {
   ApiBody,
   ApiConsumes,
   ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiProduces,
   ApiQuery,
   ApiResponse,
   ApiTags,
@@ -24,6 +29,11 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { FaceValidationService } from 'src/services/face-validation.service';
 import { StripeService } from 'src/services/stripe.service';
 import { LoginResponseDto } from './dto/auth-response.dto';
+import {
+  StorageService,
+  StorageServiceType,
+} from 'src/services/storage.service';
+import { Response } from 'express';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -32,6 +42,7 @@ export class AuthController {
     private authService: AuthService,
     private readonly faceValidationService: FaceValidationService,
     private readonly stripe: StripeService,
+    private readonly storageService: StorageService,
   ) {}
 
   @Post('webhook')
@@ -170,5 +181,50 @@ export class AuthController {
     @Query('email') email: string,
   ): Promise<LoginResponseDto> {
     return await this.authService.loginWithFacial(email, file);
+  }
+
+  @Get('/v1/storage/file/:key')
+  @ApiOperation({ summary: 'Find an file especific' })
+  @Header('Content-Type', 'image/jpeg')
+  @ApiProduces('image/jpeg')
+  @ApiParam({
+    name: 'key',
+    example: '/face/file.jpg',
+    description: 'File source',
+  })
+  @ApiOkResponse({
+    status: 200,
+    description: 'Image retrieved successfully',
+    content: {
+      'image/jpeg': {
+        schema: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'File not found' })
+  async file(@Param('key') key: string, @Res() res: Response): Promise<void> {
+    try {
+      const file = await this.storageService.getFile(
+        StorageServiceType.S3,
+        key,
+      );
+
+      res.header('Content-Type', 'image/jpeg'); // Substitua 'image/jpeg' pelo tipo correto, se necessário
+
+      if (Buffer.isBuffer(file)) {
+        // Verifica se file.photo é um buffer válido
+        res.end(file);
+      } else {
+        // Se não for um buffer válido, retorne um erro 500 ou apropriado
+        console.error('Erro: O conteúdo do arquivo não é um buffer válido.');
+        res.status(500).send('Erro interno do servidor');
+      }
+    } catch (error) {
+      console.error(`Erro ao buscar arquivo do S3: ${error}`);
+      throw new NotFoundException(`Erro ao arquivo imagem do S3: ${error}`);
+    }
   }
 }

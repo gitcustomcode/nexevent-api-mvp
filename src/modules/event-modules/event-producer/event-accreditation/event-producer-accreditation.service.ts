@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -96,7 +97,6 @@ export class EventProducerAccreditationService {
 
       const validationPromises = eventParticipants.map(async (participant) => {
         if (participant.user.userFacials.length > 0) {
-          console.log(participant.user.userFacials);
           const photo = await this.storageService.getFile(
             StorageServiceType.S3,
             participant.user.userFacials[0].path,

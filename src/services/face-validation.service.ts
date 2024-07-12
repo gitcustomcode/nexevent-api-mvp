@@ -1,5 +1,4 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';import { ConfigService } from '@nestjs/config';
 import { PrismaService } from './prisma.service';
 import { StorageService, StorageServiceType } from './storage.service';
 
@@ -48,10 +47,6 @@ export class FaceValidationService {
             return false;
           }
         } catch (err) {
-          console.error(
-            `Erro ao validar facial para o usuário ${user.userId}:`,
-            err.message,
-          );
           return false;
         }
       });

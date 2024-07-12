@@ -1213,6 +1213,11 @@ export class EventProducerService {
           },
           eventTicket: true,
         },
+        orderBy: {
+          user: {
+            name: 'asc',
+          },
+        },
         take: Number(perPage),
         skip: (page - 1) * Number(perPage),
       });

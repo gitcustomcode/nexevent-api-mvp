@@ -1,4 +1,9 @@
-import { ConflictException, Injectable } from '@nestjs/common';import * as AWS from 'aws-sdk';
+import {
+  ConflictException,
+  Injectable,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import * as AWS from 'aws-sdk';
 import { ConfigService } from '@nestjs/config';
 
 export enum StorageServiceType {
@@ -53,6 +58,10 @@ export class StorageService {
   }
 
   async validateFacial(imageData1: Buffer, imageData2: Buffer) {
+    if (!imageData1.buffer || !imageData2.buffer) {
+      throw new Error('Imagens não podem ser vazias');
+    }
+
     const rekognition = new AWS.Rekognition();
 
     const params: AWS.Rekognition.CompareFacesRequest = {
@@ -62,7 +71,7 @@ export class StorageService {
       TargetImage: {
         Bytes: imageData2,
       },
-      SimilarityThreshold: 90, // Limiar de similaridade em percentual
+      SimilarityThreshold: 90,
     };
 
     try {
@@ -70,12 +79,42 @@ export class StorageService {
 
       if (result.FaceMatches && result.FaceMatches.length > 0) {
         const similarity = result.FaceMatches[0].Similarity;
-        return similarity; // Determinar se é a mesma pessoa com base no limiar de similaridade
+        return similarity;
       } else {
         return false;
       }
-    } catch (err) {
-      throw err;
+    } catch (error) {
+      throw new UnprocessableEntityException('Imagem não aceita para facial');
+    }
+  }
+
+  async isFaceValid(
+    imageData: Buffer,
+  ): Promise<{ isValid: boolean; details: AWS.Rekognition.FaceDetail | null }> {
+    const params: AWS.Rekognition.Types.DetectFacesRequest = {
+      Image: {
+        Bytes: imageData,
+      },
+      Attributes: ['ALL'],
+    };
+
+    const rekognition = new AWS.Rekognition();
+
+    try {
+      const response = await rekognition.detectFaces(params).promise();
+
+      // Verificar se há pelo menos um rosto detectado
+      if (response.FaceDetails && response.FaceDetails.length > 0) {
+        return {
+          isValid: true,
+          details: response.FaceDetails[0],
+        };
+      } else {
+        return { isValid: false, details: null };
+      }
+    } catch (error) {
+      console.error('Error detecting face:', error);
+      throw error;
     }
   }
 
