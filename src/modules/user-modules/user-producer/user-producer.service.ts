@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -287,6 +288,14 @@ export class UserProducerService {
       if (!allowedMimeTypes.includes(photo.mimetype)) {
         throw new BadRequestException(
           'Only JPEG, JPG and PNG files are allowed.',
+        );
+      }
+
+      const validFace = await this.storageService.isFaceValid(photo.buffer);
+
+      if (!validFace.isValid) {
+        throw new UnprocessableEntityException(
+          'A foto não possui um rosto, por favor tente novamente',
         );
       }
 
