@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -1822,7 +1821,7 @@ export class EventParticipantService {
         },
       });
 
-      let userFacials = null;
+      let userFacials = [];
       let participant = null;
 
       if (userExist) {
@@ -1868,7 +1867,7 @@ export class EventParticipantService {
 
       return {
         isParticipant: participant ? true : false,
-        haveFacial: userFacials ? true : false,
+        haveFacial: userFacials.length > 0 ? true : false,
         participantId: participant ? participant.id : null,
       };
     } catch (error) {
