@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -51,6 +50,7 @@ export class AuthService {
           'You need to complete the password change process to log in',
         );
       }
+      user.exp = new Date();
 
       const payload = { user: user };
 
@@ -123,9 +123,14 @@ export class AuthService {
         throw new BadRequestException('Invalid password');
       }
 
-      delete staff.password;
+      const staffFormatted = {
+        id: staff.id,
+        eventId: staff.eventId,
+        email: staff.email,
+        exp: new Date(),
+      };
 
-      const payload = { user: staff };
+      const payload = { user: staffFormatted };
 
       const accessToken = this.jwtService.signAsync(payload, {
         secret: this.jwtSecret,
@@ -176,7 +181,31 @@ export class AuthService {
 
       if (valid !== false && valid > 95) {
         delete user.password;
-        const payload = { user: user };
+
+        const userFormatted = {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          dateBirth: user.dateBirth,
+          profilePhoto: user.profilePhoto,
+          type: user.type,
+          cep: user.cep,
+          document: user.document,
+          phoneCountry: user.phoneCountry,
+          phoneNumber: user.phoneNumber,
+          street: user.street,
+          district: user.district,
+          city: user.city,
+          complement: user.complement,
+          country: user.country,
+          createdAt: user.createdAt,
+          number: user.number,
+          state: user.state,
+          validAt: user.validAt,
+          exp: new Date(),
+        };
+
+        const payload = { user: userFormatted };
 
         const accessToken = await this.jwtService.signAsync(payload, {
           secret: this.jwtSecret,
