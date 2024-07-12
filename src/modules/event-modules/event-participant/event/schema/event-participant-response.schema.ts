@@ -1,5 +1,4 @@
-import {
-  CredentialType,
+import {  CredentialType,
   EventLocation,
   EventQuizStatus,
   QuestionType,
@@ -188,6 +187,7 @@ export const FindByEmailSchema = z.object({
   state: z.string(),
   document: z.string(),
   validAt: z.date().nullish(),
+  userFace: z.string().nullish(),
 });
 
 export const ThanksScreenSchema = z.object({
@@ -248,4 +248,10 @@ export const FindTicketByLinkResponseSchema = z.object({
       date: z.date(),
     }),
   ),
+});
+
+export const UserIsParticipantInEventByLinkIdResponseSchema = z.object({
+  isParticipant: z.boolean(),
+  participantId: z.string().nullish(),
+  haveFacial: z.boolean(),
 });

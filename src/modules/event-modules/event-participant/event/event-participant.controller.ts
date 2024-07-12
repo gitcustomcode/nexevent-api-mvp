@@ -45,6 +45,7 @@ import {
   ThanksScreenDto,
   QuizCreateResponseDto,
   FindTicketByLinkResponseDto,
+  UserIsParticipantInEventByLinkIdResponseDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
@@ -395,6 +396,61 @@ export class EventParticipantController {
       quizId,
       userEmail,
       body,
+    );
+  }
+
+  @Get('v1/event-participant/:quizId/is-participant-by-quiz-id')
+  @ApiOperation({ summary: 'Get quiz' })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiResponse({
+    description: 'event quiz response',
+    type: Boolean,
+  })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'quizId',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'userEmail',
+    required: true,
+    type: String,
+  })
+  async userIsParticipantInEventByQuizId(
+    @Param('quizId') quizId: string,
+    @Query('userEmail') userEmail: string,
+  ): Promise<Boolean> {
+    return await this.eventParticipantService.userIsParticipantInEventByQuizId(
+      quizId,
+      userEmail,
+    );
+  }
+
+  @Get('v1/event-participant/:linkId/is-participant-by-link-id')
+  @ApiOperation({ summary: 'Get quiz' })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiResponse({
+    type: UserIsParticipantInEventByLinkIdResponseDto,
+  })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'linkId',
+    required: true,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'userEmail',
+    required: true,
+    type: String,
+  })
+  async userIsParticipantInEventByLinkId(
+    @Param('linkId') linkId: string,
+    @Query('userEmail') userEmail: string,
+  ): Promise<UserIsParticipantInEventByLinkIdResponseDto> {
+    return await this.eventParticipantService.userIsParticipantInEventByLinkId(
+      linkId,
+      userEmail,
     );
   }
 
