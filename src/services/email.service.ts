@@ -1,5 +1,4 @@
-import Mailgun from 'mailgun.js';
-import * as formData from 'form-data';
+import Mailgun from 'mailgun.js';import * as formData from 'form-data';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
@@ -23,6 +22,7 @@ export type GeneratorEmailParticipant = {
   eventSlug: string;
   staffEmail: string;
   staffPassword: string;
+  days?: string;
 };
 
 @Injectable()
@@ -94,7 +94,7 @@ export class EmailService {
           generatorEmailParticipant.startDate.toDateString(),
         )
         .replace('[ENDDATE]', generatorEmailParticipant.endDate.toDateString())
-        .replace('[QRCODE]', generatorEmailParticipant.qrCode)
+        .replace('[DAYS]', generatorEmailParticipant.days)
         .replace('[INVICTACLUB]', generatorEmailParticipant.invictaClub);
 
       subject =
