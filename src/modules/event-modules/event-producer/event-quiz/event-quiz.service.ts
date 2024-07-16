@@ -466,6 +466,11 @@ export class EventQuizService {
                     isOther: option.isOther,
                     userResponse:
                       response.eventQuizQuestionOptionId === option.id,
+                    response:
+                      option.isOther &&
+                      response.eventQuizQuestionOptionId === option.id
+                        ? response.response
+                        : null,
                   }),
                 );
 
