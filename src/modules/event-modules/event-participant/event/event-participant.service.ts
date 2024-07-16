@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -1055,6 +1054,7 @@ export class EventParticipantService {
       let partId = null;
       const links = [];
       const lineItems = [];
+      let onlyReal = true;
 
       await Promise.all(
         eventTickets.map(async (ticket) => {
@@ -1094,9 +1094,14 @@ export class EventParticipantService {
               price: ticketPriceExist.stripePriceId,
               quantity: ticket.ticketQuantity,
             });
+
+            if (
+              ticketPriceExist.currency === 'USD' ||
+              ticketPriceExist.currency === 'EUR'
+            ) {
+              onlyReal = false;
+            }
           }
-          console.log(ticket.participant);
-          console.log(user.email);
           if (ticket.participant === user.email) {
             const participantExists =
               await this.prisma.eventParticipant.findFirst({
@@ -1216,6 +1221,7 @@ export class EventParticipantService {
       if (lineItems.length > 0) {
         const created = await this.stripe.checkoutSessionEventParticipant(
           lineItems,
+          onlyReal,
           partId ? partId : null,
         );
 

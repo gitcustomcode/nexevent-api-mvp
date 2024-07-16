@@ -86,14 +86,22 @@ export class StripeService {
 
   async checkoutSessionEventParticipant(
     lineItems: CheckoutSessionEventParticipantDto,
+    onlyReal: boolean,
     partId?: string,
   ) {
+    const paymentMethod: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] =
+      ['card'];
+
+    if (onlyReal) {
+      paymentMethod.push('boleto');
+    }
+
     const session = await this.stripe.checkout.sessions.create({
       line_items: lineItems,
       mode: 'payment',
       success_url: `${process.env.STRIPE_SUCCESS_PARTICIPANT_URL}${partId ? partId : ''}`,
       cancel_url: process.env.STRIPE_CANCEL_PARTICIPANT_URL,
-      payment_method_types: ['card', 'boleto'],
+      payment_method_types: paymentMethod,
       allow_promotion_codes: true,
     });
 
