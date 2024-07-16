@@ -1,4 +1,5 @@
-import { Cron, CronExpression } from '@nestjs/schedule';import { PrismaService } from 'src/services/prisma.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { PrismaService } from 'src/services/prisma.service';
 import { EventParticipant, Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import * as QRCode from 'qrcode';
@@ -100,7 +101,7 @@ export class EventParticipantCronService {
     return;
   }
 
-  @Cron(CronExpression.EVERY_10_SECONDS, {
+  /*  @Cron(CronExpression.EVERY_10_SECONDS, {
     name: 'deleteExpiredUserFacial',
   })
   async deleteExpiredUserFacial() {
@@ -132,7 +133,7 @@ export class EventParticipantCronService {
     });
 
     return;
-  }
+  } */
 
   @Cron(CronExpression.EVERY_30_SECONDS, {
     name: 'eventParticipantSendEmails',
@@ -160,8 +161,9 @@ export class EventParticipantCronService {
           },
         },
         eventTicket: {
-          select: {
-            title: true,
+          include: {
+            eventTicketDays: true,
+            event: true,
           },
         },
       },
@@ -172,6 +174,44 @@ export class EventParticipantCronService {
       const { name, email } = user;
       const { startAt, endAt, description, title: nameEvent } = event;
       const { title: nameTicket } = eventTicket;
+
+      let daysString = '';
+
+      if (eventTicket.eventTicketDays.length > 0) {
+        eventTicket.eventTicketDays.forEach((day, index) => {
+          const formattedDate = day.date.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          });
+
+          if (index === 0) {
+            daysString += formattedDate;
+          } else {
+            daysString += `, ${formattedDate}`;
+          }
+        });
+      } else {
+        const newStartAt = new Date(eventTicket.event.startAt);
+        const newEndAt = new Date(eventTicket.event.endAt);
+        let currentDate = newStartAt;
+
+        while (currentDate <= newEndAt) {
+          const formattedDate = currentDate.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          });
+
+          if (daysString !== '') {
+            daysString += `, ${formattedDate}`;
+          } else {
+            daysString += formattedDate;
+          }
+
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      }
 
       const qrCodeBase64 = await QRCode.toDataURL(eventParticipant.qrcode);
 
@@ -193,6 +233,7 @@ export class EventParticipantCronService {
         eventSlug: '',
         staffEmail: '',
         staffPassword: '',
+        days: daysString,
       });
 
       await this.prisma.eventParticipant.update({
