@@ -424,56 +424,74 @@ export class EventQuizService {
       await Promise.all(
         eventQuizParticipant.EventQuizParticipantResponse.map(
           async (response) => {
-            if (response.eventQuizQuestion.questionType === 'DESCRIPTIVE') {
-              questionsResponsesMap.set(response.eventQuizQuestionId, {
-                responseId: response.id,
-                eventQuizQuestionId: response.eventQuizQuestionId,
-                questionDescription: response.eventQuizQuestion.description,
-                sequential: response.eventQuizQuestion.sequential,
-                questionType: response.eventQuizQuestion.questionType,
-                isMandatory: response.eventQuizQuestion.isMandatory,
-                multipleChoice: response.eventQuizQuestion.multipleChoice,
-                response: response.response,
-              });
-            } else if (response.eventQuizQuestion.questionType === 'RATING') {
-              questionsResponsesMap.set(response.eventQuizQuestionId, {
-                responseId: response.id,
-                eventQuizQuestionId: response.eventQuizQuestionId,
-                questionDescription: response.eventQuizQuestion.description,
-                sequential: response.eventQuizQuestion.sequential,
-                questionType: response.eventQuizQuestion.questionType,
-                isMandatory: response.eventQuizQuestion.isMandatory,
-                multipleChoice: response.eventQuizQuestion.multipleChoice,
-                rating: response.rating,
-              });
-            } else if (
-              response.eventQuizQuestion.questionType === 'MULTIPLE_CHOICE'
-            ) {
-              const questionOptions =
-                await this.prisma.eventQuizQuestionOption.findMany({
-                  where: {
-                    eventQuizQuestionId: response.eventQuizQuestionId,
-                  },
+            switch (response.eventQuizQuestion.questionType) {
+              case 'DESCRIPTIVE':
+                questionsResponsesMap.set(response.eventQuizQuestionId, {
+                  responseId: response.id,
+                  eventQuizQuestionId: response.eventQuizQuestionId,
+                  questionDescription: response.eventQuizQuestion.description,
+                  sequential: response.eventQuizQuestion.sequential,
+                  questionType: response.eventQuizQuestion.questionType,
+                  isMandatory: response.eventQuizQuestion.isMandatory,
+                  multipleChoice: response.eventQuizQuestion.multipleChoice,
+                  response: response.response,
                 });
+                break;
 
-              const eventQuizQuestionOption = questionOptions.map((option) => ({
-                eventQuizQuestionOptionId: option.id,
-                optionDescription: option.description,
-                isOther: option.isOther,
-                userResponse: response.eventQuizQuestionOptionId === option.id,
-              }));
+              case 'RATING':
+                questionsResponsesMap.set(response.eventQuizQuestionId, {
+                  responseId: response.id,
+                  eventQuizQuestionId: response.eventQuizQuestionId,
+                  questionDescription: response.eventQuizQuestion.description,
+                  sequential: response.eventQuizQuestion.sequential,
+                  questionType: response.eventQuizQuestion.questionType,
+                  isMandatory: response.eventQuizQuestion.isMandatory,
+                  multipleChoice: response.eventQuizQuestion.multipleChoice,
+                  rating: response.rating,
+                });
+                break;
 
-              questionsResponsesMap.set(response.eventQuizQuestionId, {
-                responseId: response.id,
-                eventQuizQuestionId: response.eventQuizQuestionId,
-                questionDescription: response.eventQuizQuestion.description,
-                sequential: response.eventQuizQuestion.sequential,
-                questionType: response.eventQuizQuestion.questionType,
-                isMandatory: response.eventQuizQuestion.isMandatory,
-                multipleChoice: response.eventQuizQuestion.multipleChoice,
-                response: response.response,
-                eventQuizQuestionOption,
-              });
+              case 'MULTIPLE_CHOICE':
+                const questionOptions =
+                  await this.prisma.eventQuizQuestionOption.findMany({
+                    where: {
+                      eventQuizQuestionId: response.eventQuizQuestionId,
+                    },
+                  });
+
+                const eventQuizQuestionOption = questionOptions.map(
+                  (option) => ({
+                    eventQuizQuestionOptionId: option.id,
+                    optionDescription: option.description,
+                    isOther: option.isOther,
+                    userResponse:
+                      response.eventQuizQuestionOptionId === option.id,
+                    response:
+                      option.isOther &&
+                      response.eventQuizQuestionOptionId === option.id
+                        ? response.response
+                        : null,
+                  }),
+                );
+
+                questionsResponsesMap.set(response.eventQuizQuestionId, {
+                  responseId: response.id,
+                  eventQuizQuestionId: response.eventQuizQuestionId,
+                  questionDescription: response.eventQuizQuestion.description,
+                  sequential: response.eventQuizQuestion.sequential,
+                  questionType: response.eventQuizQuestion.questionType,
+                  isMandatory: response.eventQuizQuestion.isMandatory,
+                  multipleChoice: response.eventQuizQuestion.multipleChoice,
+                  response: response.response,
+                  eventQuizQuestionOption,
+                });
+                break;
+
+              default:
+                console.warn(
+                  `Unknown question type: ${response.eventQuizQuestion.questionType}`,
+                );
+                break;
             }
           },
         ),
