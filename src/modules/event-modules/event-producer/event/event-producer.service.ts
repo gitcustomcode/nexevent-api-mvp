@@ -363,17 +363,18 @@ export class EventProducerService {
         );
       }
 
-      const u = await this.prisma.user.findUnique({
-        where: {
-          email: user.email,
-        },
-      });
+      const userInformationToCreateUserAsStaff =
+        await this.prisma.user.findUnique({
+          where: {
+            email: user.email,
+          },
+        });
 
       await this.prisma.eventStaff.create({
         data: {
           eventId: createdEvent.id,
           email: user.email,
-          password: u.password,
+          password: userInformationToCreateUserAsStaff.password,
         },
       });
 
