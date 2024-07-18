@@ -1,4 +1,5 @@
-import {  Body,
+import {
+  Body,
   Controller,
   Get,
   Param,
@@ -46,6 +47,7 @@ import {
   QuizCreateResponseDto,
   FindTicketByLinkResponseDto,
   UserIsParticipantInEventByLinkIdResponseDto,
+  ParticipantSocialNetworks,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
@@ -545,6 +547,24 @@ export class EventParticipantController {
     return await this.eventParticipantService.eventTicketInfo(
       userId,
       eventSlug,
+    );
+  }
+
+  @Get('v1/event-participant/get-social-networks')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'get social networks of event participant' })
+  @ApiResponse({
+    type: ParticipantSocialNetworks,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  async getAllParticipantNetworks(
+    @Request() req: any,
+  ): Promise<ParticipantSocialNetworks> {
+    const userEmail = req.auth.user.email;
+    return await this.eventParticipantService.getAllParticipantNetworks(
+      userEmail,
     );
   }
 
