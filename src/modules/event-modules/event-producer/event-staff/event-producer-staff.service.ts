@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -225,6 +226,27 @@ export class EventProducerStaffService {
         eventSlug,
         userEmail.toLowerCase(),
       );
+
+      const staffExists = await this.prisma.eventStaff.findUnique({
+        where: {
+          id: staffId,
+          eventId: event.id,
+        },
+      });
+
+      const userProducer = await this.prisma.user.findUnique({
+        where: {
+          id: event.userId,
+        },
+      });
+
+      if (!staffExists) throw new NotFoundException('Staff not found');
+
+      if (staffExists.email === userProducer.email) {
+        throw new BadRequestException(
+          'Não é possivel deletar o produtor do evento da equipe',
+        );
+      }
 
       await this.prisma.eventStaff.delete({
         where: {
