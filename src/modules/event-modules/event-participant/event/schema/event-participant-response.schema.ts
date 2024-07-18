@@ -2,6 +2,7 @@ import {  CredentialType,
   EventLocation,
   EventQuizStatus,
   QuestionType,
+  UserNetworkType,
 } from '@prisma/client';
 import { z } from 'nestjs-zod/z';
 
@@ -254,4 +255,10 @@ export const UserIsParticipantInEventByLinkIdResponseSchema = z.object({
   isParticipant: z.boolean(),
   participantId: z.string().nullish(),
   haveFacial: z.boolean(),
+});
+
+export const ParticipantSocialNetworSchema = z.object({
+  id: z.number(),
+  network: z.nativeEnum(UserNetworkType).describe('User network type'),
+  username: z.string().describe('User network name'),
 });

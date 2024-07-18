@@ -15,6 +15,7 @@ import {
   QuizCreateResponseSchema,
   FindTicketByLinkResponseSchema,
   UserIsParticipantInEventByLinkIdResponseSchema,
+  ParticipantSocialNetworSchema,
 } from '../schema/event-participant-response.schema';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationResponse } from 'src/dtos/pagination.dto';
@@ -62,6 +63,17 @@ export class FindTicketByLinkResponseDto extends createZodDto(
 export class UserIsParticipantInEventByLinkIdResponseDto extends createZodDto(
   UserIsParticipantInEventByLinkIdResponseSchema,
 ) {}
+
+export class ParticipantSocialNetworDto extends createZodDto(
+  ParticipantSocialNetworSchema,
+) {}
+
+export class ParticipantSocialNetworks {
+  @ApiProperty({
+    type: () => [ParticipantSocialNetworDto],
+  })
+  data: ParticipantSocialNetworDto[];
+}
 
 export class FindAllPublicEvents {
   @ApiProperty({
