@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';import { ConfigService } from '@nestjs/config';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';import { ConfigService } from '@nestjs/config';
 import { PrismaService } from './prisma.service';
 import { StorageService, StorageServiceType } from './storage.service';
 
@@ -12,6 +12,14 @@ export class FaceValidationService {
 
   async validateWithFacial(userPhoto: Express.Multer.File) {
     try {
+      const validFace = await this.storageService.isFaceValid(userPhoto.buffer);
+
+      if (!validFace.isValid) {
+        throw new UnprocessableEntityException(
+          'A foto não possui um rosto, por favor tente novamente',
+        );
+      }
+
       const usersFacials = await this.prisma.userFacial.findMany({
         include: {
           user: true,
