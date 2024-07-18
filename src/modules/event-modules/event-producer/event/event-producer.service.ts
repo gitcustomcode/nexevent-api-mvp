@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -361,6 +362,20 @@ export class EventProducerService {
           body,
         );
       }
+
+      const u = await this.prisma.user.findUnique({
+        where: {
+          email: user.email,
+        },
+      });
+
+      await this.prisma.eventStaff.create({
+        data: {
+          eventId: createdEvent.id,
+          email: user.email,
+          password: u.password,
+        },
+      });
 
       return {
         id: createdEvent.id,
