@@ -38,6 +38,8 @@ import {
   QuizCreateResponseDto,
   FindTicketByLinkResponseDto,
   UserIsParticipantInEventByLinkIdResponseDto,
+  ParticipantSocialNetworks,
+  ParticipantSocialNetworDto,
 } from './dto/event-participant-response.dto';
 import { ClickSignApiService } from 'src/services/click-sign.service';
 import * as mime from 'mime-types';
@@ -336,6 +338,47 @@ export class EventParticipantService {
         eventParticipantId: participantUpdated.id,
         participantStatus: participantUpdated.status,
       };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getAllParticipantNetworks(
+    userEmail: string,
+  ): Promise<ParticipantSocialNetworks> {
+    try {
+      const userExists = await this.prisma.user.findUnique({
+        where: {
+          email: userEmail.toLocaleLowerCase(),
+        },
+        include: {
+          userSocials: true,
+        },
+      });
+
+      if (!userExists) throw new NotFoundException('User not found');
+
+      if (userExists.userSocials.length <= 0) {
+        return;
+      }
+
+      const socialFormatted: ParticipantSocialNetworDto[] = [];
+
+      for (const social of userExists.userSocials) {
+        if (social.username) {
+          socialFormatted.push({
+            id: social.id,
+            network: social.network,
+            username: social.username,
+          });
+        }
+      }
+
+      const response: ParticipantSocialNetworks = {
+        data: socialFormatted,
+      };
+
+      return response;
     } catch (error) {
       throw error;
     }
