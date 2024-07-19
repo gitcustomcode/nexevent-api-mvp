@@ -81,3 +81,18 @@ export const EventTicketLinkResponseSchema = z.array(
     ),
   }),
 );
+
+export const EventTicketLinkByEmailSchema = z.object({ 
+  users: z.array(
+    z.object({
+      name: z.string(),
+      email: z.string(),
+    })
+  ),
+  uncompleted: z.array(
+    z.object({
+      line: z.number(),
+      reason: z.string(),
+    })
+  ),
+})

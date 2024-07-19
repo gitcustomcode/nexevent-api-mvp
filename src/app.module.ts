@@ -14,9 +14,15 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { EventProducerStaffModule } from './modules/event-modules/event-producer/event-staff/event-producer-staff.module';
 import { EventParticipantCronModule } from './modules/cron-modules/event-participant-cron/event-participant-cron.module';
 import { EventQuizModule } from './modules/event-modules/event-producer/event-quiz/event.quiz.module';
+import { ConfigModule } from '@nestjs/config';
+import variables from './variables';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [variables],
+    }),
     ScheduleModule.forRoot(),
     AuthModule,
     UserProducerModule,
