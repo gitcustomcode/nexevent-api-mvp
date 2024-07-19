@@ -1,4 +1,5 @@
-import {  Body,
+import {
+  Body,
   Controller,
   Get,
   Patch,
@@ -191,6 +192,21 @@ export class UserProducerController {
   ) {
     const email = req.auth.user.email;
     return await this.userProducerService.uploadProfilePhoto(email, file);
+  }
+
+  @Get('v1/user/have-facial')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'User have facial' })
+  @ApiResponse({
+    description: 'User have facial',
+    type: Boolean,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  async userHaveFacial(@Request() req: any): Promise<boolean> {
+    const userId = req.auth.user.id;
+    return this.userProducerService.userHaveFacial(userId);
   }
 
   @Post('video')
