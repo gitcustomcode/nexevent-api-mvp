@@ -6,12 +6,15 @@ import {  Body,
   Post,
   Query,
   Request,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiInternalServerErrorResponse,
   ApiOperation,
@@ -30,9 +33,11 @@ import { EventTicketUpdateDto } from './dto/event-ticket-producer-update.dto';
 import {
   EventTicketCouponDashboardDto,
   EventTicketCouponsResponse,
+  EventTicketLinkByEmailResponse,
   EventTicketLinkResponse,
   EventTicketsResponse,
 } from './dto/event-ticket-producer-response.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Event Producer Tickets')
 @Controller('event-producer')
@@ -305,4 +310,53 @@ export class EventTicketProducerController {
       Number(perPage),
     );
   }
+
+@Post('v1/event-producer/:eventSlug/sendInviteLinkByEmail/:ticketBatchId')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Send invite link participant by email' })
+  @ApiCreatedResponse({
+    description: 'invite link sent',
+    type: EventTicketLinkByEmailResponse,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    required: true,
+    type: String,
+  })
+  @ApiParam({
+    name: 'ticketBatchId',
+    required: true,
+    type: String,
+  })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async sendInviteLinkByEmail(
+    @Param('eventSlug') eventSlug: string,
+    @Param('ticketBatchId') ticketBatchId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req: any,
+  ): Promise<EventTicketLinkByEmailResponse> {
+    const userEmail = req.auth.user.email;
+    return this.eventTicketProducerService.sendInviteLinkByEmail(
+      userEmail,
+      eventSlug,
+      ticketBatchId,
+      file
+    );
+  }
+
 }

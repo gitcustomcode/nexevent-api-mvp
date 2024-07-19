@@ -9,6 +9,7 @@ import variables from 'src/variables';
 import { PaginationService } from 'src/services/paginate.service';
 import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
 import { StripeService } from 'src/services/stripe.service';
+import { EmailService } from 'src/services/email.service';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { StripeService } from 'src/services/stripe.service';
     PaginationService,
     StripeService,
     EventTicketProducerService,
+    EmailService,
   ],
 })
 export class EventProducerModule {}

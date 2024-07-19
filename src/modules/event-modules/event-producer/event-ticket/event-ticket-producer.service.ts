@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -15,6 +16,8 @@ import { EventTicketUpdateDto } from './dto/event-ticket-producer-update.dto';
 import {
   EventTicketCouponDashboardDto,
   EventTicketCouponsResponse,
+  EventTicketLinkByEmailResponse,
+  EventTicketLinkByEmailResponseDto,
   EventTicketLinkResponse,
   EventTicketLinkResponseDto,
   EventTicketsResponse,
@@ -23,6 +26,12 @@ import { Prisma } from '@prisma/client';
 import { PaginationService } from 'src/services/paginate.service';
 import { StripeService } from 'src/services/stripe.service';
 import { randomUUID } from 'crypto';
+import { Readable } from 'stream';
+import csvParser from 'csv-parser';
+import * as xlsx from 'xlsx';
+import { validateEmail } from 'src/utils/email-validator';
+import { EmailService } from 'src/services/email.service';
+import * as readline from 'readline';
 
 @Injectable()
 export class EventTicketProducerService {
@@ -31,6 +40,7 @@ export class EventTicketProducerService {
     private readonly userProducerValidationService: UserProducerValidationService,
     private readonly paginationService: PaginationService,
     private readonly stripe: StripeService,
+    private readonly emailService: EmailService,
   ) {}
 
   async createEventTicket(
@@ -168,24 +178,6 @@ export class EventTicketProducerService {
                   : new Date(),
                 stripePriceId: stripePriceId,
               });
-
-              if (body.isPrivate) {
-                if (joker) {
-                  eventLinks.push({
-                    eventTicketId: ticketId,
-                    eventTicketPriceId: eventTicketPriceId,
-                    invite: ticketPrice.guests,
-                  });
-                } else {
-                  for (let i = 0; i < ticketPrice.guests; i++) {
-                    eventLinks.push({
-                      eventTicketId: ticketId,
-                      eventTicketPriceId: eventTicketPriceId,
-                      invite: 1,
-                    });
-                  }
-                }
-              }
             } else {
               throw new UnprocessableEntityException(`Currency not accepted`);
             }
@@ -785,4 +777,194 @@ export class EventTicketProducerService {
       throw error;
     }
   }
+
+  async sendInviteLinkByEmail(
+    userEmail: string,
+    eventSlug: string,
+    ticketBatchId: string,
+    file: Express.Multer.File
+  ){
+    const user = await this.prisma.user.findUnique({
+        where: {
+          email: userEmail.toLowerCase(),
+        },
+      });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const event = await this.prisma.event.findUnique({
+        where: {
+          slug: eventSlug,
+          userId: user.id,
+        },
+      });
+
+    if (!event) throw new NotFoundException('Event not found');
+
+    const ticketBatch = await this.prisma.eventTicketPrice.findUnique({
+      where:{
+        id: ticketBatchId
+      },
+      include: {
+        eventTicket:{
+          include:{
+            event : true
+          }
+        }
+      }
+    })
+
+    if(!ticketBatch) throw new NotFoundException("Ticket batch not found");
+
+    if (ticketBatch.eventTicket.event.id !== event.id) throw new ConflictException("This ticket batch does not belong to this event")
+
+    const fileExtension = file.originalname.split('.').pop().toLowerCase();
+
+    let result: EventTicketLinkByEmailResponseDto = {};
+    if (fileExtension === 'csv') {
+      result = await this.processCSV(file);
+    } else if (fileExtension === 'xlsx') {
+      result = await this.processXLSX(file);
+    } else {
+      throw new BadRequestException('Unsupported file type');
+    }
+
+    if(result.users.length > ticketBatch.guests) throw new ConflictException("Number of guests greater than the number of tickets available")
+    
+    if(result.users.length === 0) throw new BadRequestException("No valid participants in the file sent")
+
+    const linkPromises = result.users.map(async (participant) => {
+    const data = {
+      to: participant.email.toLowerCase(),
+      name: participant.email,
+      type: 'sendLinkByEmail',
+    };
+
+    let link = await this.prisma.eventTicketLink.create({
+      data: {
+        eventTicketId: ticketBatch.eventTicket.id,
+        eventTicketPriceId: ticketBatch.id,
+        invite: 1,
+      }
+    });
+
+    await this.emailService.sendEmail(data, {
+      description: participant.name,
+      endDate: new Date(),
+      eventName: event.title,
+      eventSlug: event.slug,
+      invictaClub: `${process.env.EMAIL_URL_GUEST}/${link.id}/${event.slug}`,
+      qrCode: '',
+      qrCodeHtml: '',
+      staffEmail: participant.email.toLowerCase(),
+      staffPassword: "",
+      startDate: new Date(),
+      ticketName: '',
+    });
+  });
+
+  // Await all promises
+  await Promise.all(linkPromises);
+ 
+  const response : EventTicketLinkByEmailResponse = {data : result}
+  return response;
+  }
+
+
+private async processCSV(file: Express.Multer.File): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const users = [];
+    const uncompleted = [];
+    const stream = Readable.from(file.buffer);
+    const line = readline.createInterface({
+      input: stream,
+    });
+
+    let index = 0;
+
+    line.on('line', (data) => {
+      index += 1;
+      let csv = data.split(';');
+
+      const user = {
+        name: csv[0] || null,
+        email: csv[1] || null,
+      };
+
+      if (!user.name && !user.email) {
+        return;
+      }
+
+      if (!user.name) {
+        uncompleted.push({ line: index, reason: "No name" });
+        return;
+      }
+
+      if (!user.email) {
+        uncompleted.push({ line: index, reason: "No email" });
+        return;
+      }
+
+      if (!validateEmail(user.email)) {
+        uncompleted.push({ line: index, reason: "Invalid email" });
+        return;
+      }
+
+      users.push(user);
+    });
+
+    line.on('close', () => {
+      resolve({ users, uncompleted });
+    });
+
+    line.on('error', (error) => {
+      reject(error);
+    });
+  });
+}
+
+  private async processXLSX(file: Express.Multer.File): Promise<any> {
+    const workbook = xlsx.read(file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+
+    let users = [];
+    let uncompleted = [];
+
+    data.forEach((row, index) => {
+      let realLine = index + 1
+
+      let user = {
+        name: row[0] || null,
+        email: row[1] || null,
+      };
+
+      if (!user.name && !user.email) {
+        return
+      }
+
+      if (!user.name) {
+        uncompleted.push({line: realLine, reason: "No name"});
+        return;
+      } 
+
+      if (!user.email) {
+        uncompleted.push({line: realLine, reason: "No email"});
+        return;
+      }
+
+      if(!validateEmail(user.email)){
+          uncompleted.push({line: realLine, reason: "Invalid email"});
+        return
+      }
+          
+      users.push(user);
+      
+    });
+
+    return { users, uncompleted };
+  }
+
+
 }

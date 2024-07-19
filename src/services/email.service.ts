@@ -114,7 +114,18 @@ export class EmailService {
       subject =
         '[NEX EVENT] Acesso para credenciar o evento: ' +
         generatorEmailParticipant.eventName;
-    } else {
+    } else if (type == 'sendLinkByEmail') {
+      html = await fs
+        .readFileSync('src/templates/emails/emailGuest/index.html', 'utf-8')
+        .replace('[USERNAME]', generatorEmailParticipant.description)
+        .replaceAll('[URL]', generatorEmailParticipant.invictaClub)
+
+      subject =
+        '[NEX EVENT] Você foi convidado para participar do evento ' +
+        generatorEmailParticipant.eventName;
+    }
+    
+    else {
       throw new NotFoundException('Type of email not found!');
     }
 
