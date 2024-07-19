@@ -48,5 +48,4 @@ export const EventTicketCreateSchema = z.object({
   eventTicketPrices: z.array(EventTicketPriceCreateSchema),
   eventTicketDays: z.array(EventTicketDaysSchema),
   eventTicketBonuses: z.array(EventTicketBonusesSchema).optional(),
-  joker: z.boolean(),
 });

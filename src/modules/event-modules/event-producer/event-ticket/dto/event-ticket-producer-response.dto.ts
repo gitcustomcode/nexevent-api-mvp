@@ -4,6 +4,7 @@ import {
   EventTicketCouponResponseSchema,
   EventTicketDashboardResponseSchema,
   EventTicketLinkByEmailSchema,
+  EventTicketLinkCreateSchema,
   EventTicketLinkResponseSchema,
 } from '../schema/event-ticket-producer-response.schema';
 import { ApiProperty } from '@nestjs/swagger';
@@ -28,6 +29,18 @@ export class EventTicketLinkResponseDto extends createZodDto(
 export class EventTicketLinkByEmailResponseDto extends createZodDto(
   EventTicketLinkByEmailSchema,
 ) {}
+
+export class EventTicketLinkCreateResponseDto extends createZodDto(
+  EventTicketLinkCreateSchema,
+) {}
+
+export class EventTicketLinkCreateResponse{
+  @ApiProperty({
+    type: () => EventTicketLinkCreateResponseDto,
+  })
+  data: EventTicketLinkCreateResponseDto;
+}
+
 
 export class EventTicketsResponse {
   @ApiProperty({

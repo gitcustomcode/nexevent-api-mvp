@@ -353,7 +353,6 @@ export class EventProducerService {
           eventTicketBonuses: ticket.eventTicketBonuses,
           eventTicketDays: ticket.eventTicketDays,
           isBonus: ticket.isBonus,
-          joker: ticket.joker,
         };
 
         await this.eventTicketProducerService.createEventTicket(
