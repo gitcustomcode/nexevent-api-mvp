@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -344,6 +345,29 @@ export class UserProducerService {
       });
 
       return 'Photo uploaded successfully';
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async userHaveFacial(userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+        include: {
+          userFacials: true,
+        },
+      });
+
+      let haveFacial = false;
+
+      if (user.userFacials.length > 0) {
+        haveFacial = true;
+      }
+
+      return haveFacial;
     } catch (error) {
       throw error;
     }
