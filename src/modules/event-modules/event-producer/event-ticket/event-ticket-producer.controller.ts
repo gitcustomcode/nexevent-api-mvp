@@ -311,7 +311,7 @@ export class EventTicketProducerController {
     );
   }
 
-@Post('v1/event-producer/:eventSlug/sendInviteLinkByEmail/:ticketBatchId')
+@Post('v1/event-producer/:eventSlug/send-invite-link-by-email/:ticketBatchId')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Send invite link participant by email' })
