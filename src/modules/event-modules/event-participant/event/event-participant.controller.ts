@@ -1,5 +1,4 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Get,
   Param,
@@ -173,6 +172,35 @@ export class EventParticipantController {
     @Param('slug') slug: string,
   ): Promise<FindOnePublicEventsDto> {
     return await this.eventParticipantService.findOnePublicEvent(slug);
+  }
+
+  @Get('v1/event-participant/:slug/:linkId/verify-is-avaible')
+  @ApiOperation({ summary: 'Get one event public' })
+  @ApiResponse({
+    type: Boolean,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'slug',
+    type: String,
+    required: true,
+    description: 'Event slug',
+  })
+  @ApiParam({
+    name: 'linkId',
+    type: String,
+    required: true,
+    description: 'Link id',
+  })
+  async checkTicketIsAvaible(
+    @Param('slug') slug: string,
+    @Param('linkId') linkId: string,
+  ): Promise<boolean> {
+    return await this.eventParticipantService.checkTicketIsAvaible(
+      slug,
+      linkId,
+    );
   }
 
   @Get('v1/event-participant/:partId/thanks-screen')
