@@ -77,7 +77,7 @@ export class EmailService {
     } else if (type == 'verifyEmail') {
       html = await fs
         .readFileSync('src/templates/emails/verifyEmail/index.html', 'utf-8')
-        .replace('[USERNAME]', name.split(' ')[0])
+        .replace('[USERNAME]', name ? name.split(' ')[0] : '')
         .replace('[CODE]', code);
 
       subject = 'Código de verificação do email';
@@ -118,14 +118,12 @@ export class EmailService {
       html = await fs
         .readFileSync('src/templates/emails/emailGuest/index.html', 'utf-8')
         .replace('[USERNAME]', generatorEmailParticipant.description)
-        .replaceAll('[URL]', generatorEmailParticipant.invictaClub)
+        .replaceAll('[URL]', generatorEmailParticipant.invictaClub);
 
       subject =
         '[NEX EVENT] Você foi convidado para participar do evento ' +
         generatorEmailParticipant.eventName;
-    }
-    
-    else {
+    } else {
       throw new NotFoundException('Type of email not found!');
     }
 
