@@ -1925,6 +1925,36 @@ export class EventParticipantService {
     }
   }
 
+  async checkTicketIsAvaible(
+    eventSlug: string,
+    linkId: string,
+  ): Promise<boolean> {
+    try {
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug: eventSlug,
+          status: 'ENABLE',
+        },
+      });
+
+      if (!event) throw new NotFoundException('Event not found or disable');
+
+      const ticketExists = await this.prisma.eventTicketLink.findUnique({
+        where: {
+          id: linkId,
+          eventTicket: {
+            eventId: event.id,
+          },
+          status: { not: 'FULL' },
+        },
+      });
+
+      return ticketExists ? true : false;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   private async createTermSignatorie(userId: string) {
     try {
       const user = await this.prisma.user.findUnique({
