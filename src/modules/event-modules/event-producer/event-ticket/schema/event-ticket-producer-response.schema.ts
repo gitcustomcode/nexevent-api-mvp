@@ -97,6 +97,6 @@ export const EventTicketLinkByEmailSchema = z.object({
   ),
 })
 
-export const EventTicketLinkCreateSchema = z.object({
+export const EventTicketLinkCreateResponseSchema = z.object({
   id : z.string()
 })

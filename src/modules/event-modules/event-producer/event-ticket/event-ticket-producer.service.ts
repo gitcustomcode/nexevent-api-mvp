@@ -19,7 +19,6 @@ import {
   EventTicketCouponsResponse,
   EventTicketLinkByEmailResponse,
   EventTicketLinkByEmailResponseDto,
-  EventTicketLinkCreateResponse,
   EventTicketLinkCreateResponseDto,
   EventTicketLinkResponse,
   EventTicketLinkResponseDto,
@@ -771,7 +770,7 @@ export class EventTicketProducerService {
     userEmail: string,
     eventSlug: string,
     ticketBatchId: string
-  ){
+  ): Promise<EventTicketLinkCreateResponseDto>{
     const user = await this.prisma.user.findUnique({
       where: {
         email: userEmail.toLowerCase(),
@@ -802,10 +801,10 @@ export class EventTicketProducerService {
         EventTicketLink: true
       }
     })
-    
-    if(!ticketBatch.eventTicket.isPrivate) throw new ConflictException("Can not generate private link because this ticket is public")
 
     if(!ticketBatch) throw new NotFoundException("Ticket batch not found");
+
+    if(!ticketBatch.eventTicket.isPrivate) throw new ConflictException("Can not generate private link because this ticket is public")
 
     if (ticketBatch.eventTicket.event.id !== event.id) throw new ConflictException("This ticket batch does not belong to this event")
     
@@ -814,7 +813,7 @@ export class EventTicketProducerService {
       totalInvites += link.invite
     })
    
-    let link : EventTicketLinkCreateResponseDto;
+    let link : EventTicketLinkCreateResponseDto = null;
 
     if (totalInvites < ticketBatch.guests ){
     link = await this.prisma.eventTicketLink.create({
@@ -829,8 +828,7 @@ export class EventTicketProducerService {
     }
     link = { id : link.id}
 
-    const response : EventTicketLinkCreateResponse = { data: link}
-    return response;
+    return link;
     
   }
 
