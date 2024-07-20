@@ -34,6 +34,7 @@ import {
   EventTicketCouponDashboardDto,
   EventTicketCouponsResponse,
   EventTicketLinkByEmailResponse,
+  EventTicketLinkCreateResponseDto,
   EventTicketLinkResponse,
   EventTicketsResponse,
 } from './dto/event-ticket-producer-response.dto';
@@ -356,6 +357,39 @@ export class EventTicketProducerController {
       eventSlug,
       ticketBatchId,
       file
+    );
+  }
+
+  @Post('v1/event-producer/:eventSlug/create-private-link/:ticketBatchId')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Create invite link by private ticket' })
+  @ApiCreatedResponse({
+    description: 'Invite private link created',
+    type: EventTicketLinkCreateResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'eventSlug',
+    required: true,
+    type: String,
+  })
+  @ApiParam({
+    name: 'ticketBatchId',
+    required: true,
+    type: String,
+  })
+  async createPrivateTicketLink(
+    @Param('eventSlug') eventSlug: string,
+    @Param('ticketBatchId') ticketBatchId: string,
+    @Request() req: any,
+  ): Promise<EventTicketLinkCreateResponseDto> {
+    const userEmail = req.auth.user.email;
+    return this.eventTicketProducerService.createPrivateTicketLink(
+      userEmail,
+      eventSlug,
+      ticketBatchId
     );
   }
 

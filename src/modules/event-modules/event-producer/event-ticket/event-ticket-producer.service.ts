@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotAcceptableException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import {
   EventTicketCouponsResponse,
   EventTicketLinkByEmailResponse,
   EventTicketLinkByEmailResponseDto,
+  EventTicketLinkCreateResponseDto,
   EventTicketLinkResponse,
   EventTicketLinkResponseDto,
   EventTicketsResponse,
@@ -57,7 +59,6 @@ export class EventTicketProducerService {
         eventTicketBonuses,
         eventTicketDays,
         isBonus,
-        joker,
       } = body;
       const slug = generateSlug(title);
       const ticketId = randomUUID();
@@ -80,7 +81,7 @@ export class EventTicketProducerService {
         body.isPrivate = true;
       }
 
-      const eventLinks: Prisma.EventTicketLinkCreateManyInput[] = [];
+    
       const eventTicketPricesArr: Prisma.EventTicketPriceCreateManyInput[] = [];
 
       const newStartAt = new Date(event.startAt);
@@ -202,13 +203,6 @@ export class EventTicketProducerService {
               stripePriceId: null,
             });
             ticketGuests += ticketPrice.guests;
-            if (body.isPrivate) {
-              eventLinks.push({
-                eventTicketId: ticketId,
-                eventTicketPriceId: eventTicketPriceId,
-                invite: ticketPrice.guests,
-              });
-            }
           }),
         );
       }
@@ -253,12 +247,6 @@ export class EventTicketProducerService {
       if (bonus.length > 0) {
         await this.prisma.eventTicketBonus.createMany({
           data: bonus,
-        });
-      }
-
-      if (eventLinks.length > 0) {
-        await this.prisma.eventTicketLink.createMany({
-          data: eventLinks,
         });
       }
 
@@ -778,6 +766,72 @@ export class EventTicketProducerService {
     }
   }
 
+  async createPrivateTicketLink(
+    userEmail: string,
+    eventSlug: string,
+    ticketBatchId: string
+  ): Promise<EventTicketLinkCreateResponseDto>{
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email: userEmail.toLowerCase(),
+      },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const event = await this.prisma.event.findUnique({
+      where: {
+        slug: eventSlug,
+        userId: user.id,
+      },
+    });
+
+    if (!event) throw new NotFoundException('Event not found');
+
+    const ticketBatch = await this.prisma.eventTicketPrice.findUnique({
+      where:{
+        id: ticketBatchId
+      },
+      include: {
+        eventTicket:{
+          include:{
+            event : true
+          }
+        },
+        EventTicketLink: true
+      }
+    })
+
+    if(!ticketBatch) throw new NotFoundException("Ticket batch not found");
+
+    if(!ticketBatch.eventTicket.isPrivate) throw new ConflictException("Can not generate private link because this ticket is public")
+
+    if (ticketBatch.eventTicket.event.id !== event.id) throw new ConflictException("This ticket batch does not belong to this event")
+    
+    let totalInvites = 0;
+    ticketBatch.EventTicketLink.map((link)=>{
+      totalInvites += link.invite
+    })
+   
+    let link : EventTicketLinkCreateResponseDto = null;
+
+    if (totalInvites < ticketBatch.guests ){
+    link = await this.prisma.eventTicketLink.create({
+      data: {
+        eventTicketId: ticketBatch.eventTicket.id,
+        eventTicketPriceId: ticketBatch.id,
+        invite: 1,
+      }
+    });
+    } else {
+      throw new ConflictException("You already generate all links available for this batch")
+    }
+    link = { id : link.id}
+
+    return link;
+    
+  }
+
   async sendInviteLinkByEmail(
     userEmail: string,
     eventSlug: string,
@@ -828,6 +882,8 @@ export class EventTicketProducerService {
     } else {
       throw new BadRequestException('Unsupported file type');
     }
+
+    if(result.uncompleted.length > 0) throw new UnprocessableEntityException(result.uncompleted)
 
     if(result.users.length > ticketBatch.guests) throw new ConflictException("Number of guests greater than the number of tickets available")
     
