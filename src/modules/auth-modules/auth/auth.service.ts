@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -94,7 +95,7 @@ export class AuthService {
     }
   }
 
-  async staffLogin(
+  /*  async staffLogin(
     eventSlug: string,
     email: string,
     password: string,
@@ -140,7 +141,7 @@ export class AuthService {
     } catch (error) {
       throw error;
     }
-  }
+  } */
 
   async loginWithFacial(
     email: string,

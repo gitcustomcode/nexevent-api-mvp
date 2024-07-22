@@ -1,4 +1,5 @@
-import {  Controller,
+import {
+  Controller,
   Get,
   Header,
   NotFoundException,
@@ -93,7 +94,7 @@ export class AuthController {
     return await this.authService.login(userEmail, userPassword);
   }
 
-  @Get('v1/auth/login/:eventSlug')
+  /*  @Get('v1/auth/login/:eventSlug')
   @ApiOperation({
     summary: 'Login',
   })
@@ -129,7 +130,7 @@ export class AuthController {
       userPassword,
     );
   }
-
+ */
   @Post('v1/auth/validate-facial')
   @ApiOperation({ summary: 'Validate user with facial' })
   @ApiBadRequestResponse({ description: 'Bad request' })
