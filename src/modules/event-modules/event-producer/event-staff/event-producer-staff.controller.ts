@@ -1,5 +1,4 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Delete,
   Get,
@@ -108,11 +107,11 @@ export class EventProducerStaffController {
       eventSlug,
       page,
       perPage,
-      staffEmail
+      staffEmail,
     );
   }
 
-  @Patch('v1/event-producer/:eventSlug/staff/update/:staffId')
+  /*   @Patch('v1/event-producer/:eventSlug/staff/update/:staffId')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Update event staff' })
@@ -157,7 +156,7 @@ export class EventProducerStaffController {
       staffEmail,
       staffPassword,
     );
-  }
+  } */
 
   @Delete('v1/event-producer/:eventSlug/staff/delete/:staffId')
   @ApiBearerAuth()

@@ -3,7 +3,6 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { PaginationService } from 'src/services/paginate.service';
 import { PrismaService } from 'src/services/prisma.service';
@@ -156,7 +155,7 @@ export class EventProducerStaffService {
     }
   }
 
-  async updateEventStaff(
+  /* async updateEventStaff(
     userEmail: string,
     eventSlug: string,
     staffId: string,
@@ -214,7 +213,7 @@ export class EventProducerStaffService {
     } catch (error) {
       throw error;
     }
-  }
+  } */
 
   async deleteEventStaff(
     userEmail: string,
