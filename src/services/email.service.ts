@@ -10,6 +10,8 @@ export type generateMessageParams = {
   code?: string;
 };
 
+
+
 export type GeneratorEmailParticipant = {
   qrCode: string;
   qrCodeHtml: string;
@@ -25,6 +27,30 @@ export type GeneratorEmailParticipant = {
   days?: string;
 };
 
+export type generateMessageParamsStaffNoExists = {
+  to: string;
+};
+
+export type GeneratorEmailStaffNoExists = {
+  staffName: string;
+  eventName: string;
+  eventSlug: string;
+  staffEmail: string;
+
+};
+
+
+export type generateMessageParamsStaffExists = {
+  to: string;
+};
+
+export type GeneratorEmailStaffExists = {
+  staffName: string;
+  eventName: string;
+  eventSlug: string;
+  staffEmail: string;
+};
+
 @Injectable()
 export class EmailService {
   private API_KEY: string;
@@ -35,6 +61,62 @@ export class EmailService {
     this.API_KEY = this.configService.get<string>('app.mailGunApiKey');
     this.DOMAIN = this.configService.get<string>('app.mailGunDomain');
     this.FROM = this.configService.get<string>('app.mailGunFrom');
+  }
+
+  async sendInviteStaffUserAlreadyExists( 
+    data: generateMessageParamsStaffExists,
+    generatorEmailStaff?: GeneratorEmailStaffExists
+  ): Promise<void> {
+    const { to } = data;
+    const from = this.FROM;
+    let subject;
+    let html;
+
+    html = await fs
+        .readFileSync('src/templates/emails/staff/invite.html', 'utf-8')
+        .replace('[STAFFNAME]', generatorEmailStaff.staffName)
+        .replace('[EVENTNAME]', generatorEmailStaff.eventName)
+        .replace('[EVENTNAME2]', generatorEmailStaff.eventName)
+        .replaceAll('[URL]', process.env.EMAIL_URL_STAFF+generatorEmailStaff.eventSlug+"&email="+generatorEmailStaff.staffEmail.toLowerCase())
+        .replaceAll('[EVENTSLUG]', generatorEmailStaff.eventSlug);
+
+      subject =
+        '[NEX EVENT] Acesso para credenciar o evento: ' +
+        generatorEmailStaff.eventName;
+
+    await this.send(
+    to,
+    from,
+    subject,
+    html)
+  }
+
+  async sendInviteStaffUserNoExists( 
+    data: generateMessageParamsStaffNoExists,
+    generatorEmailStaff?: GeneratorEmailStaffNoExists
+  ): Promise<void> {
+    const { to } = data;
+    const from = this.FROM;
+    let subject;
+    let html;
+
+    html = await fs
+        .readFileSync('src/templates/emails/staff/invite_new.html', 'utf-8')
+        .replace('[STAFFNAME]', generatorEmailStaff.staffName)
+        .replace('[EVENTNAME]', generatorEmailStaff.eventName)
+        .replace('[EVENTNAME2]', generatorEmailStaff.eventName)
+        .replaceAll('[URL]', process.env.EMAIL_URL_STAFF+generatorEmailStaff.eventSlug+"&email="+generatorEmailStaff.staffEmail.toLowerCase())
+        .replaceAll('[EVENTSLUG]', generatorEmailStaff.eventSlug);
+
+      subject =
+        '[NEX EVENT] Acesso para credenciar o evento: ' +
+        generatorEmailStaff.eventName;
+
+    await this.send(
+    to,
+    from,
+    subject,
+    html)
   }
 
   async sendEmail(
@@ -155,6 +237,35 @@ export class EmailService {
         html: html,
       };
     }
+
+    const mailgun = new Mailgun(formData);
+    const mg = mailgun.client({
+      username: 'api',
+      key: this.API_KEY,
+    });
+
+    try {
+      await mg.messages.create(this.DOMAIN, message);
+    } catch (error) {
+      console.error(`Error sending email: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  async send(
+    to,
+    from,
+    subject,
+    html
+  ): Promise<void> {
+    
+    let message: any = {};
+    message = {
+      from: 'Nex Event ' + from,
+      to: to,
+      subject: subject,
+      html: html,
+    };
 
     const mailgun = new Mailgun(formData);
     const mg = mailgun.client({
