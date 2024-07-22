@@ -674,9 +674,11 @@ export class EventTicketProducerService {
     userEmail: string,
     eventSlug: string,
     ticketId: string,
+    ticketPriceId: string,
     page: number,
     perPage: number,
   ): Promise<EventTicketLinkResponse> {
+
     try {
       const user = await this.prisma.user.findUnique({
         where: {
@@ -698,7 +700,9 @@ export class EventTicketProducerService {
       const where: Prisma.EventTicketLinkWhereInput = {
         eventTicketId: ticketId,
         userId: null,
+        eventTicketPriceId: ticketPriceId
       };
+
 
       const links = await this.prisma.eventTicketLink.findMany({
         where,
@@ -715,6 +719,7 @@ export class EventTicketProducerService {
         take: Number(perPage),
         skip: (page - 1) * perPage,
       });
+
 
       const totalItems = await this.prisma.eventTicketLink.count({
         where,

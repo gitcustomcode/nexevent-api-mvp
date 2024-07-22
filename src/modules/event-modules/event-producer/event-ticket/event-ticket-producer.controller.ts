@@ -264,7 +264,7 @@ export class EventTicketProducerController {
     return this.eventTicketProducerService.cuponsDashboard(email, eventSlug);
   }
 
-  @Get('v1/event-producer/:eventSlug/tickets/:ticketId/links')
+  @Get('v1/event-producer/:eventSlug/tickets/:ticketId/:ticketPriceId/links')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Get all links with one ticket' })
@@ -285,6 +285,11 @@ export class EventTicketProducerController {
     required: true,
     type: String,
   })
+  @ApiParam({
+    name: 'ticketPriceId',
+    required: true,
+    type: String,
+  })
   @ApiQuery({
     name: 'page',
     required: true,
@@ -299,6 +304,7 @@ export class EventTicketProducerController {
     @Request() req: any,
     @Param('eventSlug') eventSlug: string,
     @Param('ticketId') ticketId: string,
+    @Param('ticketPriceId') ticketPriceId: string,
     @Query('page') page: number = 1,
     @Query('perPage') perPage: number = 10,
   ): Promise<EventTicketLinkResponse> {
@@ -307,6 +313,7 @@ export class EventTicketProducerController {
       userEmail,
       eventSlug,
       ticketId,
+      ticketPriceId,
       Number(page),
       Number(perPage),
     );
