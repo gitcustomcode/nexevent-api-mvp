@@ -1,4 +1,5 @@
-import {  Body,
+import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -24,7 +25,10 @@ import {
 import { EventProducerStaffService } from './event-producer-staff.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import { EventProducerCreateStaffDto } from './dto/event-producer-create-staff.dto';
-import { EventStaffsResponse } from './dto/event-producer-response-staff.dto';
+import {
+  EventProducerRecommendedStaffs,
+  EventStaffsResponse,
+} from './dto/event-producer-response-staff.dto';
 
 @ApiTags('Event Producer staff')
 @Controller('event-producer')
@@ -108,6 +112,60 @@ export class EventProducerStaffController {
       page,
       perPage,
       staffEmail,
+    );
+  }
+
+  @Get('v1/event-producer/recommend-staffs')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'List event staff' })
+  @ApiResponse({
+    description: 'event staff list',
+    type: EventProducerRecommendedStaffs,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'perPage',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'staffName',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'staffEmail',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'eventTitle',
+    required: false,
+    type: String,
+  })
+  async recommendStaffs(
+    @Request() req: any,
+    @Query('page') page: number = 1,
+    @Query('perPage') perPage: number = 10,
+    @Query('staffName') staffName?: string,
+    @Query('staffEmail') staffEmail?: string,
+    @Query('eventTitle') eventTitle?: string,
+  ): Promise<EventProducerRecommendedStaffs> {
+    const userId = req.auth.user.id;
+    return await this.eventProducerStaffService.recommendStaffs(
+      userId,
+      page,
+      perPage,
+      staffName,
+      staffEmail,
+      eventTitle,
     );
   }
 

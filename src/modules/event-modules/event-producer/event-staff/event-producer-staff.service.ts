@@ -7,7 +7,10 @@ import { PaginationService } from 'src/services/paginate.service';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { EventProducerCreateStaffDto } from './dto/event-producer-create-staff.dto';
-import { EventStaffsResponse } from './dto/event-producer-response-staff.dto';
+import {
+  EventProducerRecommendedStaffs,
+  EventStaffsResponse,
+} from './dto/event-producer-response-staff.dto';
 import { Prisma } from '@prisma/client';
 import { genSaltSync, hash } from 'bcrypt';
 import { EmailService } from 'src/services/email.service';
@@ -112,6 +115,117 @@ export class EventProducerStaffService {
           };
         }),
 
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async recommendStaffs(
+    userId: string,
+    page: number,
+    perPage: number,
+    staffName?: string,
+    staffEmail?: string,
+    eventTitle?: string,
+  ): Promise<EventProducerRecommendedStaffs> {
+    try {
+      const userExist = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!userExist) throw new NotFoundException('User not found');
+
+      const where: Prisma.EventStaffWhereInput = {
+        event: {
+          userId: userExist.id,
+        },
+        status: 'USER_ACCEPTED',
+      };
+
+      if (staffEmail) {
+        where.email = { contains: staffEmail, mode: 'insensitive' };
+      }
+
+      if (staffName) {
+        where.user = {
+          name: { contains: staffName, mode: 'insensitive' },
+        };
+      }
+
+      if (eventTitle) {
+        where.event = {
+          title: { contains: eventTitle, mode: 'insensitive' },
+        };
+      }
+
+      const eventStaffs = await this.prisma.eventStaff.findMany({
+        where,
+        include: {
+          user: true,
+          event: true,
+        },
+      });
+
+      // Agrupar registros com o mesmo userId
+      const staffMap = new Map<
+        string,
+        {
+          staffId: string;
+          staffEmail: string;
+          staffName: string;
+          eventCount: number;
+          events: {
+            eventId: string;
+            eventTitle: string;
+            eventDate: Date;
+          }[];
+        }
+      >();
+
+      eventStaffs.forEach((staff) => {
+        const userId = staff.userId;
+        const event = {
+          eventId: staff.event.id,
+          eventTitle: staff.event.title,
+          eventDate: staff.event.startAt, // Assuming event.date is a Date object
+        };
+
+        if (staffMap.has(userId)) {
+          const existingStaff = staffMap.get(userId);
+          existingStaff.eventCount++;
+          existingStaff.events.push(event);
+        } else {
+          staffMap.set(userId, {
+            staffId: staff.id,
+            staffEmail: staff.email.toLowerCase(),
+            staffName: staff.user?.name,
+            eventCount: 1,
+            events: [event],
+          });
+        }
+      });
+
+      // Convertendo o Map para array e aplicando paginação
+      const unifiedStaffs = Array.from(staffMap.values());
+      const paginatedStaffs = unifiedStaffs.slice(
+        (page - 1) * perPage,
+        page * perPage,
+      );
+
+      const totalItems = unifiedStaffs.length;
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage,
+        totalItems,
+      });
+
+      const response: EventProducerRecommendedStaffs = {
+        data: paginatedStaffs,
         pageInfo: pagination,
       };
 
