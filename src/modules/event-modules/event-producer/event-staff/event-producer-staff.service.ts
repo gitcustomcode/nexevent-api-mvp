@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -33,69 +32,36 @@ export class EventProducerStaffService {
         userEmail.toLowerCase(),
       );
 
-      const staffsFormattedPromises = body.map(async (staff) => {
-        const salt = genSaltSync(10);
-        const hashedPassword = await hash(staff.password, salt);
-        return {
-          eventId: event.id,
-          email: staff.email.toLowerCase(),
-          password: hashedPassword,
-          originalPassword: staff.password,
-        };
-      });
+      if (!event) throw new NotFoundException('Event not found');
 
-      const staffsFormatted = await Promise.all(staffsFormattedPromises);
+      const { email } = body;
 
-      const staffsExists = await this.prisma.eventStaff.findMany({
+      const staffAlreadyExists = await this.prisma.eventStaff.findFirst({
         where: {
           eventId: event.id,
+          email: email.toLowerCase(),
         },
       });
 
-      const existingEmails = new Set(staffsExists.map((staff) => staff.email));
+      if (staffAlreadyExists)
+        throw new ConflictException(
+          'This email is already registered with the team for this event',
+        );
 
-      const staffsToInsert = staffsFormatted.filter(
-        (staff) => !existingEmails.has(staff.email.toLowerCase()),
-      );
+      const userExists = await this.prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+      });
 
-      if (staffsToInsert.length > 0) {
-        const staffs = staffsToInsert.map((staff) => {
-          return {
-            eventId: event.id,
-            email: staff.email.toLowerCase(),
-            password: staff.password,
-          };
-        });
+      await this.prisma.eventStaff.create({
+        data: {
+          eventId: event.id,
+          email: email.toLowerCase(),
+          userId: userExists ? userExists.id : null,
+          status: userExists ? 'USER_NOT_ACCEPTED' : 'NOT_USER',
+        },
+      });
 
-        await this.prisma.eventStaff.createMany({
-          data: staffs,
-        });
-
-        staffsToInsert.map(async (staff) => {
-          const data = {
-            to: staff.email.toLowerCase(),
-            name: staff.email,
-            type: 'staffGuest',
-          };
-
-          await this.emailService.sendEmail(data, {
-            description: '',
-            endDate: new Date(),
-            eventName: event.title,
-            eventSlug: event.slug,
-            invictaClub: '',
-            qrCode: '',
-            qrCodeHtml: '',
-            staffEmail: staff.email.toLowerCase(),
-            staffPassword: staff.originalPassword,
-            startDate: new Date(),
-            ticketName: '',
-          });
-        });
-        return `Event Staff created successfully`;
-      } else {
-        return 'Nenhum novo staff para inserir.';
-      }
+      return 'staff created successfully';
     } catch (error) {
       throw error;
     }
