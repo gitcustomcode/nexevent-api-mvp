@@ -1,7 +1,9 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PaginationService } from 'src/services/paginate.service';
 import { PrismaService } from 'src/services/prisma.service';
@@ -14,6 +16,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { genSaltSync, hash } from 'bcrypt';
 import { EmailService } from 'src/services/email.service';
+import { ResponseEvents } from '../event/dto/event-producer-response.dto';
 
 @Injectable()
 export class EventProducerStaffService {
@@ -55,6 +58,12 @@ export class EventProducerStaffService {
         where: { email: email.toLowerCase() },
       });
 
+      if (userExists.email.toLowerCase() === email.toLowerCase()) {
+        throw new UnprocessableEntityException(
+          'This user is the producer of this event',
+        );
+      }
+
       await this.prisma.eventStaff.create({
         data: {
           eventId: event.id,
@@ -85,6 +94,7 @@ export class EventProducerStaffService {
 
       const where: Prisma.EventStaffWhereInput = {
         eventId: event.id,
+        deletedAt: null,
       };
 
       if (staffEmail) {
@@ -202,7 +212,7 @@ export class EventProducerStaffService {
           staffMap.set(userId, {
             staffId: staff.id,
             staffEmail: staff.email.toLowerCase(),
-            staffName: staff.user?.name,
+            staffName: staff.user?.name ? staff.user.name : null,
             eventCount: 1,
             events: [event],
           });
@@ -235,65 +245,119 @@ export class EventProducerStaffService {
     }
   }
 
-  /* async updateEventStaff(
-    userEmail: string,
-    eventSlug: string,
-    staffId: string,
-    staffEmail: string,
-    staffPassword: string,
-  ): Promise<string> {
+  async staffEvents(
+    userId: string,
+    page: number,
+    perPage: number,
+    searchable?: string,
+  ): Promise<ResponseEvents> {
     try {
-      const event = await this.userProducerValidationService.eventExists(
-        eventSlug,
-        userEmail.toLowerCase(),
-      );
-
-      const staffExists = await this.prisma.eventStaff.findUnique({
+      const userExist = await this.prisma.user.findUnique({
         where: {
-          id: staffId,
-          eventId: event.id,
+          id: userId,
         },
       });
 
-      if (staffEmail) {
-        const staffEmailExists = await this.prisma.eventStaff.findFirst({
-          where: {
-            email: staffEmail.toLowerCase(),
-            eventId: event.id,
+      if (!userExist) throw new NotFoundException('User not found');
+
+      const where: Prisma.EventStaffWhereInput = {
+        userId: userExist.id,
+        status: 'USER_ACCEPTED',
+        deletedAt: null,
+      };
+
+      if (searchable) {
+        where.event = {
+          fullySearch: { contains: searchable, mode: 'insensitive' },
+        };
+      }
+
+      const eventsStaff = await this.prisma.eventStaff.findMany({
+        where,
+        include: {
+          user: true,
+          event: true,
+        },
+        orderBy: {
+          event: {
+            startAt: 'desc',
           },
-        });
-
-        if (staffEmailExists) {
-          throw new ConflictException(`Staff already exists`);
-        }
-      }
-
-      let hashedPassword = null;
-
-      if (staffPassword) {
-        const salt = genSaltSync(10);
-        hashedPassword = await hash(staffPassword, salt);
-      }
-
-      await this.prisma.eventStaff.update({
-        where: {
-          id: staffId,
-          eventId: event.id,
         },
-        data: {
-          email: staffEmail
-            ? staffEmail.toLowerCase()
-            : staffExists.email.toLowerCase(),
-          password:
-            hashedPassword !== null ? hashedPassword : staffExists.password,
-        },
+        skip: (page - 1) * perPage,
+        take: Number(perPage),
       });
 
-      return `Staff updated successfully`;
+      const totalItems = await this.prisma.eventStaff.count({ where });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const response: ResponseEvents = {
+        data: eventsStaff.map((staff) => {
+          return {
+            id: staff.event.id,
+            photo: staff.event.photo,
+            slug: staff.event.slug,
+            startAt: staff.event.startAt,
+            title: staff.event.title,
+          };
+        }),
+
+        pageInfo: pagination,
+      };
+
+      return response;
     } catch (error) {
       throw error;
     }
-  } */
+  }
+
+  async updateEventStaff(
+    userId: string,
+    eventSlug: string,
+    acceptedInvite: boolean,
+  ): Promise<string> {
+    try {
+      const userExist = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+
+      if (!userExist) throw new NotFoundException('User not found');
+
+      const eventExists = await this.prisma.event.findUnique({
+        where: {
+          slug: eventSlug,
+        },
+      });
+
+      if (!eventExists) throw new NotFoundException('Event not found');
+
+      const staffExists = await this.prisma.eventStaff.findFirst({
+        where: {
+          eventId: eventExists.id,
+          userId: userExist.id,
+        },
+      });
+
+      await this.prisma.eventStaff.update({
+        where: {
+          id: staffExists.id,
+        },
+        data: {
+          status: acceptedInvite ? 'USER_ACCEPTED' : 'USER_REFUSED',
+        },
+      });
+
+      return `Staff ${acceptedInvite ? 'accepted invite.' : 'refused invite.'}`;
+    } catch (error) {
+      throw error;
+    }
+  }
 
   async deleteEventStaff(
     userEmail: string,
@@ -327,10 +391,13 @@ export class EventProducerStaffService {
         );
       }
 
-      await this.prisma.eventStaff.delete({
+      await this.prisma.eventStaff.update({
         where: {
           id: staffId,
           eventId: event.id,
+        },
+        data: {
+          deletedAt: new Date(),
         },
       });
 
