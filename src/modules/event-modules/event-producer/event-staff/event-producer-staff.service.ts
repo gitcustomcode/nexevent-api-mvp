@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -72,6 +71,27 @@ export class EventProducerStaffService {
           status: userExists ? 'USER_NOT_ACCEPTED' : 'NOT_USER',
         },
       });
+
+      if (userExists) {
+        await this.emailService.sendInviteStaffUserAlreadyExists(
+          email.toLowerCase(),
+          {
+            eventName: event.title,
+            eventSlug: event.slug,
+            staffEmail: userExists.email.toLowerCase(),
+            staffName: userExists.name,
+          },
+        );
+      } else {
+        await this.emailService.sendInviteStaffUserNoExists(
+          email.toLowerCase(),
+          {
+            eventName: event.title,
+            eventSlug: event.slug,
+            staffEmail: userExists.email.toLowerCase(),
+          },
+        );
+      }
 
       return 'staff created successfully';
     } catch (error) {
