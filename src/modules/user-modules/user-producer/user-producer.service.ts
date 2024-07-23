@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -66,6 +65,16 @@ export class UserProducerService {
           email: email.toLowerCase(),
           password: hashedPassword,
           type: 'PRODUCER',
+        },
+      });
+
+      await this.prisma.eventStaff.updateMany({
+        where: {
+          email: email.toLowerCase(),
+        },
+        data: {
+          userId: createUser.id,
+          status: 'USER_NOT_ACCEPTED',
         },
       });
 
