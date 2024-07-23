@@ -3,15 +3,20 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PaginationService } from 'src/services/paginate.service';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import { EventProducerCreateStaffDto } from './dto/event-producer-create-staff.dto';
-import { EventStaffsResponse } from './dto/event-producer-response-staff.dto';
+import {
+  EventProducerRecommendedStaffs,
+  EventStaffsResponse,
+} from './dto/event-producer-response-staff.dto';
 import { Prisma } from '@prisma/client';
 import { genSaltSync, hash } from 'bcrypt';
 import { EmailService } from 'src/services/email.service';
+import { ResponseEvents } from '../event/dto/event-producer-response.dto';
 
 @Injectable()
 export class EventProducerStaffService {
@@ -33,69 +38,42 @@ export class EventProducerStaffService {
         userEmail.toLowerCase(),
       );
 
-      const staffsFormattedPromises = body.map(async (staff) => {
-        const salt = genSaltSync(10);
-        const hashedPassword = await hash(staff.password, salt);
-        return {
-          eventId: event.id,
-          email: staff.email.toLowerCase(),
-          password: hashedPassword,
-          originalPassword: staff.password,
-        };
-      });
+      if (!event) throw new NotFoundException('Event not found');
 
-      const staffsFormatted = await Promise.all(staffsFormattedPromises);
+      const { email } = body;
 
-      const staffsExists = await this.prisma.eventStaff.findMany({
+      const staffAlreadyExists = await this.prisma.eventStaff.findFirst({
         where: {
           eventId: event.id,
+          email: email.toLowerCase(),
         },
       });
 
-      const existingEmails = new Set(staffsExists.map((staff) => staff.email));
+      if (staffAlreadyExists)
+        throw new ConflictException(
+          'This email is already registered with the team for this event',
+        );
 
-      const staffsToInsert = staffsFormatted.filter(
-        (staff) => !existingEmails.has(staff.email.toLowerCase()),
-      );
+      const userExists = await this.prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+      });
 
-      if (staffsToInsert.length > 0) {
-        const staffs = staffsToInsert.map((staff) => {
-          return {
-            eventId: event.id,
-            email: staff.email.toLowerCase(),
-            password: staff.password,
-          };
-        });
-
-        await this.prisma.eventStaff.createMany({
-          data: staffs,
-        });
-
-        staffsToInsert.map(async (staff) => {
-          const data = {
-            to: staff.email.toLowerCase(),
-            name: staff.email,
-            type: 'staffGuest',
-          };
-
-          await this.emailService.sendEmail(data, {
-            description: '',
-            endDate: new Date(),
-            eventName: event.title,
-            eventSlug: event.slug,
-            invictaClub: '',
-            qrCode: '',
-            qrCodeHtml: '',
-            staffEmail: staff.email.toLowerCase(),
-            staffPassword: staff.originalPassword,
-            startDate: new Date(),
-            ticketName: '',
-          });
-        });
-        return `Event Staff created successfully`;
-      } else {
-        return 'Nenhum novo staff para inserir.';
+      if (userExists.email.toLowerCase() === email.toLowerCase()) {
+        throw new UnprocessableEntityException(
+          'This user is the producer of this event',
+        );
       }
+
+      await this.prisma.eventStaff.create({
+        data: {
+          eventId: event.id,
+          email: email.toLowerCase(),
+          userId: userExists ? userExists.id : null,
+          status: userExists ? 'USER_NOT_ACCEPTED' : 'NOT_USER',
+        },
+      });
+
+      return 'staff created successfully';
     } catch (error) {
       throw error;
     }
@@ -116,6 +94,7 @@ export class EventProducerStaffService {
 
       const where: Prisma.EventStaffWhereInput = {
         eventId: event.id,
+        deletedAt: null,
       };
 
       if (staffEmail) {
@@ -155,65 +134,230 @@ export class EventProducerStaffService {
     }
   }
 
-  /* async updateEventStaff(
-    userEmail: string,
-    eventSlug: string,
-    staffId: string,
-    staffEmail: string,
-    staffPassword: string,
-  ): Promise<string> {
+  async recommendStaffs(
+    userId: string,
+    page: number,
+    perPage: number,
+    staffName?: string,
+    staffEmail?: string,
+    eventTitle?: string,
+  ): Promise<EventProducerRecommendedStaffs> {
     try {
-      const event = await this.userProducerValidationService.eventExists(
-        eventSlug,
-        userEmail.toLowerCase(),
-      );
-
-      const staffExists = await this.prisma.eventStaff.findUnique({
-        where: {
-          id: staffId,
-          eventId: event.id,
-        },
+      const userExist = await this.prisma.user.findUnique({
+        where: { id: userId },
       });
+
+      if (!userExist) throw new NotFoundException('User not found');
+
+      const where: Prisma.EventStaffWhereInput = {
+        event: {
+          userId: userExist.id,
+        },
+        status: 'USER_ACCEPTED',
+      };
 
       if (staffEmail) {
-        const staffEmailExists = await this.prisma.eventStaff.findFirst({
-          where: {
-            email: staffEmail.toLowerCase(),
-            eventId: event.id,
-          },
-        });
-
-        if (staffEmailExists) {
-          throw new ConflictException(`Staff already exists`);
-        }
+        where.email = { contains: staffEmail, mode: 'insensitive' };
       }
 
-      let hashedPassword = null;
-
-      if (staffPassword) {
-        const salt = genSaltSync(10);
-        hashedPassword = await hash(staffPassword, salt);
+      if (staffName) {
+        where.user = {
+          name: { contains: staffName, mode: 'insensitive' },
+        };
       }
 
-      await this.prisma.eventStaff.update({
-        where: {
-          id: staffId,
-          eventId: event.id,
-        },
-        data: {
-          email: staffEmail
-            ? staffEmail.toLowerCase()
-            : staffExists.email.toLowerCase(),
-          password:
-            hashedPassword !== null ? hashedPassword : staffExists.password,
+      if (eventTitle) {
+        where.event = {
+          title: { contains: eventTitle, mode: 'insensitive' },
+        };
+      }
+
+      const eventStaffs = await this.prisma.eventStaff.findMany({
+        where,
+        include: {
+          user: true,
+          event: true,
         },
       });
 
-      return `Staff updated successfully`;
+      // Agrupar registros com o mesmo userId
+      const staffMap = new Map<
+        string,
+        {
+          staffId: string;
+          staffEmail: string;
+          staffName: string;
+          eventCount: number;
+          events: {
+            eventId: string;
+            eventTitle: string;
+            eventDate: Date;
+          }[];
+        }
+      >();
+
+      eventStaffs.forEach((staff) => {
+        const userId = staff.userId;
+        const event = {
+          eventId: staff.event.id,
+          eventTitle: staff.event.title,
+          eventDate: staff.event.startAt, // Assuming event.date is a Date object
+        };
+
+        if (staffMap.has(userId)) {
+          const existingStaff = staffMap.get(userId);
+          existingStaff.eventCount++;
+          existingStaff.events.push(event);
+        } else {
+          staffMap.set(userId, {
+            staffId: staff.id,
+            staffEmail: staff.email.toLowerCase(),
+            staffName: staff.user?.name ? staff.user.name : null,
+            eventCount: 1,
+            events: [event],
+          });
+        }
+      });
+
+      // Convertendo o Map para array e aplicando paginação
+      const unifiedStaffs = Array.from(staffMap.values());
+      const paginatedStaffs = unifiedStaffs.slice(
+        (page - 1) * perPage,
+        page * perPage,
+      );
+
+      const totalItems = unifiedStaffs.length;
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage,
+        totalItems,
+      });
+
+      const response: EventProducerRecommendedStaffs = {
+        data: paginatedStaffs,
+        pageInfo: pagination,
+      };
+
+      return response;
     } catch (error) {
       throw error;
     }
-  } */
+  }
+
+  async staffEvents(
+    userId: string,
+    page: number,
+    perPage: number,
+    searchable?: string,
+  ): Promise<ResponseEvents> {
+    try {
+      const userExist = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+
+      if (!userExist) throw new NotFoundException('User not found');
+
+      const where: Prisma.EventStaffWhereInput = {
+        userId: userExist.id,
+        status: 'USER_ACCEPTED',
+        deletedAt: null,
+      };
+
+      if (searchable) {
+        where.event = {
+          fullySearch: { contains: searchable, mode: 'insensitive' },
+        };
+      }
+
+      const eventsStaff = await this.prisma.eventStaff.findMany({
+        where,
+        include: {
+          user: true,
+          event: true,
+        },
+        orderBy: {
+          event: {
+            startAt: 'desc',
+          },
+        },
+        skip: (page - 1) * perPage,
+        take: Number(perPage),
+      });
+
+      const totalItems = await this.prisma.eventStaff.count({ where });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const response: ResponseEvents = {
+        data: eventsStaff.map((staff) => {
+          return {
+            id: staff.event.id,
+            photo: staff.event.photo,
+            slug: staff.event.slug,
+            startAt: staff.event.startAt,
+            title: staff.event.title,
+          };
+        }),
+
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateEventStaff(
+    userId: string,
+    eventSlug: string,
+    acceptedInvite: boolean,
+  ): Promise<string> {
+    try {
+      const userExist = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+
+      if (!userExist) throw new NotFoundException('User not found');
+
+      const eventExists = await this.prisma.event.findUnique({
+        where: {
+          slug: eventSlug,
+        },
+      });
+
+      if (!eventExists) throw new NotFoundException('Event not found');
+
+      const staffExists = await this.prisma.eventStaff.findFirst({
+        where: {
+          eventId: eventExists.id,
+          userId: userExist.id,
+        },
+      });
+
+      await this.prisma.eventStaff.update({
+        where: {
+          id: staffExists.id,
+        },
+        data: {
+          status: acceptedInvite ? 'USER_ACCEPTED' : 'USER_REFUSED',
+        },
+      });
+
+      return `Staff ${acceptedInvite ? 'accepted invite.' : 'refused invite.'}`;
+    } catch (error) {
+      throw error;
+    }
+  }
 
   async deleteEventStaff(
     userEmail: string,
@@ -247,10 +391,13 @@ export class EventProducerStaffService {
         );
       }
 
-      await this.prisma.eventStaff.delete({
+      await this.prisma.eventStaff.update({
         where: {
           id: staffId,
           eventId: event.id,
+        },
+        data: {
+          deletedAt: new Date(),
         },
       });
 

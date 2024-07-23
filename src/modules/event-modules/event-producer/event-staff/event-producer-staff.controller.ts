@@ -24,7 +24,11 @@ import {
 import { EventProducerStaffService } from './event-producer-staff.service';
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import { EventProducerCreateStaffDto } from './dto/event-producer-create-staff.dto';
-import { EventStaffsResponse } from './dto/event-producer-response-staff.dto';
+import {
+  EventProducerRecommendedStaffs,
+  EventStaffsResponse,
+} from './dto/event-producer-response-staff.dto';
+import { ResponseEvents } from '../event/dto/event-producer-response.dto';
 
 @ApiTags('Event Producer staff')
 @Controller('event-producer')
@@ -111,7 +115,100 @@ export class EventProducerStaffController {
     );
   }
 
-  /*   @Patch('v1/event-producer/:eventSlug/staff/update/:staffId')
+  @Get('v1/event-producer/staff/get-events')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Retrieve events that the user is staff' })
+  @ApiResponse({
+    type: ResponseEvents,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'perPage',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'searchable',
+    required: false,
+    type: String,
+  })
+  async staffEvents(
+    @Request() req: any,
+    @Query('page') page: number = 1,
+    @Query('perPage') perPage: number = 10,
+    @Query('searchable') searchable?: string,
+  ): Promise<EventStaffsResponse> {
+    const userId = req.auth.user.id;
+    return await this.eventProducerStaffService.staffEvents(
+      userId,
+      page,
+      perPage,
+      searchable,
+    );
+  }
+
+  @Get('v1/event-producer/recommend-staffs')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'List event staff' })
+  @ApiResponse({
+    description: 'event staff list',
+    type: EventProducerRecommendedStaffs,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'perPage',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'staffName',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'staffEmail',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'eventTitle',
+    required: false,
+    type: String,
+  })
+  async recommendStaffs(
+    @Request() req: any,
+    @Query('page') page: number = 1,
+    @Query('perPage') perPage: number = 10,
+    @Query('staffName') staffName?: string,
+    @Query('staffEmail') staffEmail?: string,
+    @Query('eventTitle') eventTitle?: string,
+  ): Promise<EventProducerRecommendedStaffs> {
+    const userId = req.auth.user.id;
+    return await this.eventProducerStaffService.recommendStaffs(
+      userId,
+      page,
+      perPage,
+      staffName,
+      staffEmail,
+      eventTitle,
+    );
+  }
+
+  @Patch('v1/event-producer/:eventSlug/staff/invite')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Update event staff' })
@@ -126,37 +223,23 @@ export class EventProducerStaffController {
     required: true,
     type: String,
   })
-  @ApiParam({
-    name: 'staffId',
-    required: true,
-    type: String,
-  })
   @ApiQuery({
-    name: 'staffEmail',
+    name: 'acceptedInvite',
     required: false,
-    type: String,
-  })
-  @ApiQuery({
-    name: 'staffPassword',
-    required: false,
-    type: String,
+    type: Boolean,
   })
   async updateEventStaff(
     @Request() req: any,
     @Param('eventSlug') eventSlug: string,
-    @Param('staffId') staffId: string,
-    @Query('staffEmail') staffEmail: string,
-    @Query('staffPassword') staffPassword: string,
+    @Query('acceptedInvite') acceptedInvite: boolean,
   ) {
-    const email = req.auth.user.email;
+    const userId = req.auth.user.id;
     return await this.eventProducerStaffService.updateEventStaff(
-      email,
+      userId,
       eventSlug,
-      staffId,
-      staffEmail,
-      staffPassword,
+      acceptedInvite,
     );
-  } */
+  }
 
   @Delete('v1/event-producer/:eventSlug/staff/delete/:staffId')
   @ApiBearerAuth()
