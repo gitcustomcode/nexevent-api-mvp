@@ -379,22 +379,21 @@ export class EventProducerStaffService {
     }
   }
 
-  async resendInviteEmail(
-    userEmail : string,
-    staffId: string
-  ){
-
+  async resendInviteEmail(userEmail: string, staffId: string) {
     const user = await this.prisma.user.findUnique({
       where: {
         email: userEmail.toLowerCase(),
       },
     });
 
-    if(!user) throw new NotFoundException("User not found")
-    
+    if (!user) throw new NotFoundException('User not found');
+
     const staff = await this.prisma.eventStaff.findUnique({
       where: {
         id: staffId,
+        event: {
+          userId: user.id,
+        },
       },
       include: {
         event: true,
@@ -402,33 +401,24 @@ export class EventProducerStaffService {
       },
     });
 
-    if(!staff) throw new NotFoundException("Staff not found")
+    if (!staff) throw new NotFoundException('Staff not found');
 
-    if(staff.event.userId !== user.id) throw new ConflictException("This event does not belong to this producer")
-
-    if(staff.userId){   
-      await this.emailService.sendInviteStaffUserAlreadyExists(
-        staff.email,
-        {
-          eventName: staff.event.title,
-          eventSlug: staff.event.slug,
-          staffEmail: staff.email,
-          staffName: staff.user.name,
-        },
-      );
-    } else {  
-      await this.emailService.sendInviteStaffUserNoExists(
-        staff.email,
-        {
-          eventName: staff.event.title,
-          eventSlug: staff.event.slug,
-          staffEmail: staff.email
-        },
-      );
+    if (staff.userId) {
+      await this.emailService.sendInviteStaffUserAlreadyExists(staff.email, {
+        eventName: staff.event.title,
+        eventSlug: staff.event.slug,
+        staffEmail: staff.email,
+        staffName: staff.user.name,
+      });
+    } else {
+      await this.emailService.sendInviteStaffUserNoExists(staff.email, {
+        eventName: staff.event.title,
+        eventSlug: staff.event.slug,
+        staffEmail: staff.email,
+      });
     }
 
-    return "Email sent"
-
+    return 'Email sent';
   }
 
   async deleteEventStaff(
