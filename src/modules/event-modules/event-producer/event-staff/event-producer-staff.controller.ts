@@ -241,6 +241,32 @@ export class EventProducerStaffController {
     );
   }
 
+  @Post('v1/event-producer/staff/resend-invite-email/:staffId')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Resend invite email to staff' })
+  @ApiCreatedResponse({
+    description: 'Resend invite email to staff',
+    type: String,
+  })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiParam({
+    name: 'staffId',
+    required: true,
+    type: String,
+  })
+  async resendInviteEmail(
+    @Request() req: any,
+    @Param('staffId') staffId: string,
+  ): Promise<String> {
+    const email = req.auth.user.email;
+    return await this.eventProducerStaffService.resendInviteEmail(
+      email,
+      staffId
+    );
+  }
+
   @Delete('v1/event-producer/:eventSlug/staff/delete/:staffId')
   @ApiBearerAuth()
   @UseGuards(AuthUserGuard)

@@ -1,4 +1,5 @@
-import Mailgun from 'mailgun.js';import * as formData from 'form-data';
+import Mailgun from 'mailgun.js';
+import * as formData from 'form-data';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
@@ -9,8 +10,6 @@ export type generateMessageParams = {
   type: string;
   code?: string;
 };
-
-
 
 export type GeneratorEmailParticipant = {
   qrCode: string;
@@ -32,13 +31,10 @@ export type generateMessageParamsStaffNoExists = {
 };
 
 export type GeneratorEmailStaffNoExists = {
-  staffName: string;
   eventName: string;
   eventSlug: string;
   staffEmail: string;
-
 };
-
 
 export type generateMessageParamsStaffExists = {
   to: string;
@@ -63,60 +59,59 @@ export class EmailService {
     this.FROM = this.configService.get<string>('app.mailGunFrom');
   }
 
-  async sendInviteStaffUserAlreadyExists( 
-    data: generateMessageParamsStaffExists,
-    generatorEmailStaff?: GeneratorEmailStaffExists
+  async sendInviteStaffUserAlreadyExists(
+    to: string,
+    generatorEmailStaff?: GeneratorEmailStaffExists,
   ): Promise<void> {
-    const { to } = data;
     const from = this.FROM;
     let subject;
     let html;
 
     html = await fs
-        .readFileSync('src/templates/emails/staff/invite.html', 'utf-8')
-        .replace('[STAFFNAME]', generatorEmailStaff.staffName)
-        .replace('[EVENTNAME]', generatorEmailStaff.eventName)
-        .replace('[EVENTNAME2]', generatorEmailStaff.eventName)
-        .replaceAll('[URL]', process.env.EMAIL_URL_STAFF+generatorEmailStaff.eventSlug+"&email="+generatorEmailStaff.staffEmail.toLowerCase())
-        .replaceAll('[EVENTSLUG]', generatorEmailStaff.eventSlug);
+      .readFileSync('src/templates/emails/staff/invite.html', 'utf-8')
+      .replace('[STAFFNAME]', generatorEmailStaff.staffName)
+      .replaceAll('[EVENTNAME]', generatorEmailStaff.eventName)
+      .replaceAll(
+        '[URL]',
+        process.env.EMAIL_URL_STAFF +
+          generatorEmailStaff.eventSlug +
+          '&email=' +
+          generatorEmailStaff.staffEmail.toLowerCase(),
+      )
+      .replaceAll('[EVENTSLUG]', generatorEmailStaff.eventSlug);
 
-      subject =
-        '[NEX EVENT] Acesso para credenciar o evento: ' +
-        generatorEmailStaff.eventName;
+    subject =
+      '[NEX EVENT] Acesso para credenciar o evento: ' +
+      generatorEmailStaff.eventName;
 
-    await this.send(
-    to,
-    from,
-    subject,
-    html)
+    await this.send(to, from, subject, html);
   }
 
-  async sendInviteStaffUserNoExists( 
-    data: generateMessageParamsStaffNoExists,
-    generatorEmailStaff?: GeneratorEmailStaffNoExists
+  async sendInviteStaffUserNoExists(
+    to: string,
+    generatorEmailStaff?: GeneratorEmailStaffNoExists,
   ): Promise<void> {
-    const { to } = data;
     const from = this.FROM;
     let subject;
     let html;
 
     html = await fs
-        .readFileSync('src/templates/emails/staff/invite_new.html', 'utf-8')
-        .replace('[STAFFNAME]', generatorEmailStaff.staffName)
-        .replace('[EVENTNAME]', generatorEmailStaff.eventName)
-        .replace('[EVENTNAME2]', generatorEmailStaff.eventName)
-        .replaceAll('[URL]', process.env.EMAIL_URL_STAFF+generatorEmailStaff.eventSlug+"&email="+generatorEmailStaff.staffEmail.toLowerCase())
-        .replaceAll('[EVENTSLUG]', generatorEmailStaff.eventSlug);
+      .readFileSync('src/templates/emails/staff/invite_new.html', 'utf-8')
+      .replaceAll('[EVENTNAME]', generatorEmailStaff.eventName)
+      .replaceAll(
+        '[URL]',
+        process.env.EMAIL_URL_STAFF +
+          generatorEmailStaff.eventSlug +
+          '&email=' +
+          generatorEmailStaff.staffEmail.toLowerCase(),
+      )
+      .replaceAll('[EVENTSLUG]', generatorEmailStaff.eventSlug);
 
-      subject =
-        '[NEX EVENT] Acesso para credenciar o evento: ' +
-        generatorEmailStaff.eventName;
+    subject =
+      '[NEX EVENT] Acesso para credenciar o evento: ' +
+      generatorEmailStaff.eventName;
 
-    await this.send(
-    to,
-    from,
-    subject,
-    html)
+    await this.send(to, from, subject, html);
   }
 
   async sendEmail(
@@ -252,13 +247,7 @@ export class EmailService {
     }
   }
 
-  async send(
-    to,
-    from,
-    subject,
-    html
-  ): Promise<void> {
-    
+  async send(to, from, subject, html): Promise<void> {
     let message: any = {};
     message = {
       from: 'Nex Event ' + from,

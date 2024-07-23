@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -72,6 +71,27 @@ export class EventProducerStaffService {
           status: userExists ? 'USER_NOT_ACCEPTED' : 'NOT_USER',
         },
       });
+
+      if (userExists) {
+        await this.emailService.sendInviteStaffUserAlreadyExists(
+          email.toLowerCase(),
+          {
+            eventName: event.title,
+            eventSlug: event.slug,
+            staffEmail: userExists.email.toLowerCase(),
+            staffName: userExists.name,
+          },
+        );
+      } else {
+        await this.emailService.sendInviteStaffUserNoExists(
+          email.toLowerCase(),
+          {
+            eventName: event.title,
+            eventSlug: event.slug,
+            staffEmail: userExists.email.toLowerCase(),
+          },
+        );
+      }
 
       return 'staff created successfully';
     } catch (error) {
@@ -357,6 +377,48 @@ export class EventProducerStaffService {
     } catch (error) {
       throw error;
     }
+  }
+
+  async resendInviteEmail(userEmail: string, staffId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email: userEmail.toLowerCase(),
+      },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const staff = await this.prisma.eventStaff.findUnique({
+      where: {
+        id: staffId,
+        event: {
+          userId: user.id,
+        },
+      },
+      include: {
+        event: true,
+        user: true,
+      },
+    });
+
+    if (!staff) throw new NotFoundException('Staff not found');
+
+    if (staff.userId) {
+      await this.emailService.sendInviteStaffUserAlreadyExists(staff.email, {
+        eventName: staff.event.title,
+        eventSlug: staff.event.slug,
+        staffEmail: staff.email,
+        staffName: staff.user.name,
+      });
+    } else {
+      await this.emailService.sendInviteStaffUserNoExists(staff.email, {
+        eventName: staff.event.title,
+        eventSlug: staff.event.slug,
+        staffEmail: staff.email,
+      });
+    }
+
+    return 'Email sent';
   }
 
   async deleteEventStaff(
