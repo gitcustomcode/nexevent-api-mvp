@@ -11,6 +11,7 @@ import { EventProducerCreateStaffDto } from './dto/event-producer-create-staff.d
 import {
   EventProducerRecommendedStaffs,
   EventStaffsResponse,
+  ResponseStaffEvents,
 } from './dto/event-producer-response-staff.dto';
 import { Prisma } from '@prisma/client';
 import { genSaltSync, hash } from 'bcrypt';
@@ -271,7 +272,7 @@ export class EventProducerStaffService {
     page: number,
     perPage: number,
     searchable?: string,
-  ): Promise<ResponseEvents> {
+  ): Promise<ResponseStaffEvents> {
     try {
       const userExist = await this.prisma.user.findUnique({
         where: {
@@ -283,7 +284,7 @@ export class EventProducerStaffService {
 
       const where: Prisma.EventStaffWhereInput = {
         userId: userExist.id,
-        status: 'USER_ACCEPTED',
+        status: { not: 'USER_REFUSED' },
         deletedAt: null,
       };
 
@@ -316,7 +317,7 @@ export class EventProducerStaffService {
         totalItems,
       });
 
-      const response: ResponseEvents = {
+      const response: ResponseStaffEvents = {
         data: eventsStaff.map((staff) => {
           return {
             id: staff.event.id,
@@ -324,6 +325,7 @@ export class EventProducerStaffService {
             slug: staff.event.slug,
             startAt: staff.event.startAt,
             title: staff.event.title,
+            status: staff.status,
           };
         }),
 

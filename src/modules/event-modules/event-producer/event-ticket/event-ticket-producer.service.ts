@@ -81,7 +81,6 @@ export class EventTicketProducerService {
         body.isPrivate = true;
       }
 
-    
       const eventTicketPricesArr: Prisma.EventTicketPriceCreateManyInput[] = [];
 
       const newStartAt = new Date(event.startAt);
@@ -298,9 +297,8 @@ export class EventTicketProducerService {
     page: number,
     perPage: number,
     title?: string,
-    isPrivate?: boolean
+    isPrivate?: boolean,
   ): Promise<EventTicketsResponse> {
-
     try {
       const event = await this.userProducerValidationService.eventExists(
         eventSlug,
@@ -313,7 +311,7 @@ export class EventTicketProducerService {
       };
 
       if (isPrivate) {
-        where.isPrivate = true
+        where.isPrivate = true;
       }
 
       if (title) {
@@ -684,7 +682,6 @@ export class EventTicketProducerService {
     page: number,
     perPage: number,
   ): Promise<EventTicketLinkResponse> {
-
     try {
       const user = await this.prisma.user.findUnique({
         where: {
@@ -706,14 +703,14 @@ export class EventTicketProducerService {
       const where: Prisma.EventTicketLinkWhereInput = {
         eventTicketId: ticketId,
         userId: null,
-        eventTicketPriceId: ticketPriceId
+        eventTicketPriceId: ticketPriceId,
+        status: { not: 'FULL' },
       };
-
 
       const links = await this.prisma.eventTicketLink.findMany({
         where,
         orderBy: {
-          updatedAt: 'desc',
+          status: 'asc',
         },
         include: {
           eventParticipant: {
@@ -725,7 +722,6 @@ export class EventTicketProducerService {
         take: Number(perPage),
         skip: (page - 1) * perPage,
       });
-
 
       const totalItems = await this.prisma.eventTicketLink.count({
         where,
@@ -780,8 +776,8 @@ export class EventTicketProducerService {
   async createPrivateTicketLink(
     userEmail: string,
     eventSlug: string,
-    ticketBatchId: string
-  ): Promise<EventTicketLinkCreateResponseDto>{
+    ticketBatchId: string,
+  ): Promise<EventTicketLinkCreateResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: {
         email: userEmail.toLowerCase(),
@@ -800,88 +796,98 @@ export class EventTicketProducerService {
     if (!event) throw new NotFoundException('Event not found');
 
     const ticketBatch = await this.prisma.eventTicketPrice.findUnique({
-      where:{
-        id: ticketBatchId
+      where: {
+        id: ticketBatchId,
       },
       include: {
-        eventTicket:{
-          include:{
-            event : true
-          }
+        eventTicket: {
+          include: {
+            event: true,
+          },
         },
-        EventTicketLink: true
-      }
-    })
-
-    if(!ticketBatch) throw new NotFoundException("Ticket batch not found");
-
-    if(!ticketBatch.eventTicket.isPrivate) throw new ConflictException("Can not generate private link because this ticket is public")
-
-    if (ticketBatch.eventTicket.event.id !== event.id) throw new ConflictException("This ticket batch does not belong to this event")
-    
-    let totalInvites = 0;
-    ticketBatch.EventTicketLink.map((link)=>{
-      totalInvites += link.invite
-    })
-   
-    let link : EventTicketLinkCreateResponseDto = null;
-
-    if (totalInvites < ticketBatch.guests ){
-    link = await this.prisma.eventTicketLink.create({
-      data: {
-        eventTicketId: ticketBatch.eventTicket.id,
-        eventTicketPriceId: ticketBatch.id,
-        invite: 1,
-      }
+        EventTicketLink: true,
+      },
     });
+
+    if (!ticketBatch) throw new NotFoundException('Ticket batch not found');
+
+    if (!ticketBatch.eventTicket.isPrivate)
+      throw new ConflictException(
+        'Can not generate private link because this ticket is public',
+      );
+
+    if (ticketBatch.eventTicket.event.id !== event.id)
+      throw new ConflictException(
+        'This ticket batch does not belong to this event',
+      );
+
+    let totalInvites = 0;
+    ticketBatch.EventTicketLink.map((link) => {
+      totalInvites += link.invite;
+    });
+
+    let link: EventTicketLinkCreateResponseDto = null;
+
+    if (totalInvites < ticketBatch.guests) {
+      link = await this.prisma.eventTicketLink.create({
+        data: {
+          eventTicketId: ticketBatch.eventTicket.id,
+          eventTicketPriceId: ticketBatch.id,
+          invite: 1,
+        },
+      });
     } else {
-      throw new ConflictException("You already generate all links available for this batch")
+      throw new ConflictException(
+        'You already generate all links available for this batch',
+      );
     }
-    link = { id : link.id}
+    link = { id: link.id };
 
     return link;
-    
   }
 
   async sendInviteLinkByEmail(
     userEmail: string,
     eventSlug: string,
     ticketBatchId: string,
-    file: Express.Multer.File
-  ){
+    file: Express.Multer.File,
+  ) {
     const user = await this.prisma.user.findUnique({
-        where: {
-          email: userEmail.toLowerCase(),
-        },
-      });
+      where: {
+        email: userEmail.toLowerCase(),
+      },
+    });
 
     if (!user) throw new NotFoundException('User not found');
 
     const event = await this.prisma.event.findUnique({
-        where: {
-          slug: eventSlug,
-          userId: user.id,
-        },
-      });
+      where: {
+        slug: eventSlug,
+        userId: user.id,
+      },
+    });
 
     if (!event) throw new NotFoundException('Event not found');
 
     const ticketBatch = await this.prisma.eventTicketPrice.findUnique({
-      where:{
-        id: ticketBatchId
+      where: {
+        id: ticketBatchId,
       },
       include: {
-        eventTicket:{
-          include:{
-            event : true
-          }
-        }
-      }
-    })
+        eventTicket: {
+          include: {
+            event: true,
+          },
+        },
+      },
+    });
 
-    if(!ticketBatch) throw new NotFoundException("Ticket batch not found");
+    if (!ticketBatch) throw new NotFoundException('Ticket batch not found');
 
-    if (ticketBatch.eventTicket.event.id !== event.id) throw new ConflictException("This ticket batch does not belong to this event")
+    if (ticketBatch.eventTicket.event.id !== event.id)
+      throw new ConflictException(
+        'This ticket batch does not belong to this event',
+      );
 
     const fileExtension = file.originalname.split('.').pop().toLowerCase();
 
@@ -894,105 +900,108 @@ export class EventTicketProducerService {
       throw new BadRequestException('Unsupported file type');
     }
 
-    if(result.uncompleted.length > 0) throw new UnprocessableEntityException(result.uncompleted)
+    if (result.uncompleted.length > 0)
+      throw new UnprocessableEntityException(result.uncompleted);
 
-    if(result.users.length > ticketBatch.guests) throw new ConflictException("Number of guests greater than the number of tickets available")
-    
-    if(result.users.length === 0) throw new BadRequestException("No valid participants in the file sent")
+    if (result.users.length > ticketBatch.guests)
+      throw new ConflictException(
+        'Number of guests greater than the number of tickets available',
+      );
+
+    if (result.users.length === 0)
+      throw new BadRequestException('No valid participants in the file sent');
 
     const linkPromises = result.users.map(async (participant) => {
-    const data = {
-      to: participant.email.toLowerCase(),
-      name: participant.email,
-      type: 'sendLinkByEmail',
-    };
-
-    let link = await this.prisma.eventTicketLink.create({
-      data: {
-        eventTicketId: ticketBatch.eventTicket.id,
-        eventTicketPriceId: ticketBatch.id,
-        invite: 1,
-      }
-    });
-
-    await this.emailService.sendEmail(data, {
-      description: participant.name,
-      endDate: new Date(),
-      eventName: event.title,
-      eventSlug: event.slug,
-      invictaClub: `${process.env.EMAIL_URL_GUEST}/${link.id}/${event.slug}`,
-      qrCode: '',
-      qrCodeHtml: '',
-      staffEmail: participant.email.toLowerCase(),
-      staffPassword: "",
-      startDate: new Date(),
-      ticketName: '',
-    });
-  });
-
-  // Await all promises
-  await Promise.all(linkPromises);
- 
-  const response : EventTicketLinkByEmailResponse = {data : result}
-  return response;
-  }
-
-
-private async processCSV(file: Express.Multer.File): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const users = [];
-    const uncompleted = [];
-    const stream = Readable.from(file.buffer);
-    const line = readline.createInterface({
-      input: stream,
-    });
-
-    let index = 0;
-
-    line.on('line', (data) => {
-      if(index === 0){
-        index += 1;
-        return
-      }
-      index += 1;
-      let csv = data.split(';');
-
-      const user = {
-        name: csv[0] || null,
-        email: csv[1] || null,
+      const data = {
+        to: participant.email.toLowerCase(),
+        name: participant.email,
+        type: 'sendLinkByEmail',
       };
 
-      if (!user.name && !user.email) {
-        return;
-      }
+      const link = await this.prisma.eventTicketLink.create({
+        data: {
+          eventTicketId: ticketBatch.eventTicket.id,
+          eventTicketPriceId: ticketBatch.id,
+          invite: 1,
+        },
+      });
 
-      if (!user.name) {
-        uncompleted.push({ line: index, reason: "No name" });
-        return;
-      }
-
-      if (!user.email) {
-        uncompleted.push({ line: index, reason: "No email" });
-        return;
-      }
-
-      if (!validateEmail(user.email)) {
-        uncompleted.push({ line: index, reason: "Invalid email" });
-        return;
-      }
-
-      users.push(user);
+      await this.emailService.sendEmail(data, {
+        description: participant.name,
+        endDate: new Date(),
+        eventName: event.title,
+        eventSlug: event.slug,
+        invictaClub: `${process.env.EMAIL_URL_GUEST}/${link.id}/${event.slug}`,
+        qrCode: '',
+        qrCodeHtml: '',
+        staffEmail: participant.email.toLowerCase(),
+        staffPassword: '',
+        startDate: new Date(),
+        ticketName: '',
+      });
     });
 
-    line.on('close', () => {
-      resolve({ users, uncompleted });
-    });
+    await Promise.all(linkPromises);
 
-    line.on('error', (error) => {
-      reject(error);
+    const response: EventTicketLinkByEmailResponse = { data: result };
+    return response;
+  }
+
+  private async processCSV(file: Express.Multer.File): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const users = [];
+      const uncompleted = [];
+      const stream = Readable.from(file.buffer);
+      const line = readline.createInterface({
+        input: stream,
+      });
+
+      let index = 0;
+
+      line.on('line', (data) => {
+        if (index === 0) {
+          index += 1;
+          return;
+        }
+        index += 1;
+        let csv = data.split(';');
+
+        const user = {
+          name: csv[0] || null,
+          email: csv[1] || null,
+        };
+
+        if (!user.name && !user.email) {
+          return;
+        }
+
+        if (!user.name) {
+          uncompleted.push({ line: index, reason: 'No name' });
+          return;
+        }
+
+        if (!user.email) {
+          uncompleted.push({ line: index, reason: 'No email' });
+          return;
+        }
+
+        if (!validateEmail(user.email)) {
+          uncompleted.push({ line: index, reason: 'Invalid email' });
+          return;
+        }
+
+        users.push(user);
+      });
+
+      line.on('close', () => {
+        resolve({ users, uncompleted });
+      });
+
+      line.on('error', (error) => {
+        reject(error);
+      });
     });
-  });
-}
+  }
 
   private async processXLSX(file: Express.Multer.File): Promise<any> {
     const workbook = xlsx.read(file.buffer, { type: 'buffer' });
@@ -1004,8 +1013,8 @@ private async processCSV(file: Express.Multer.File): Promise<any> {
     let uncompleted = [];
 
     data.forEach((row, index) => {
-      if (index === 0) return //ignorar a primeira linha do arquivo
-      let realLine = index + 1
+      if (index === 0) return; //ignorar a primeira linha do arquivo
+      let realLine = index + 1;
 
       let user = {
         name: row[0] || null,
@@ -1013,30 +1022,27 @@ private async processCSV(file: Express.Multer.File): Promise<any> {
       };
 
       if (!user.name && !user.email) {
-        return
+        return;
       }
 
       if (!user.name) {
-        uncompleted.push({line: realLine, reason: "No name"});
+        uncompleted.push({ line: realLine, reason: 'No name' });
         return;
-      } 
+      }
 
       if (!user.email) {
-        uncompleted.push({line: realLine, reason: "No email"});
+        uncompleted.push({ line: realLine, reason: 'No email' });
         return;
       }
 
-      if(!validateEmail(user.email)){
-          uncompleted.push({line: realLine, reason: "Invalid email"});
-        return
+      if (!validateEmail(user.email)) {
+        uncompleted.push({ line: realLine, reason: 'Invalid email' });
+        return;
       }
-          
+
       users.push(user);
-      
     });
 
     return { users, uncompleted };
   }
-
-
 }

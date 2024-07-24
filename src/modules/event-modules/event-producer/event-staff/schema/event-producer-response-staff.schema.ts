@@ -1,5 +1,7 @@
+
 import { EventStaffStatus } from '@prisma/client';
 import { z } from 'nestjs-zod/z';
+import { EventStaffStatus } from '@prisma/client';import { z } from 'nestjs-zod/z';
 export const EventProducerResponseCreateStaffSchema = z.array(
   z.object({
     id: z.string(),
@@ -31,3 +33,14 @@ export const EventProducerRecommendedStaffSchema = z.object({
   ),
 });
 
+export const EventStaffAllResponseSchema = z.array(
+  z.object({
+    id: z.string(),
+    title: z.string(),
+    subtitle: z.string(),
+    slug: z.string(),
+    photo: z.string(),
+    startAt: z.date(),
+    status: z.nativeEnum(EventStaffStatus),
+  }),
+);
