@@ -917,36 +917,20 @@ export class EventTicketProducerService {
         type: 'sendLinkByEmail',
       };
 
-      let link = null;
-
-      const linkAvaible = await this.prisma.eventTicketLink.findFirst({
-        where: {
+      const link = await this.prisma.eventTicketLink.create({
+        data: {
           eventTicketId: ticketBatch.eventTicket.id,
           eventTicketPriceId: ticketBatch.id,
-          status: { not: 'FULL' },
+          invite: 1,
         },
       });
-
-      if (linkAvaible) {
-        link = linkAvaible.id;
-      } else {
-        const linkCreated = await this.prisma.eventTicketLink.create({
-          data: {
-            eventTicketId: ticketBatch.eventTicket.id,
-            eventTicketPriceId: ticketBatch.id,
-            invite: 1,
-          },
-        });
-
-        link = linkCreated.id;
-      }
 
       await this.emailService.sendEmail(data, {
         description: participant.name,
         endDate: new Date(),
         eventName: event.title,
         eventSlug: event.slug,
-        invictaClub: `${process.env.EMAIL_URL_GUEST}/${link}/${event.slug}`,
+        invictaClub: `${process.env.EMAIL_URL_GUEST}/${link.id}/${event.slug}`,
         qrCode: '',
         qrCodeHtml: '',
         staffEmail: participant.email.toLowerCase(),
