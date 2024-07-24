@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotAcceptableException,
@@ -703,12 +704,13 @@ export class EventTicketProducerService {
         eventTicketId: ticketId,
         userId: null,
         eventTicketPriceId: ticketPriceId,
+        status: { not: 'FULL' },
       };
 
       const links = await this.prisma.eventTicketLink.findMany({
         where,
         orderBy: {
-          updatedAt: 'asc',
+          status: 'asc',
         },
         include: {
           eventParticipant: {
