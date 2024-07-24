@@ -143,6 +143,7 @@ export class EventProducerStaffService {
           return {
             id: staff.id,
             email: staff.email.toLowerCase(),
+            status: staff.status,
           };
         }),
 
