@@ -1,5 +1,4 @@
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from 'src/services/prisma.service';
+import { Cron, CronExpression } from '@nestjs/schedule';import { PrismaService } from 'src/services/prisma.service';
 import { EventParticipant, Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import * as QRCode from 'qrcode';
@@ -12,7 +11,7 @@ export class EventParticipantCronService {
     private readonly emailService: EmailService,
   ) {}
 
-  @Cron(CronExpression.EVERY_10_SECONDS, {
+  @Cron(CronExpression.EVERY_12_HOURS, {
     name: 'eventParticipantsNotPaymentBy10Minutes',
   })
   async deleteParticipantsNotPaymentsBy10Minutes() {
@@ -63,7 +62,7 @@ export class EventParticipantCronService {
     }
   }
 
-  @Cron(CronExpression.EVERY_10_SECONDS, {
+  @Cron(CronExpression.EVERY_12_HOURS, {
     name: 'disableEventsThatArrivedOnTheEndDate',
   })
   async disableEventsThatArrivedOnTheEndDate() {
@@ -135,7 +134,7 @@ export class EventParticipantCronService {
     return;
   } */
 
-  @Cron(CronExpression.EVERY_30_SECONDS, {
+  @Cron(CronExpression.EVERY_10_MINUTES, {
     name: 'eventParticipantSendEmails',
   })
   async sendCronEmail() {
