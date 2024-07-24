@@ -177,12 +177,18 @@ export class EventTicketProducerController {
     required: false,
     type: String,
   })
+  @ApiQuery({
+    name: 'isPrivate',
+    required: false,
+    type: Boolean,
+  })
   async findAllEventTicket(
     @Param('eventSlug') eventSlug: string,
     @Request() req: any,
     @Query('page') page: number = 1,
     @Query('perPage') perPage: number = 10,
     @Query('title') title?: string,
+    @Query('isPrivate') isPrivate?: boolean,
   ): Promise<EventTicketsResponse> {
     const email = req.auth.user.email;
     return this.eventTicketProducerService.findAllEventTicket(
@@ -191,6 +197,7 @@ export class EventTicketProducerController {
       page,
       perPage,
       title,
+      isPrivate
     );
   }
 
@@ -351,6 +358,7 @@ export class EventTicketProducerController {
         },
       },
     },
+    required: true
   })
   async sendInviteLinkByEmail(
     @Param('eventSlug') eventSlug: string,

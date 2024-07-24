@@ -298,7 +298,9 @@ export class EventTicketProducerService {
     page: number,
     perPage: number,
     title?: string,
+    isPrivate?: boolean
   ): Promise<EventTicketsResponse> {
+
     try {
       const event = await this.userProducerValidationService.eventExists(
         eventSlug,
@@ -309,6 +311,10 @@ export class EventTicketProducerService {
         eventId: event.id,
         isBonus: false,
       };
+
+      if (isPrivate) {
+        where.isPrivate = true
+      }
 
       if (title) {
         where.title = {
@@ -944,6 +950,10 @@ private async processCSV(file: Express.Multer.File): Promise<any> {
     let index = 0;
 
     line.on('line', (data) => {
+      if(index === 0){
+        index += 1;
+        return
+      }
       index += 1;
       let csv = data.split(';');
 
@@ -994,6 +1004,7 @@ private async processCSV(file: Express.Multer.File): Promise<any> {
     let uncompleted = [];
 
     data.forEach((row, index) => {
+      if (index === 0) return //ignorar a primeira linha do arquivo
       let realLine = index + 1
 
       let user = {

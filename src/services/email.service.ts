@@ -253,7 +253,7 @@ export class EmailService {
       from: 'Nex Event ' + from,
       to: to,
       subject: subject,
-      html: html,
+      html: html
     };
 
     const mailgun = new Mailgun(formData);

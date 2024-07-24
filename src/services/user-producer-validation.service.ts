@@ -181,7 +181,7 @@ export class UserProducerValidationService {
     }
   }
 
-  async eventExists(slug: string, userEmail: String) {
+    async eventExists(slug: string, userEmail: String, paramPica?: string) {
     const event = await this.prisma.event.findUnique({
       where: {
         slug: slug,
@@ -191,16 +191,24 @@ export class UserProducerValidationService {
         eventTicket: true,
       },
     });
-  
+
+    if (paramPica) {
+      await this.validateUserProducerByEmail(
+        userEmail.toLowerCase(),
+        null,
+        event.id,
+      );
+    } else {
+      await this.validateUserProducerByEmail(
+        userEmail.toLowerCase(),
+        null,
+        event.id,
+      );
+    }
+
     if (!event) {
       throw new NotFoundException('Event not found');
     }
-
-    await this.validateUserProducerByEmail(
-      userEmail.toLowerCase(),
-      null,
-      event.id,
-    );
 
     return event;
   }
