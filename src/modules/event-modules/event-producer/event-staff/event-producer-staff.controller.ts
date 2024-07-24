@@ -27,6 +27,7 @@ import { EventProducerCreateStaffDto } from './dto/event-producer-create-staff.d
 import {
   EventProducerRecommendedStaffs,
   EventStaffsResponse,
+  ResponseStaffEvents,
 } from './dto/event-producer-response-staff.dto';
 import { ResponseEvents } from '../event/dto/event-producer-response.dto';
 
@@ -120,7 +121,7 @@ export class EventProducerStaffController {
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Retrieve events that the user is staff' })
   @ApiResponse({
-    type: ResponseEvents,
+    type: ResponseStaffEvents,
   })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
@@ -144,7 +145,7 @@ export class EventProducerStaffController {
     @Query('page') page: number = 1,
     @Query('perPage') perPage: number = 10,
     @Query('searchable') searchable?: string,
-  ): Promise<EventStaffsResponse> {
+  ): Promise<ResponseStaffEvents> {
     const userId = req.auth.user.id;
     return await this.eventProducerStaffService.staffEvents(
       userId,

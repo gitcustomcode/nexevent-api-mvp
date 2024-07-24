@@ -2,6 +2,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   EventProducerRecommendedStaffSchema,
   EventProducerResponseCreateStaffSchema,
+  EventStaffAllResponseSchema,
 } from '../schema/event-producer-response-staff.schema';
 import { PaginationResponse } from 'src/dtos/pagination.dto';
 import { ApiProperty } from '@nestjs/swagger';
@@ -29,6 +30,20 @@ export class EventProducerRecommendedStaffs {
     type: () => [EventProducerRecommendedStaffDto],
   })
   data: EventProducerRecommendedStaffDto[];
+
+  @ApiProperty({ type: PaginationResponse, nullable: true })
+  pageInfo: PaginationResponse;
+}
+
+export class EventStaffAllResponseDto extends createZodDto(
+  EventStaffAllResponseSchema,
+) {}
+
+export class ResponseStaffEvents {
+  @ApiProperty({
+    type: () => EventStaffAllResponseDto,
+  })
+  data: EventStaffAllResponseDto;
 
   @ApiProperty({ type: PaginationResponse, nullable: true })
   pageInfo: PaginationResponse;
