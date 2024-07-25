@@ -1058,7 +1058,7 @@ export class EventTicketProducerService {
         });
         return;
       }
-
+        
       emails.add(user.email);
       users.push(user);
     });

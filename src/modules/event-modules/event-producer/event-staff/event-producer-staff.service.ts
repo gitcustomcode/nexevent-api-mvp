@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -46,6 +47,7 @@ export class EventProducerStaffService {
         where: {
           eventId: event.id,
           email: email.toLowerCase(),
+          status: { not: 'USER_REFUSED' },
         },
       });
 
