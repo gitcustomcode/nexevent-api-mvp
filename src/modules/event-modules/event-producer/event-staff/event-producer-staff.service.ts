@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -43,13 +42,13 @@ export class EventProducerStaffService {
 
       const { email } = body;
 
+      if (!email) throw new NotFoundException('Email sent empty');
+
       if (userEmail.toLowerCase() === email.toLowerCase()) {
         throw new UnprocessableEntityException(
           'This user is the producer of this event',
         );
       }
-
-      if (!email) throw new NotFoundException('Email sent empty');
 
       const staffAlreadyExists = await this.prisma.eventStaff.findFirst({
         where: {
@@ -103,7 +102,7 @@ export class EventProducerStaffService {
           {
             eventName: event.title,
             eventSlug: event.slug,
-            staffEmail: userExists.email.toLowerCase(),
+            staffEmail: email.toLowerCase(),
           },
         );
       }
