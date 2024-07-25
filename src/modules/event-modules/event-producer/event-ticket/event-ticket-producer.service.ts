@@ -951,6 +951,7 @@ export class EventTicketProducerService {
     return new Promise((resolve, reject) => {
       const users = [];
       const uncompleted = [];
+      const emails = new Set();
       const stream = Readable.from(file.buffer);
       const line = readline.createInterface({
         input: stream,
@@ -990,6 +991,15 @@ export class EventTicketProducerService {
           return;
         }
 
+        if (emails.has(user.email)) {
+          uncompleted.push({
+            line: index,
+            reason: `Duplicate email ${user.email}`,
+          });
+          return;
+        }
+
+        emails.add(user.email);
         users.push(user);
       });
 
@@ -1011,6 +1021,7 @@ export class EventTicketProducerService {
 
     let users = [];
     let uncompleted = [];
+    const emails = new Set();
 
     data.forEach((row, index) => {
       if (index === 0) return; //ignorar a primeira linha do arquivo
@@ -1040,6 +1051,15 @@ export class EventTicketProducerService {
         return;
       }
 
+      if (emails.has(user.email)) {
+        uncompleted.push({
+          line: realLine,
+          reason: `Duplicate email ${user.email}`,
+        });
+        return;
+      }
+
+      emails.add(user.email);
       users.push(user);
     });
 
