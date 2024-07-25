@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -49,11 +48,10 @@ export class EventProducerStaffService {
         where: {
           eventId: event.id,
           email: email.toLowerCase(),
-          status: { not: 'USER_REFUSED' },
         },
       });
 
-      if (staffAlreadyExists)
+      if (staffAlreadyExists && staffAlreadyExists.status !== 'USER_REFUSED')
         throw new ConflictException(
           'This email is already registered with the team for this event',
         );
@@ -68,14 +66,25 @@ export class EventProducerStaffService {
         );
       }
 
-      await this.prisma.eventStaff.create({
-        data: {
-          eventId: event.id,
-          email: email.toLowerCase(),
-          userId: userExists ? userExists.id : null,
-          status: userExists ? 'USER_NOT_ACCEPTED' : 'NOT_USER',
-        },
-      });
+      if (staffAlreadyExists.status === 'USER_REFUSED') {
+        await this.prisma.eventStaff.update({
+          where: {
+            id: staffAlreadyExists.id,
+          },
+          data: {
+            status: 'USER_NOT_ACCEPTED',
+          },
+        });
+      } else {
+        await this.prisma.eventStaff.create({
+          data: {
+            eventId: event.id,
+            email: email.toLowerCase(),
+            userId: userExists ? userExists.id : null,
+            status: userExists ? 'USER_NOT_ACCEPTED' : 'NOT_USER',
+          },
+        });
+      }
 
       if (userExists) {
         await this.emailService.sendInviteStaffUserAlreadyExists(
@@ -460,13 +469,10 @@ export class EventProducerStaffService {
         );
       }
 
-      await this.prisma.eventStaff.update({
+      await this.prisma.eventStaff.delete({
         where: {
           id: staffId,
           eventId: event.id,
-        },
-        data: {
-          deletedAt: new Date(),
         },
       });
 
