@@ -355,7 +355,7 @@ export class EventTicketProducerService {
           },
         },
         orderBy: {
-          createdAt: 'desc',
+          title: 'asc',
         },
         take: Number(perPage),
         skip: (page - 1) * perPage,
@@ -1058,7 +1058,7 @@ export class EventTicketProducerService {
         });
         return;
       }
-        
+
       emails.add(user.email);
       users.push(user);
     });
