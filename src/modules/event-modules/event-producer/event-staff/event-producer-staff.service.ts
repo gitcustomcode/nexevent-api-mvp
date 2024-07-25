@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -418,6 +419,15 @@ export class EventProducerStaffService {
     });
 
     if (!staff) throw new NotFoundException('Staff not found');
+
+    await this.prisma.eventStaff.update({
+      where: {
+        id: staff.id,
+      },
+      data: {
+        status: staff.userId ? 'USER_NOT_ACCEPTED' : 'NOT_USER',
+      },
+    });
 
     if (staff.userId) {
       await this.emailService.sendInviteStaffUserAlreadyExists(staff.email, {
