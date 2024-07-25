@@ -67,7 +67,7 @@ export class EventProducerStaffService {
         );
       }
 
-      if (staffAlreadyExists.status === 'USER_REFUSED') {
+      if (staffAlreadyExists && staffAlreadyExists.status === 'USER_REFUSED') {
         await this.prisma.eventStaff.update({
           where: {
             id: staffAlreadyExists.id,
