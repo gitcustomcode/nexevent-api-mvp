@@ -43,6 +43,8 @@ export class EventProducerStaffService {
 
       const { email } = body;
 
+      if (!email) throw new NotFoundException('Email sent empty');
+
       const staffAlreadyExists = await this.prisma.eventStaff.findFirst({
         where: {
           eventId: event.id,
@@ -60,7 +62,7 @@ export class EventProducerStaffService {
         where: { email: email.toLowerCase() },
       });
 
-      if (userExists.email.toLowerCase() === email.toLowerCase()) {
+      if (userEmail.toLowerCase() === email.toLowerCase()) {
         throw new UnprocessableEntityException(
           'This user is the producer of this event',
         );
