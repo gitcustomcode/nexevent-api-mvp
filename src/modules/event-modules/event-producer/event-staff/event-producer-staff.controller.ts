@@ -227,18 +227,19 @@ export class EventProducerStaffController {
   @ApiQuery({
     name: 'acceptedInvite',
     required: false,
-    type: Boolean,
+    type: String,
   })
   async updateEventStaff(
     @Request() req: any,
     @Param('eventSlug') eventSlug: string,
-    @Query('acceptedInvite') acceptedInvite: boolean,
+    @Query('acceptedInvite') acceptedInvite: string,
   ) {
     const userId = req.auth.user.id;
+    const accepted = acceptedInvite === 'true' ? true : false;
     return await this.eventProducerStaffService.updateEventStaff(
       userId,
       eventSlug,
-      acceptedInvite,
+      accepted,
     );
   }
 
@@ -264,7 +265,7 @@ export class EventProducerStaffController {
     const email = req.auth.user.email;
     return await this.eventProducerStaffService.resendInviteEmail(
       email,
-      staffId
+      staffId,
     );
   }
 
