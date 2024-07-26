@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -254,13 +255,13 @@ export class UserProducerService {
         throw new NotFoundException('User not found');
       }
 
-      const validFace = await this.storageService.isFaceValid(photo.buffer);
+      /*     const validFace = await this.storageService.isFaceValid(photo.buffer);
 
       if (!validFace.isValid) {
         throw new UnprocessableEntityException(
           'A foto não possui um rosto, por favor tente novamente',
         );
-      }
+      } */
 
       const currentDate = new Date();
       const year = currentDate.getFullYear().toString();
