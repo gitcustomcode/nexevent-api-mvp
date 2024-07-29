@@ -30,6 +30,7 @@ import {
 } from 'date-fns';
 import { validateBirth } from 'src/utils/date-validator';
 import { EmailService } from 'src/services/email.service';
+import { LoginResponseDto } from 'src/modules/auth-modules/auth/dto/auth-response.dto';
 
 @Injectable()
 export class UserProducerService {
@@ -41,7 +42,7 @@ export class UserProducerService {
     private readonly faceValidationService: FaceValidationService,
   ) {}
 
-  async createUserProducer(body: UserProducerCreateDto): Promise<String> {
+  async createUserProducer(body: UserProducerCreateDto): Promise<LoginResponseDto> {
     try {
       const { confirmPassword, email, password } = body;
 
@@ -51,7 +52,7 @@ export class UserProducerService {
         );
 
       if (emailAlreadyExists) {
-        throw new ConflictException('Email already exists');
+        throw new BadRequestException('Email already exists');
       }
 
       if (password !== confirmPassword) {
@@ -79,12 +80,12 @@ export class UserProducerService {
         },
       });
 
-      const { token } = await this.authService.login(
+      const response = await this.authService.login(
         createUser.email,
         password,
       );
 
-      return token;
+      return response;
     } catch (error) {
       throw error;
     }
