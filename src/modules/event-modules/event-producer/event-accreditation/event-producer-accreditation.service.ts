@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -52,6 +51,10 @@ export class EventProducerAccreditationService {
       }
 
       const participant = await this.findOne(event.id, null, qrcode);
+
+      if (!participant) {
+        throw new NotFoundException('Not a participant in this event');
+      }
 
       const response: FindByQrCodeResponseDto = {
         id: participant.id,
@@ -143,6 +146,8 @@ export class EventProducerAccreditationService {
       }
 
       const participant = await this.findOne(event.id, participantId);
+
+      if(!participant) throw new NotFoundException('Not a participant in this event');
 
       const eventTicketValidDay = await this.prisma.eventTicketDay.findMany({
         where: {
