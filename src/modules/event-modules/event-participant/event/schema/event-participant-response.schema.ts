@@ -1,5 +1,4 @@
-import {  CredentialType,
-  EventLocation,
+import {  CredentialType,  EventLocation,
   EventQuizStatus,
   QuestionType,
   UserNetworkType,
@@ -203,6 +202,7 @@ export const ThanksScreenSchema = z.object({
   eventParticipantTicketTitle: z.string(),
   eventParticipantName: z.string(),
   eventParticipantQrcode: z.string(),
+  eventParticipantDocument : z.string()
 });
 
 export const QuizQuestionSchema = z.object({

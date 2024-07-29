@@ -1568,6 +1568,7 @@ export class EventParticipantService {
         eventParticipantTicketTitle: part.eventTicket.title,
         eventStartAt: part.event.startAt,
         eventTitle: part.event.title,
+        eventParticipantDocument: part.user?.document ? part.user.document : null
       };
 
       return response;
