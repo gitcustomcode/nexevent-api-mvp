@@ -1,5 +1,4 @@
-import {
-  Body,
+import {  Body,
   Controller,
   Get,
   Patch,
@@ -33,6 +32,7 @@ import {
   StorageService,
   StorageServiceType,
 } from 'src/services/storage.service';
+import { LoginResponseDto } from 'src/modules/auth-modules/auth/dto/auth-response.dto';
 
 @ApiTags('User Producer')
 @Controller('user-producer')
@@ -46,7 +46,7 @@ export class UserProducerController {
   @ApiOperation({ summary: 'Register user producer' })
   @ApiCreatedResponse({
     description: 'User producer created',
-    type: String,
+    type: LoginResponseDto,
   })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
@@ -55,7 +55,7 @@ export class UserProducerController {
   })
   async createUserProducer(
     @Body() body: UserProducerCreateDto,
-  ): Promise<String> {
+  ): Promise<LoginResponseDto> {
     return await this.userProducerService.createUserProducer(body);
   }
 
