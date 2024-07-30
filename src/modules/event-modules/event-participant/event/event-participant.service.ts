@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -880,6 +881,15 @@ export class EventParticipantService {
         },
       });
 
+      const p = await this.prisma.eventParticipant.findMany({
+        where: {
+          userId,
+          eventId: event.id,
+        },
+      });
+
+      console.log(p);
+
       const ticket = await this.prisma.eventTicket.findUnique({
         where: {
           id: eventParticipant.eventTicketId,
@@ -1263,6 +1273,7 @@ export class EventParticipantService {
       let sessionUrl = null;
       if (lineItems.length > 0) {
         const created = await this.stripe.checkoutSessionEventParticipant(
+          event.userId,
           lineItems,
           onlyReal,
           partId ? partId : null,
@@ -1568,7 +1579,9 @@ export class EventParticipantService {
         eventParticipantTicketTitle: part.eventTicket.title,
         eventStartAt: part.event.startAt,
         eventTitle: part.event.title,
-        eventParticipantDocument: part.user?.document ? part.user.document : null
+        eventParticipantDocument: part.user?.document
+          ? part.user.document
+          : null,
       };
 
       return response;

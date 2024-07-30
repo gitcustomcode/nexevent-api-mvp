@@ -10,7 +10,36 @@ export class StripeService {
   // whsec_28c01e1721b9c1f0241fb2796b1591f12d21e95f7a245bac1c07c559f6c10678
   constructor(private readonly prisma: PrismaService) {}
 
-  async createProduct(name: string, amount: number, currency: string) {
+  async createProduct(
+    userId: string,
+    name: string,
+    amount: number,
+    currency: string,
+  ) {
+    const sponsorUser = await this.prisma.sponsorUser.findFirst({
+      where: {
+        userId,
+      },
+    });
+
+    if (sponsorUser) {
+      const sponsorStripe = new Stripe(sponsorUser.secretKey);
+
+      let newAmount = parseFloat((amount * 100).toFixed(2));
+
+      const product = await sponsorStripe.products.create({
+        name,
+        default_price_data: {
+          currency: currency,
+          unit_amount: newAmount,
+        },
+      });
+
+      return {
+        id: product.default_price,
+      };
+    }
+
     let newAmount = parseFloat((amount * 100).toFixed(2));
 
     const product = await this.stripe.products.create({
@@ -84,6 +113,7 @@ export class StripeService {
   }
 
   async checkoutSessionEventParticipant(
+    producerId: string,
     lineItems: CheckoutSessionEventParticipantDto,
     onlyReal: boolean,
     partId?: string,
@@ -93,6 +123,31 @@ export class StripeService {
 
     if (onlyReal) {
       paymentMethod.push('boleto');
+    }
+
+    const sponsorUser = await this.prisma.sponsorUser.findFirst({
+      where: {
+        userId: producerId,
+      },
+    });
+
+    if (sponsorUser) {
+      const sponsorStripe = new Stripe(sponsorUser.secretKey);
+
+      const session = await sponsorStripe.checkout.sessions.create({
+        line_items: lineItems,
+        mode: 'payment',
+        success_url: `${process.env.STRIPE_SUCCESS_PARTICIPANT_URL}${partId ? partId : ''}`,
+        cancel_url: process.env.STRIPE_CANCEL_PARTICIPANT_URL,
+        payment_method_types: paymentMethod,
+        allow_promotion_codes: true,
+      });
+
+      return {
+        value: session.amount_total,
+        url: session.url,
+        id: session.id,
+      };
     }
 
     const session = await this.stripe.checkout.sessions.create({
