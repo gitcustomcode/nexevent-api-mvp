@@ -130,6 +130,12 @@ export class EventTicketProducerService {
                 ? 3
                 : 0;
 
+        const sponsorUser = await this.prisma.sponsorUser.findFirst({
+          where: {
+            userId: user.id,
+          },
+        });
+
         await Promise.all(
           eventTicketPrices.map(async (ticketPrice, index) => {
             let bonusPrice = 0;
@@ -156,7 +162,7 @@ export class EventTicketProducerService {
                 const stripePrice = await this.stripe.createProduct(
                   user.id,
                   newTitle,
-                  newPrice,
+                  sponsorUser ? ticketPrice.price : newPrice,
                   currency.toUpperCase(),
                 );
 
