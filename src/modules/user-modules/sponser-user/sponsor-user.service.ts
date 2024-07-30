@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -24,6 +25,8 @@ export class SponsorUserService {
         throw new ConflictException('Sponsor user already exists');
 
       const { publicKey, secretKey } = body;
+
+      this.validateStripeKeys(publicKey, secretKey);
 
       const sponsorUser = await this.prisma.sponsorUser.create({
         data: {
@@ -97,6 +100,8 @@ export class SponsorUserService {
 
       const { publicKey, secretKey } = body;
 
+      this.validateStripeKeys(publicKey, secretKey);
+
       const sponsorUser = await this.prisma.sponsorUser.update({
         where: {
           userId: userId,
@@ -120,6 +125,19 @@ export class SponsorUserService {
       return response;
     } catch (error) {
       throw error;
+    }
+  }
+
+  private validateStripeKeys(publicKey?: string, secretKey?: string): void {
+    const publicKeyPattern = /^pk_(test|live)_[a-zA-Z0-9]{24,}$/;
+    const secretKeyPattern = /^sk_(test|live)_[a-zA-Z0-9]{24,}$/;
+
+    if (!publicKeyPattern.test(publicKey) && publicKey) {
+      throw new BadRequestException('Invalid Stripe public key');
+    }
+
+    if (!secretKeyPattern.test(secretKey) && secretKey) {
+      throw new BadRequestException('Invalid Stripe secret key');
     }
   }
 }
