@@ -77,6 +77,12 @@ export class EventTicketProducerService {
           slug,
         );
 
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email: userEmail.toLowerCase(),
+        },
+      });
+
       if (!event.public) {
         body.isPrivate = true;
       }
@@ -124,6 +130,12 @@ export class EventTicketProducerService {
                 ? 3
                 : 0;
 
+        const sponsorUser = await this.prisma.sponsorUser.findFirst({
+          where: {
+            userId: user.id,
+          },
+        });
+
         await Promise.all(
           eventTicketPrices.map(async (ticketPrice, index) => {
             let bonusPrice = 0;
@@ -148,8 +160,9 @@ export class EventTicketProducerService {
                 const newTitle = `${title} - Lote ${ticketPrice.batch} ${ticketPrice.isPromotion ? 'Promoção' : ''}`;
 
                 const stripePrice = await this.stripe.createProduct(
+                  user.id,
                   newTitle,
-                  newPrice,
+                  sponsorUser ? ticketPrice.price : newPrice,
                   currency.toUpperCase(),
                 );
 

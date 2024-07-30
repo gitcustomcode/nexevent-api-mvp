@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -233,6 +232,12 @@ export class EventProducerService {
         };
       });
 
+      const sponsorUser = await this.prisma.sponsorUser.findFirst({
+        where: {
+          userId: user.id,
+        },
+      });
+
       let stripeCheckoutUrl = null;
       let stripeCheckoutValue = 0;
       let stripeId = null;
@@ -270,18 +275,23 @@ export class EventProducerService {
         });
       });
 
-      if ((!taxToClient && eventLimit > 0) || ticketPriceNegative) {
-        const checkoutSession = await this.stripe.checkoutSessionEventProducer(
-          eventLimit,
-          eventConfig.printAutomatic,
-          eventConfig.credentialType,
-        );
-        eventType = 'PAID_OUT';
-        stripeCheckoutUrl = checkoutSession.sessionUrl;
-        stripeCheckoutValue = checkoutSession.value;
-        stripeId = checkoutSession.id;
+      if (!sponsorUser) {
+        if ((!taxToClient && eventLimit > 0) || ticketPriceNegative) {
+          const checkoutSession =
+            await this.stripe.checkoutSessionEventProducer(
+              eventLimit,
+              eventConfig.printAutomatic,
+              eventConfig.credentialType,
+            );
+          eventType = 'PAID_OUT';
+          stripeCheckoutUrl = checkoutSession.sessionUrl;
+          stripeCheckoutValue = checkoutSession.value;
+          stripeId = checkoutSession.id;
+        } else {
+          eventType = 'PASSED_CLIENT';
+        }
       } else {
-        eventType = 'PASSED_CLIENT';
+        eventType = 'PAID_OUT';
       }
 
       const fullySearch = concatTitleAndCategoryEvent(title, category);
@@ -306,7 +316,7 @@ export class EventProducerService {
           longitude: longitude,
           sellOnThePlatform: sellOnThePlatform,
           checkoutUrl: stripeCheckoutUrl,
-          paymentStatus: 'unpaid',
+          paymentStatus: stripeCheckoutUrl ? 'unpaid' : 'paid',
           address,
           city,
           complement,

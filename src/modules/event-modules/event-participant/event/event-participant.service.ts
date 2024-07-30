@@ -1263,6 +1263,7 @@ export class EventParticipantService {
       let sessionUrl = null;
       if (lineItems.length > 0) {
         const created = await this.stripe.checkoutSessionEventParticipant(
+          event.userId,
           lineItems,
           onlyReal,
           partId ? partId : null,
@@ -1568,7 +1569,9 @@ export class EventParticipantService {
         eventParticipantTicketTitle: part.eventTicket.title,
         eventStartAt: part.event.startAt,
         eventTitle: part.event.title,
-        eventParticipantDocument: part.user?.document ? part.user.document : null
+        eventParticipantDocument: part.user?.document
+          ? part.user.document
+          : null,
       };
 
       return response;
