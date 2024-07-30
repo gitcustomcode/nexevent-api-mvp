@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -880,15 +879,6 @@ export class EventParticipantService {
           user: true,
         },
       });
-
-      const p = await this.prisma.eventParticipant.findMany({
-        where: {
-          userId,
-          eventId: event.id,
-        },
-      });
-
-      console.log(p);
 
       const ticket = await this.prisma.eventTicket.findUnique({
         where: {
