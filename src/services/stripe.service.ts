@@ -1,5 +1,4 @@
-import { Injectable } from '@nestjs/common';
-import { CredentialType } from '@prisma/client';
+import { Injectable } from '@nestjs/common';import { CredentialType } from '@prisma/client';
 import { Request } from 'express';
 import { CheckoutSessionEventParticipantDto } from 'src/dtos/stripe.dto';
 import Stripe from 'stripe';
@@ -145,6 +144,7 @@ export class StripeService {
   }
 
   async webhook(req: Request) {
+    console.log('REQ', req);
     if (req.body.type === 'checkout.session.completed') {
       const balanceHistorics = await this.prisma.balanceHistoric.findMany({
         where: {
