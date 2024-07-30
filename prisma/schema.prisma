@@ -51,6 +51,7 @@ model User {
   EventQuiz                EventQuiz[]
   EventQuizParticipant     EventQuizParticipant[]
   EventStaff               EventStaff[]
+  SponsorUser              SponsorUser[]
 
   @@map("users")
 }
@@ -117,6 +118,15 @@ model UserTicket {
   EventTicketLink  EventTicketLink[]
 
   @@map("user_tickets")
+}
+
+model SponsorUser {
+  id        String @id @default(uuid())
+  userId    String
+  publicKey String
+  secretKey String
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 model Otp {
