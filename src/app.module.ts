@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';import { PrismaService } from './services/prisma.service';
+import { Module } from '@nestjs/common';
+import { PrismaService } from './services/prisma.service';
 import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AuthModule } from './modules/auth-modules/auth/auth.module';
@@ -16,6 +17,7 @@ import { EventParticipantCronModule } from './modules/cron-modules/event-partici
 import { EventQuizModule } from './modules/event-modules/event-producer/event-quiz/event.quiz.module';
 import { ConfigModule } from '@nestjs/config';
 import variables from './variables';
+import { SponsorUserModule } from './modules/user-modules/sponser-user/sponsor-user.module';
 
 @Module({
   imports: [
@@ -26,6 +28,7 @@ import variables from './variables';
     ScheduleModule.forRoot(),
     AuthModule,
     UserProducerModule,
+    SponsorUserModule,
     EventProducerModule,
     EventTicketProducerModule,
     EventNetworkProducerModule,
