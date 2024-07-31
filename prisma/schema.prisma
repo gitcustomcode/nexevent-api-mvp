@@ -471,6 +471,7 @@ model EventParticipant {
   eventTicketPriceId  String?                @map("event_ticket_price_id")
   eventTicketId       String                 @map("event_ticket_id")
   eventId             String                 @map("event_id")
+  guestBy             String?                @map("guest_by")
   sequential          Int
   isSynchronized      Boolean                @default(false) @map("is_synchronized")
   isPrinted           Boolean                @default(false) @map("is_printed")
