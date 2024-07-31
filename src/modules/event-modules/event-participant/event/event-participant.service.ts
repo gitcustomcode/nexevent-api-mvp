@@ -187,6 +187,7 @@ export class EventParticipantService {
           userId: user.id,
           status: 'COMPLETE',
           signature: signerInfo,
+          guestBy: eventTicketLink.userId ? eventTicketLink.userId : null,
         },
       });
 
@@ -970,7 +971,7 @@ export class EventParticipantService {
         guests: guests,
       };
 
-      return response;
+      return;
     } catch (error) {
       throw error;
     }
