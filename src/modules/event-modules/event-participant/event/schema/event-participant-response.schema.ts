@@ -1,4 +1,6 @@
-import {  CredentialType,  EventLocation,
+import {
+  CredentialType,
+  EventLocation,
   EventQuizStatus,
   QuestionType,
   UserNetworkType,
@@ -118,11 +120,24 @@ export const EventTicketInfoSchema = z.object({
   eventStartAt: z.date(),
   eventEndAt: z.date(),
 
-  eventParticipantId: z.string().nullish(),
-  eventParticipantQrcode: z.string().nullish(),
-  eventParticipantDocument: z.string().nullish(),
-  eventParticipantName: z.string().nullish(),
-  eventTicketTitle: z.string().nullish(),
+  tickets: z.array(
+    z.object({
+      eventParticipantId: z.string().nullish(),
+      eventParticipantQrcode: z.string().nullish(),
+      eventParticipantDocument: z.string().nullish(),
+      eventParticipantName: z.string().nullish(),
+      eventTicketTitle: z.string().nullish(),
+
+      ticketGifts: z.array(
+        z.object({
+          id: z.string(),
+          ticketName: z.string(),
+          guests: z.number(),
+          limit: z.number(),
+        }),
+      ),
+    }),
+  ),
 
   guests: z
     .array(
@@ -135,12 +150,9 @@ export const EventTicketInfoSchema = z.object({
     )
     .nullish(),
 
-  avaibleGuests: z.number(),
-
   links: z.array(
     z.object({
       id: z.string(),
-      ticketId: z.string(),
       ticketName: z.string(),
       guests: z.number(),
       limit: z.number(),
@@ -202,7 +214,7 @@ export const ThanksScreenSchema = z.object({
   eventParticipantTicketTitle: z.string(),
   eventParticipantName: z.string(),
   eventParticipantQrcode: z.string(),
-  eventParticipantDocument : z.string()
+  eventParticipantDocument: z.string(),
 });
 
 export const QuizQuestionSchema = z.object({

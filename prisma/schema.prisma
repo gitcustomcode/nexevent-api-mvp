@@ -111,11 +111,12 @@ model UserTicket {
   qtd                Int
   createdAt          DateTime @default(now()) @map("created_at")
 
-  eventTicketPrice EventTicketPrice  @relation(fields: [eventTicketPriceId], references: [id])
-  user             User              @relation(fields: [userId], references: [id])
-  eventTicket      EventTicket       @relation(fields: [eventTicketId], references: [id])
-  event            Event             @relation(fields: [eventId], references: [id])
+  eventTicketPrice EventTicketPrice   @relation(fields: [eventTicketPriceId], references: [id])
+  user             User               @relation(fields: [userId], references: [id])
+  eventTicket      EventTicket        @relation(fields: [eventTicketId], references: [id])
+  event            Event              @relation(fields: [eventId], references: [id])
   EventTicketLink  EventTicketLink[]
+  EventParticipant EventParticipant[]
 
   @@map("user_tickets")
 }
@@ -467,6 +468,7 @@ model EventTicketLink {
 model EventParticipant {
   id                  String                 @id @default(uuid())
   userId              String                 @map("user_id")
+  userTicketId        String?                @map("user_ticket_id")
   eventTicketLinkId   String?                @map("event_ticket_link_id")
   eventTicketPriceId  String?                @map("event_ticket_price_id")
   eventTicketId       String                 @map("event_ticket_id")
@@ -488,6 +490,7 @@ model EventParticipant {
   deletedAt           DateTime?
 
   user                     User                       @relation(fields: [userId], references: [id])
+  userTicket               UserTicket?                @relation(fields: [userTicketId], references: [id])
   eventTicket              EventTicket                @relation(fields: [eventTicketId], references: [id])
   eventTicketLink          EventTicketLink?           @relation(fields: [eventTicketLinkId], references: [id])
   eventTicketPrice         EventTicketPrice?          @relation(fields: [eventTicketPriceId], references: [id])
