@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -147,7 +148,8 @@ export class EventProducerAccreditationService {
 
       const participant = await this.findOne(event.id, participantId);
 
-      if(!participant) throw new NotFoundException('Not a participant in this event');
+      if (!participant)
+        throw new NotFoundException('Not a participant in this event');
 
       const eventTicketValidDay = await this.prisma.eventTicketDay.findMany({
         where: {
@@ -197,7 +199,7 @@ export class EventProducerAccreditationService {
         });
       }
 
-      return `The participant  ${historic.status} the event`;
+      return historic.status;
     } catch (error) {
       throw error;
     }
