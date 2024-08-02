@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -107,6 +108,20 @@ export class EventParticipantService {
         });
       }
 
+      const ticket = await this.prisma.eventTicketLink.findUnique({
+        where: {
+          id: eventTicketLinkId,
+        },
+        include: {
+          eventTicket: true,
+        },
+      });
+
+      await this.userParticipantValidationService.userAlreadyUsedTicket(
+        user.id,
+        ticket.eventTicketId,
+      );
+
       const eventTicketLink =
         await this.userParticipantValidationService.updateEventTicketLinkStatus(
           eventTicketLinkId,
@@ -117,11 +132,6 @@ export class EventParticipantService {
           eventTicketId: eventTicketLink.eventTicketId,
         },
       });
-
-      await this.userParticipantValidationService.userAlreadyUsedTicket(
-        user.id,
-        eventTicketLink.eventTicketId,
-      );
 
       const event = eventTicketLink.eventTicket.event;
 
@@ -694,6 +704,7 @@ export class EventParticipantService {
       if (!event) throw new NotFoundException('Event not found or disabled');
 
       const ticketsPrice = [];
+      let lastTicket = null;
 
       if (event.eventTicket) {
         event.eventTicket.map((ticket) => {
@@ -710,7 +721,11 @@ export class EventParticipantService {
 
           if (ticket.isBonus === false) {
             ticket.eventTicketPrice.map((price) => {
-              if (ticket.isPrivate === false) {
+              if (
+                ticket.isPrivate === false &&
+                ticket.id !== lastTicket &&
+                price.guests - price.EventParticipant.length !== 0
+              ) {
                 ticketsPrice.push({
                   id: price.id,
                   batch: price.batch,
@@ -721,6 +736,7 @@ export class EventParticipantService {
                   currency: price.currency,
                   ticketDays: ticketDays,
                 });
+                lastTicket = ticket.id;
               }
             });
           }
@@ -1171,7 +1187,7 @@ export class EventParticipantService {
           const limitBatch =
             ticketPriceExist.guests - ticketPriceExist.EventParticipant.length;
 
-          if (limitBatch <= ticket.ticketQuantity) {
+          if (limitBatch < ticket.ticketQuantity) {
             throw new ConflictException(
               `O limite de ingressos para o lote ${ticketPriceExist.batch} do ingresso ${ticketPriceExist.eventTicket.title} foi atingido`,
             );

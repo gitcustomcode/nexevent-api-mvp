@@ -1,5 +1,4 @@
-import {
-  CredentialType,
+import {  CredentialType,
   EventLocation,
   EventQuizStatus,
   QuestionType,
