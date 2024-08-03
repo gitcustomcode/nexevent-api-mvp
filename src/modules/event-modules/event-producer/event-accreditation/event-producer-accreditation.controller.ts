@@ -26,6 +26,7 @@ import { EventProducerAccreditationService } from './event-producer-accreditatio
 import { AuthUserGuard } from 'src/modules/auth-modules/auth/auth-user.guards';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  FindByFacialResponseDto,
   GetEventConfigDto,
   LastAccreditedParticipantsResponse,
 } from './dto/event-producer-accreditation-response.dto';
@@ -77,8 +78,7 @@ export class EventProducerAccreditationController {
   @UseGuards(AuthUserGuard)
   @ApiOperation({ summary: 'Get event accreditation qrcode' })
   @ApiResponse({
-    description: 'event accreditation qrcode',
-    type: String,
+    type: FindByFacialResponseDto,
   })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
@@ -105,7 +105,7 @@ export class EventProducerAccreditationController {
     @Param('eventSlug') eventSlug: string,
     @Request() req: any,
     @UploadedFile() file: Express.Multer.File,
-  ) {
+  ): Promise<FindByFacialResponseDto> {
     const email = req.auth.user.email;
     return this.eventProducerAccreditationService.findByFacial(
       email,

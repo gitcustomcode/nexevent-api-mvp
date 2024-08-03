@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -14,6 +13,7 @@ import {
 } from 'src/services/storage.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
 import {
+  FindByFacialResponseDto,
   FindByQrCodeResponseDto,
   GetEventConfigDto,
   LastAccreditedParticipantsResponse,
@@ -73,7 +73,7 @@ export class EventProducerAccreditationService {
     userEmail: string,
     slug: string,
     participantPhoto: Express.Multer.File,
-  ) {
+  ): Promise<FindByFacialResponseDto> {
     try {
       const event = await this.userProducerValidationService.eventExists(
         slug,
@@ -91,6 +91,7 @@ export class EventProducerAccreditationService {
         select: {
           id: true,
           qrcode: true,
+          userId: true,
           user: {
             include: {
               userFacials: true,
@@ -114,6 +115,7 @@ export class EventProducerAccreditationService {
           if (valid !== false && valid > 90) {
             return {
               id: participant.id,
+              userId: participant.userId,
               userName: participant.user.name,
               qrcode: participant.qrcode,
             };
@@ -125,7 +127,45 @@ export class EventProducerAccreditationService {
 
       const filteredResults = results.filter((result) => result !== undefined);
 
-      return filteredResults.length > 0 ? filteredResults[0] : false;
+      const tickets = [];
+
+      if (filteredResults.length > 0) {
+        const userTickets = await this.prisma.eventParticipant.findMany({
+          where: {
+            userId: filteredResults[0].userId,
+            eventId: event.id,
+          },
+          include: {
+            eventTicket: true,
+            eventParticipantHistoric: {
+              orderBy: {
+                createdAt: 'desc',
+              },
+            },
+          },
+        });
+
+        userTickets.map((ticket) => {
+          tickets.push({
+            id: ticket.id,
+            qrcode: ticket.qrcode,
+            lastStatus:
+              ticket.eventParticipantHistoric.length > 0
+                ? ticket.eventParticipantHistoric[0].status
+                : null,
+            ticketName: ticket.eventTicket.title,
+          });
+        });
+      } else {
+        throw new NotFoundException('Participant not found');
+      }
+
+      const reponse: FindByFacialResponseDto = {
+        userName: filteredResults[0].userName,
+        tickets,
+      };
+
+      return reponse;
     } catch (error) {
       throw error;
     }
@@ -297,6 +337,7 @@ export class EventProducerAccreditationService {
           eventParticipant: {
             include: {
               user: true,
+              eventTicket: true,
             },
           },
         },
@@ -315,6 +356,7 @@ export class EventProducerAccreditationService {
       const historicFormatted = historic.map((part) => {
         return {
           id: part.id,
+          ticketName: part.eventParticipant.eventTicket.title,
           userName: part.eventParticipant.user.name,
           status: part.status,
           createdAt: part.createdAt,

@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -16,6 +17,8 @@ import {
   ResponseEvents,
   EventDashboardPanelFinancialDto,
   EventPrintAllPartsDto,
+  getEventsPrintAutomaticDto,
+  getEventsPrintAutomatic,
 } from './dto/event-producer-response.dto';
 import {
   StorageService,
@@ -113,6 +116,67 @@ export class EventProducerService {
     });
 
     return 'success';
+  }
+
+  async getEventsPrintAutomatic(
+    userId: string,
+    page: number,
+    perPage: number,
+  ): Promise<getEventsPrintAutomatic> {
+    try {
+      const eventsConfig = await this.prisma.eventConfig.findMany({
+        where: {
+          printAutomatic: true,
+          event: {
+            userId,
+            status: 'ENABLE',
+          },
+        },
+        include: {
+          event: true,
+        },
+        orderBy: {
+          event: {
+            startAt: 'desc',
+          },
+        },
+        take: Number(perPage),
+        skip: (page - 1) * Number(perPage),
+      });
+
+      const totalItems = await this.prisma.eventConfig.count({
+        where: {
+          printAutomatic: true,
+          event: {
+            userId,
+          },
+        },
+      });
+
+      const pagination = await this.paginationService.paginate({
+        page,
+        perPage: perPage,
+        totalItems,
+      });
+
+      const events: getEventsPrintAutomaticDto = eventsConfig.map((config) => {
+        return {
+          id: config.eventId,
+          photo: config.event.photo,
+          slug: config.event.slug,
+          title: config.event.title,
+        };
+      });
+
+      const response: getEventsPrintAutomatic = {
+        data: events,
+        pageInfo: pagination,
+      };
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
   }
 
   async createEvent(email: string, body: EventCreateDto): Promise<object> {
@@ -1191,7 +1255,7 @@ export class EventProducerService {
       if (ticketTitle) {
         where.eventTicket = {
           title: {
-            in: isArray(ticketTitle) ? ticketTitle : [ticketTitle],
+            in: Array.isArray(ticketTitle) ? ticketTitle : [ticketTitle],
           },
         };
       }
@@ -1240,73 +1304,26 @@ export class EventProducerService {
         totalItems,
       });
 
-      const listParticipants = new Map<
-        string,
-        {
-          participantId: string;
-          name: string;
-          ticketName: string;
-          facial: string | null;
-          checkInDate: Date;
-          payment: boolean;
-          email: string;
-          lastStatus: string | null;
-        }
-      >();
-
-      eventParticipants.forEach((participant) => {
-        if (!listParticipants.has(participant.id)) {
-          listParticipants.set(participant.id, {
-            participantId: participant.id,
-            name: participant.user.name,
-            ticketName: participant.eventTicket.title,
-            checkInDate: null,
-            email: participant.user.email,
-            facial:
-              participant.user.userFacials.length > 0
-                ? participant.user.userFacials[0].path
-                : null,
-            payment: participant.status !== 'AWAITING_PAYMENT' ? true : false,
-            lastStatus: participant.eventParticipantHistoric[0]
-              ? participant.eventParticipantHistoric[0].status
+      const eventParticipant = eventParticipants.map((participant) => {
+        const historicCheckIn = participant.eventParticipantHistoric.find(
+          (historic) => historic.status === 'CHECK_IN',
+        );
+        return {
+          participantId: participant.id,
+          name: participant.user.name,
+          ticketName: participant.eventTicket.title,
+          facial:
+            participant.user.userFacials.length > 0
+              ? participant.user.userFacials[0].path
               : null,
-          });
-        }
-
-        participant.eventParticipantHistoric.forEach((historic) => {
-          if (historic.status === 'CHECK_IN') {
-            if (listParticipants.has(historic.eventParticipantId)) {
-              const existingParticipant = listParticipants.get(
-                historic.eventParticipantId,
-              );
-              existingParticipant.checkInDate = historic.createdAt;
-              listParticipants.set(
-                historic.eventParticipantId,
-                existingParticipant,
-              );
-            } else {
-              listParticipants.set(historic.eventParticipantId, {
-                participantId: participant.id,
-                name: participant.user.name,
-                ticketName: participant.eventTicket.title,
-                checkInDate: null,
-                email: participant.user.email,
-                facial:
-                  participant.user.userFacials.length > 0
-                    ? participant.user.userFacials[0].path
-                    : null,
-                payment:
-                  participant.status !== 'AWAITING_PAYMENT' ? true : false,
-                lastStatus: participant.eventParticipantHistoric[0]
-                  ? participant.eventParticipantHistoric[0].status
-                  : null,
-              });
-            }
-          }
-        });
+          checkInDate: historicCheckIn ? historicCheckIn.createdAt : null,
+          payment: participant.status !== 'AWAITING_PAYMENT',
+          email: participant.user.email,
+          lastStatus: participant.eventParticipantHistoric[0]
+            ? participant.eventParticipantHistoric[0].status
+            : null,
+        };
       });
-
-      const eventParticipant = Array.from(listParticipants.values());
 
       const response: ResponseEventParticipants = {
         data: eventParticipant,

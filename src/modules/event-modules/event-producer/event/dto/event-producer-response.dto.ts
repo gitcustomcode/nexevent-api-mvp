@@ -7,12 +7,17 @@ import { createZodDto } from 'nestjs-zod';import {
   EventPrintPartSchema,
   FindOneDashboardParticipantPanelSchema,
   GeneralDashboardResponseSchema,
+  getEventsPrintAutomaticSchema,
 } from '../schema/event-producer-response.schema';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationResponse } from 'src/dtos/pagination.dto';
 
 export class EventDashboardResponseDto extends createZodDto(
   EventDashboardResponseSchema,
+) {}
+
+export class getEventsPrintAutomaticDto extends createZodDto(
+  getEventsPrintAutomaticSchema,
 ) {}
 
 export class EventAllResponseDto extends createZodDto(EventAllResponseSchema) {}
@@ -24,6 +29,16 @@ export class FindOneDashboardParticipantPanelDto extends createZodDto(
 export class EventDashboardPanelFinancialDto extends createZodDto(
   EventDashboardPanelFinancialSchema,
 ) {}
+
+export class getEventsPrintAutomatic {
+  @ApiProperty({
+    type: () => getEventsPrintAutomaticDto,
+  })
+  data: getEventsPrintAutomaticDto;
+
+  @ApiProperty({ type: PaginationResponse, nullable: true })
+  pageInfo: PaginationResponse;
+}
 
 export class ResponseEvents {
   @ApiProperty({

@@ -49,6 +49,15 @@ export const EventDashboardResponseSchema = z.object({
   ),
 });
 
+export const getEventsPrintAutomaticSchema = z.array(
+  z.object({
+    id: z.string(),
+    title: z.string(),
+    photo: z.string(),
+    slug: z.string(),
+  }),
+);
+
 export const EventAllResponseSchema = z.array(
   z.object({
     id: z.string(),

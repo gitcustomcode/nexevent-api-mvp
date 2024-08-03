@@ -1,5 +1,5 @@
-import { createZodDto } from 'nestjs-zod';
-import {
+import { createZodDto } from 'nestjs-zod';import {
+  FindByFacialResponseSchema,
   FindByQrCodeResponseSchema,
   GetEventConfigSchema,
   LastAccreditedParticipantsSchema,
@@ -12,6 +12,10 @@ export class LastAccreditedParticipantsDto extends createZodDto(
 ) {}
 
 export class GetEventConfigDto extends createZodDto(GetEventConfigSchema) {}
+
+export class FindByFacialResponseDto extends createZodDto(
+  FindByFacialResponseSchema,
+) {}
 
 export class FindByQrCodeResponseDto extends createZodDto(
   FindByQrCodeResponseSchema,

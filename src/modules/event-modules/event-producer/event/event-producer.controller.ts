@@ -36,6 +36,7 @@ import {
   GeneralDashboardResponseDto,
   ResponseEventParticipants,
   ResponseEvents,
+  getEventsPrintAutomatic,
 } from './dto/event-producer-response.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -88,6 +89,41 @@ export class EventProducerController {
     @Query('participantId') participantId: string,
   ) {
     return this.eventProducerService.updateIsPrint(eventId, participantId);
+  }
+
+  @Get('v1/event-producer/get-events-print-automatic')
+  @ApiBearerAuth()
+  @UseGuards(AuthUserGuard)
+  @ApiOperation({ summary: 'Get event dashboard' })
+  @ApiBadRequestResponse({ description: 'Bad request' })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error' })
+  @ApiResponse({
+    type: getEventsPrintAutomatic,
+  })
+  @ApiQuery({
+    name: 'page',
+    type: String,
+    required: false,
+    example: '1',
+  })
+  @ApiQuery({
+    name: 'perPage',
+    type: String,
+    required: false,
+    example: '10',
+  })
+  async getEventsPrintAutomatic(
+    @Request() req: any,
+    @Query('page') page: string = '1',
+    @Query('perPage') perPage: string = '10',
+  ): Promise<getEventsPrintAutomatic> {
+    const userId = req.auth.user.id;
+    const newPage = Number(page) <= 0 ? 1 : Number(page);
+    return this.eventProducerService.getEventsPrintAutomatic(
+      userId,
+      Number(newPage),
+      Number(perPage),
+    );
   }
 
   @Post('v1/event-producer/create-event')
