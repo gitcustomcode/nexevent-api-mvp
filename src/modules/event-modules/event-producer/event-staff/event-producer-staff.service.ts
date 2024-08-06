@@ -40,6 +40,10 @@ export class EventProducerStaffService {
 
       if (!event) throw new NotFoundException('Event not found');
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const { email } = body;
 
       if (!email) throw new NotFoundException('Email sent empty');
@@ -125,6 +129,10 @@ export class EventProducerStaffService {
         eventSlug,
         userEmail.toLowerCase(),
       );
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
 
       const where: Prisma.EventStaffWhereInput = {
         eventId: event.id,

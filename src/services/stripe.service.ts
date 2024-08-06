@@ -249,6 +249,15 @@ export class StripeService {
                 status: 'COMPLETE',
               },
             });
+          } else if (balanceHistoric.eventId) {
+            await this.prisma.event.update({
+              where: {
+                id: balanceHistoric.eventId,
+              },
+              data: {
+                paymentStatus: 'paid',
+              },
+            });
           }
         }),
       );
