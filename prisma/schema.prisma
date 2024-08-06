@@ -103,13 +103,15 @@ model UserEventNetworkHistoric {
 }
 
 model UserTicket {
-  id                 String   @id @default(uuid())
-  userId             String   @map("user_id")
-  eventId            String   @map("event_id")
-  eventTicketId      String   @map("event_ticket_id")
-  eventTicketPriceId String   @map("event_ticket_price_id")
+  id                 String           @id @default(uuid())
+  userId             String           @map("user_id")
+  eventId            String           @map("event_id")
+  eventTicketId      String           @map("event_ticket_id")
+  eventTicketPriceId String           @map("event_ticket_price_id")
+  sessionId          String?
   qtd                Int
-  createdAt          DateTime @default(now()) @map("created_at")
+  status             UserTicketStatus @default(COMPLETE)
+  createdAt          DateTime         @default(now()) @map("created_at")
 
   eventTicketPrice EventTicketPrice   @relation(fields: [eventTicketPriceId], references: [id])
   user             User               @relation(fields: [userId], references: [id])
@@ -604,6 +606,11 @@ enum UserNetworkType {
   THREADS
   TIKTOK
   GITHUB
+}
+
+enum UserTicketStatus {
+  AWAITING_PAYMENT
+  COMPLETE
 }
 
 enum OtpType {

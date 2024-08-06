@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -1012,8 +1013,6 @@ export class EventParticipantService {
               },
             });
 
-            console.log(userLinks);
-
             userLinks.map((link) => {
               links.push({
                 id: link.id,
@@ -1191,6 +1190,7 @@ export class EventParticipantService {
       const links = [];
       const lineItems = [];
       let onlyReal = true;
+      const userTicketIds = [];
 
       await Promise.all(
         eventTickets.map(async (ticket) => {
@@ -1251,7 +1251,6 @@ export class EventParticipantService {
               });
 
             if (!participantExists) {
-              console.log('N existe');
               const qrcode = randomUUID();
               const fully = concatTitleAndCategoryEvent(
                 event.title,
@@ -1270,9 +1269,12 @@ export class EventParticipantService {
                   eventTicketId: ticketPriceExist.eventTicketId,
                   eventTicketPriceId: ticketPriceExist.id,
                   userId: userExist.id,
+                  status: 'AWAITING_PAYMENT',
                   qtd: 1,
                 },
               });
+
+              userTicketIds.push(userTicketCreated.id);
 
               const part = await this.prisma.eventParticipant.create({
                 data: {
@@ -1288,8 +1290,6 @@ export class EventParticipantService {
                   userTicketId: userTicketCreated.id,
                 },
               });
-
-              console.log(part);
 
               partId = part.id;
 
@@ -1332,9 +1332,12 @@ export class EventParticipantService {
                   eventTicketId: ticketPriceExist.eventTicketId,
                   eventTicketPriceId: ticketPriceExist.id,
                   userId: userExist.id,
+                  status: 'AWAITING_PAYMENT',
                   qtd: 1,
                 },
               });
+
+              userTicketIds.push(userTicketCreated.id);
 
               const linkCreated = await this.prisma.eventTicketLink.create({
                 data: {
@@ -1346,10 +1349,6 @@ export class EventParticipantService {
                 },
               });
 
-              console.log(
-                `TENTOU COMPRAR TICKET PRA SI MESMO NO MESMO INGRESSO 30 vezes ${userTicketCreated}`,
-              );
-
               links.push(linkCreated);
             }
           } else {
@@ -1359,9 +1358,12 @@ export class EventParticipantService {
                 eventTicketId: ticketPriceExist.eventTicketId,
                 eventTicketPriceId: ticketPriceExist.id,
                 userId: userExist.id,
+                status: 'AWAITING_PAYMENT',
                 qtd: ticket.ticketQuantity,
               },
             });
+
+            userTicketIds.push(userTicketCreated.id);
 
             const linkCreated = await this.prisma.eventTicketLink.create({
               data: {
@@ -1423,6 +1425,15 @@ export class EventParticipantService {
                 sessionId || Number(ticketId.price) > 0
                   ? 'PENDING'
                   : 'RECEIVED',
+            },
+          });
+
+          await this.prisma.userTicket.updateMany({
+            where: {
+              id: { in: userTicketIds },
+            },
+            data: {
+              sessionId: sessionId,
             },
           });
         }),
@@ -1717,8 +1728,6 @@ export class EventParticipantService {
           },
         },
       });
-
-      console.log('test');
 
       if (!quizExist) {
         throw new NotFoundException('Quiz not found');

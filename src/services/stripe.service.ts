@@ -199,7 +199,6 @@ export class StripeService {
   }
 
   async webhook(req: Request) {
-    console.log('REQ', req);
     if (req.body.type === 'checkout.session.completed') {
       const balanceHistorics = await this.prisma.balanceHistoric.findMany({
         where: {
@@ -244,6 +243,15 @@ export class StripeService {
             await this.prisma.eventParticipant.update({
               where: {
                 id: balanceHistoric.eventParticipantId,
+              },
+              data: {
+                status: 'COMPLETE',
+              },
+            });
+
+            await this.prisma.userTicket.updateMany({
+              where: {
+                sessionId: balanceHistoric.paymentId,
               },
               data: {
                 status: 'COMPLETE',
