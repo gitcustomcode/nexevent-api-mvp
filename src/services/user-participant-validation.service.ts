@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -124,8 +123,6 @@ export class UserParticipantValidationService {
           );
         }
       }
-
-      console.log(new Date());
 
       if (eventTicketPrice.startPublishAt > new Date()) {
         throw new BadRequestException('The batch not available');

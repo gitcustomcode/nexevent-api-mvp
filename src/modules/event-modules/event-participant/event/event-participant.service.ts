@@ -1013,8 +1013,6 @@ export class EventParticipantService {
               },
             });
 
-            console.log(userLinks);
-
             userLinks.map((link) => {
               links.push({
                 id: link.id,
@@ -1730,8 +1728,6 @@ export class EventParticipantService {
           },
         },
       });
-
-      console.log('test');
 
       if (!quizExist) {
         throw new NotFoundException('Quiz not found');
