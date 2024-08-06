@@ -1,4 +1,5 @@
-import { Cron, CronExpression } from '@nestjs/schedule';import { PrismaService } from 'src/services/prisma.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { PrismaService } from 'src/services/prisma.service';
 import { EventParticipant, Prisma, UserTicket } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import * as QRCode from 'qrcode';
@@ -44,6 +45,12 @@ export class EventParticipantCronService {
             },
             data: {
               status: 'FULL',
+            },
+          });
+
+          await this.prisma.userTicket.delete({
+            where: {
+              id: userTicket.id,
             },
           });
 
