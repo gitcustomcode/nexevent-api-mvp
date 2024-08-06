@@ -1,5 +1,5 @@
 import { Cron, CronExpression } from '@nestjs/schedule';import { PrismaService } from 'src/services/prisma.service';
-import { EventParticipant, Prisma } from '@prisma/client';
+import { EventParticipant, Prisma, UserTicket } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import * as QRCode from 'qrcode';
 import { EmailService } from 'src/services/email.service';
@@ -17,13 +17,12 @@ export class EventParticipantCronService {
   async deleteParticipantsNotPaymentsBy10Minutes() {
     const dateMinus10Minutes = new Date(Date.now() - 10 * 60 * 1000);
 
-    const usersNotPaymentBy10Minutes: EventParticipant[] =
-      await this.prisma.eventParticipant.findMany({
+    const usersNotPaymentBy10Minutes: UserTicket[] =
+      await this.prisma.userTicket.findMany({
         where: {
           createdAt: {
             lt: dateMinus10Minutes,
           },
-          deletedAt: null,
           status: {
             equals: 'AWAITING_PAYMENT',
           },
@@ -36,25 +35,34 @@ export class EventParticipantCronService {
 
     try {
       await Promise.all(
-        usersNotPaymentBy10Minutes.map(async (user) => {
+        usersNotPaymentBy10Minutes.map(async (userTicket) => {
           await this.prisma.eventTicketLink.updateMany({
             where: {
-              eventTicketPriceId: user.eventTicketPriceId,
-              userId: user.userId,
+              eventTicketPriceId: userTicket.eventTicketPriceId,
+              userId: userTicket.userId,
+              userTicketId: userTicket.id,
             },
             data: {
               status: 'FULL',
             },
           });
 
-          await this.prisma.eventParticipant.updateMany({
+          const haveParticipant = await this.prisma.eventParticipant.findFirst({
             where: {
-              id: user.id,
-            },
-            data: {
-              deletedAt: new Date(),
+              userTicketId: userTicket.id,
             },
           });
+
+          if (haveParticipant) {
+            await this.prisma.eventParticipant.updateMany({
+              where: {
+                id: haveParticipant.id,
+              },
+              data: {
+                deletedAt: new Date(),
+              },
+            });
+          }
         }),
       );
     } catch (error) {

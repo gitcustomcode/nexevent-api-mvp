@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotAcceptableException,
@@ -75,10 +76,6 @@ export class EventTicketProducerService {
           eventSlug,
           slug,
         );
-
-      if (event.paymentStatus === 'unpaid') {
-        throw new BadRequestException('The event not has been paid');
-      }
 
       const user = await this.prisma.user.findUnique({
         where: {
