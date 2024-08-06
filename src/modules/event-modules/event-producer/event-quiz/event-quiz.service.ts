@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -36,7 +35,6 @@ export class EventQuizService {
     body: EventQuizCreateDto,
   ): Promise<EventQuizCreatedResponseDto> {
     try {
-      console.log(body);
       const event = await this.userProducerValidationService.eventExists(
         slug,
         userEmail.toLowerCase(),
@@ -44,6 +42,10 @@ export class EventQuizService {
 
       if (!event) {
         throw new NotFoundException('Event not found');
+      }
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
       }
 
       const user = await this.prisma.user.findUnique({
@@ -149,6 +151,10 @@ export class EventQuizService {
         throw new NotFoundException('Event not found');
       }
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const quiz = await this.prisma.eventQuiz.findMany({
         where: {
           eventId: event.id,
@@ -214,6 +220,10 @@ export class EventQuizService {
 
       if (!event) {
         throw new NotFoundException('Event not found');
+      }
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
       }
 
       const quiz = await this.prisma.eventQuiz.findUnique({
@@ -319,6 +329,10 @@ export class EventQuizService {
         throw new NotFoundException('Event not found');
       }
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const quiz = await this.prisma.eventQuizParticipant.findMany({
         where: {
           eventQuizId: quizId,
@@ -397,6 +411,10 @@ export class EventQuizService {
 
       if (!event) {
         throw new NotFoundException('Event not found');
+      }
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
       }
 
       const eventQuizParticipant =
@@ -527,6 +545,10 @@ export class EventQuizService {
         throw new NotFoundException('Event not found');
       }
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const quiz = await this.prisma.eventQuiz.findUnique({
         where: {
           id: quizId,
@@ -566,6 +588,10 @@ export class EventQuizService {
 
       if (!event) {
         throw new NotFoundException('Event not found');
+      }
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
       }
 
       const quiz = await this.prisma.eventQuiz.findUnique({

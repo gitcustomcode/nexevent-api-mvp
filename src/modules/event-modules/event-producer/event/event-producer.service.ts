@@ -3,7 +3,6 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/services/prisma.service';
 import { UserProducerValidationService } from 'src/services/user-producer-validation.service';
@@ -26,37 +25,11 @@ import {
 } from 'src/services/storage.service';
 import { randomUUID } from 'crypto';
 import { PaginationService } from 'src/services/paginate.service';
-import {
-  EventParticipantHistoricStatus,
-  EventType,
-  Prisma,
-} from '@prisma/client';
+import { EventType, Prisma } from '@prisma/client';
 import { EventTicketProducerService } from '../event-ticket/event-ticket-producer.service';
-import { EventTicketCreateDto } from '../event-ticket/dto/event-ticket-producer-create.dto';
-import {
-  EventProducerUpdateDto,
-  EventProducerUpgradeDto,
-} from './dto/event-producer-update.dto';
-import {
-  StateSumsFunc,
-  getMaxParticipantsState,
-  getMaxSalesState,
-} from 'src/utils/test';
+import { EventProducerUpdateDto } from './dto/event-producer-update.dto';
 import { StripeService } from 'src/services/stripe.service';
 import { concatTitleAndCategoryEvent } from 'src/utils/concat-title-category-event';
-import { isArray } from 'class-validator';
-
-type DataItem = {
-  state: string | null;
-  ticketValue: number;
-};
-
-type StateSums = {
-  [key: string]: {
-    count: number;
-    ticketSum?: number;
-  };
-};
 
 @Injectable()
 export class EventProducerService {
@@ -465,6 +438,10 @@ export class EventProducerService {
         throw new NotFoundException('Event not found');
       }
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const {
         category,
         description,
@@ -729,6 +706,8 @@ export class EventProducerService {
         title: event.title,
         slug: event.slug,
         status: event.status,
+        paymentStatus: event.paymentStatus,
+        paymentUrl: event.checkoutUrl,
         eventStaff: event.EventStaff.length,
         eventViews: event.viewsCount,
         eventCity: event.city,
@@ -794,6 +773,10 @@ export class EventProducerService {
           eventConfig: true,
         },
       });
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
 
       await this.userProducerValidationService.validateUserProducerByEmail(
         email.toLowerCase(),
@@ -984,6 +967,10 @@ export class EventProducerService {
       throw new NotFoundException('Account not make a event');
     }
 
+    if (event.paymentStatus === 'unpaid') {
+      throw new BadRequestException('The event not has been paid');
+    }
+
     this.storageService.uploadFile(
       StorageServiceType.S3,
       photoPath,
@@ -1018,6 +1005,10 @@ export class EventProducerService {
 
       if (!event) {
         throw new NotFoundException('Event not found');
+      }
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
       }
 
       const deadlineAt = new Date();
@@ -1237,6 +1228,16 @@ export class EventProducerService {
     ticketTitle?: [],
   ): Promise<ResponseEventParticipants> {
     try {
+      const event = await this.prisma.event.findUnique({
+        where: {
+          slug,
+        },
+      });
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const where: Prisma.EventParticipantWhereInput = {
         event: {
           slug: slug,
@@ -1345,6 +1346,10 @@ export class EventProducerService {
         eventSlug,
         userEmail.toLowerCase(),
       );
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
 
       const balances = await this.prisma.balanceHistoric.findMany({
         where: {

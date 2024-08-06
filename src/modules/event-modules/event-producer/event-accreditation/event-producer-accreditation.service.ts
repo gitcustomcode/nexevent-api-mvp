@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -51,6 +52,10 @@ export class EventProducerAccreditationService {
         throw new ForbiddenException('Event disabled');
       }
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const participant = await this.findOne(event.id, null, qrcode);
 
       if (!participant) {
@@ -82,6 +87,10 @@ export class EventProducerAccreditationService {
 
       if (event.status === 'DISABLE') {
         throw new ForbiddenException('Event disabled');
+      }
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
       }
 
       const eventParticipants = await this.prisma.eventParticipant.findMany({
@@ -186,6 +195,10 @@ export class EventProducerAccreditationService {
         throw new ForbiddenException('Event disabled');
       }
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const participant = await this.findOne(event.id, participantId);
 
       if (!participant)
@@ -260,6 +273,10 @@ export class EventProducerAccreditationService {
         throw new ForbiddenException('Event disabled');
       }
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const participant = await this.findOne(event.id, participantId);
 
       await this.prisma.eventParticipant.update({
@@ -279,6 +296,16 @@ export class EventProducerAccreditationService {
   }
 
   async findOne(eventId: string, participantId?: string, qrcode?: string) {
+    const event = await this.prisma.event.findUnique({
+      where: {
+        id: eventId,
+      },
+    });
+
+    if (event.paymentStatus === 'unpaid') {
+      throw new BadRequestException('The event not has been paid');
+    }
+
     const where: Prisma.EventParticipantWhereInput = {
       eventId: eventId,
     };
@@ -319,6 +346,10 @@ export class EventProducerAccreditationService {
         slug,
         userEmail,
       );
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
 
       const where: Prisma.EventParticipantHistoricWhereInput = {
         eventParticipant: {
@@ -384,6 +415,10 @@ export class EventProducerAccreditationService {
         userEmail,
       );
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const eventConfig = await this.prisma.eventConfig.findUnique({
         where: {
           eventId: event.id,
@@ -408,6 +443,10 @@ export class EventProducerAccreditationService {
         slug,
         userEmail,
       );
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
 
       if (event.status === 'DISABLE') {
         throw new ForbiddenException('Event disabled');

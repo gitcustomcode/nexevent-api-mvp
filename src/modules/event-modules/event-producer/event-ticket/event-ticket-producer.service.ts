@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotAcceptableException,
@@ -76,6 +75,10 @@ export class EventTicketProducerService {
           eventSlug,
           slug,
         );
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
 
       const user = await this.prisma.user.findUnique({
         where: {
@@ -286,6 +289,10 @@ export class EventTicketProducerService {
           slug !== null ? slug : null,
         );
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       await this.prisma.eventTicket.update({
         where: {
           id: eventTicketId,
@@ -317,6 +324,10 @@ export class EventTicketProducerService {
         eventSlug,
         userEmail.toLowerCase(),
       );
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
 
       const where: Prisma.EventTicketWhereInput = {
         eventId: event.id,
@@ -482,6 +493,10 @@ export class EventTicketProducerService {
         userEmail.toLowerCase(),
       );
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const { code, eventTicketsId, expireAt, name, percentOff } = body;
 
       const stripePriceIds = [];
@@ -572,6 +587,10 @@ export class EventTicketProducerService {
         userEmail.toLowerCase(),
       );
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const where: Prisma.EventTicketCupomWhereInput = {
         eventId: event.id,
       };
@@ -660,6 +679,10 @@ export class EventTicketProducerService {
         userEmail.toLowerCase(),
       );
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const cupons = await this.prisma.eventTicketCupom.findMany({
         where: {
           eventId: event.id,
@@ -712,6 +735,10 @@ export class EventTicketProducerService {
       });
 
       if (!event) throw new NotFoundException('Event not found');
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
 
       const where: Prisma.EventTicketLinkWhereInput = {
         eventTicketId: ticketId,
@@ -808,6 +835,10 @@ export class EventTicketProducerService {
 
     if (!event) throw new NotFoundException('Event not found');
 
+    if (event.paymentStatus === 'unpaid') {
+      throw new BadRequestException('The event not has been paid');
+    }
+
     const ticketBatch = await this.prisma.eventTicketPrice.findUnique({
       where: {
         id: ticketBatchId,
@@ -881,6 +912,10 @@ export class EventTicketProducerService {
     });
 
     if (!event) throw new NotFoundException('Event not found');
+
+    if (event.paymentStatus === 'unpaid') {
+      throw new BadRequestException('The event not has been paid');
+    }
 
     const ticketBatch = await this.prisma.eventTicketPrice.findUnique({
       where: {

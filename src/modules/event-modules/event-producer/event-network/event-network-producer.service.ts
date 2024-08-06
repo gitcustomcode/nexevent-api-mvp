@@ -31,6 +31,10 @@ export class EventNetworksProducerService {
         userEmail.toLowerCase(),
       );
 
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const eventNetworksFormatted = body.map((network) => {
         return {
           eventId: event.id,
@@ -67,6 +71,11 @@ export class EventNetworksProducerService {
         slug,
         userEmail.toLowerCase(),
       );
+
+      if (event.paymentStatus === 'unpaid') {
+        throw new BadRequestException('The event not has been paid');
+      }
+
       const where: Prisma.EventNetworkWhereInput = {
         eventId: event.id,
       };

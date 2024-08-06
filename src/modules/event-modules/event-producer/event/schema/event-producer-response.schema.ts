@@ -1,4 +1,5 @@
-import {  CredentialType,
+import {
+  CredentialType,
   EventParticipantHistoricStatus,
   EventStatus,
   EventTicketStatus,
@@ -9,6 +10,8 @@ export const EventDashboardResponseSchema = z.object({
   id: z.string(),
   title: z.string(),
   slug: z.string(),
+  paymentStatus: z.string(),
+  paymentUrl: z.string(),
   status: z.nativeEnum(EventStatus),
   eventStaff: z.number(),
   eventViews: z.number(),
