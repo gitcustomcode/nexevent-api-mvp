@@ -830,6 +830,7 @@ export class EventParticipantService {
           {
             eventParticipant: {
               some: {
+                status: 'COMPLETE',
                 userId,
               },
             },
