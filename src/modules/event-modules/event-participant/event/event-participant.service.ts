@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -1148,7 +1147,7 @@ export class EventParticipantService {
           data: {
             name: name,
             phoneNumber: phone,
-            document: document,
+            document: document ? document : userExist.document,
             city: city,
             state: state,
           },

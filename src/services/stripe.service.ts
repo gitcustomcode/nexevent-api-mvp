@@ -239,19 +239,19 @@ export class StripeService {
             },
           });
 
+          await this.prisma.userTicket.updateMany({
+            where: {
+              sessionId: balanceHistoric.paymentId,
+            },
+            data: {
+              status: 'COMPLETE',
+            },
+          });
+
           if (balanceHistoric.eventParticipantId) {
             await this.prisma.eventParticipant.update({
               where: {
                 id: balanceHistoric.eventParticipantId,
-              },
-              data: {
-                status: 'COMPLETE',
-              },
-            });
-
-            await this.prisma.userTicket.updateMany({
-              where: {
-                sessionId: balanceHistoric.paymentId,
               },
               data: {
                 status: 'COMPLETE',

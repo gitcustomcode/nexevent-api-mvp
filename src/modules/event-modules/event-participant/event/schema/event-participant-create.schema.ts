@@ -37,7 +37,7 @@ export const EventTicketSellSchema = z.object({
       name: z.string(),
       email: z.string(),
       phone: z.string(),
-      document: z.string(),
+      document: z.string().nullish(),
       state: z.string(),
       city: z.string(),
     })
