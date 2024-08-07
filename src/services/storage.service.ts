@@ -1,10 +1,10 @@
-import {
-  ConflictException,
+import {  ConflictException,
   Injectable,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import * as AWS from 'aws-sdk';
 import { ConfigService } from '@nestjs/config';
+import * as sharp from 'sharp';
 
 export enum StorageServiceType {
   S3 = 'S3',
@@ -158,10 +158,15 @@ export class StorageService {
     body: Buffer,
   ): Promise<void> {
     try {
+      const compressedBuffer = await sharp(body.buffer)
+        .resize({ width: 1920 })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+
       const uploadParams: AWS.S3.PutObjectRequest = {
         Bucket: bucket,
         Key: key,
-        Body: body,
+        Body: compressedBuffer,
         ACL: 'public-read',
       };
 

@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -982,7 +981,7 @@ export class EventProducerService {
       data: { photo: photoPath },
     });
 
-    return 'Event photo uploaded';
+    return `Event photo uploaded ${photoPath}`;
   }
 
   async createEventTerms(
