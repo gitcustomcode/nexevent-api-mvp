@@ -622,14 +622,12 @@ export class EventTicketProducerService {
 
       await Promise.all(
         cupons.map(async (cupom) => {
-          const ticket = await this.prisma.eventTicket.findMany({
+          const ticket = await this.prisma.ticketCupom.findMany({
             where: {
-              eventId: event.id,
-              /* eventTicketCupom: {
-                every: {
-                  id: cupom.id,
-                },
-              }, */
+              eventTicketCupomId: cupom.id,
+            },
+            include: {
+              eventTicket: true,
             },
           });
 
@@ -637,8 +635,8 @@ export class EventTicketProducerService {
 
           ticket.map((t) => {
             ticketsArr.push({
-              id: t.id,
-              title: t.title,
+              id: t.eventTicket.id,
+              title: t.eventTicket.title,
             });
           });
 

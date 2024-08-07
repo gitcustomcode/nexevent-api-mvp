@@ -1141,7 +1141,7 @@ export class EventParticipantService {
       const { eventSlug, eventTickets, networks, user } = body;
 
       const { name, phone, city, state, document } = user;
-      /* ASDASD */
+
       if (updateUser) {
         await this.prisma.user.update({
           where: { id: userExist.id },
