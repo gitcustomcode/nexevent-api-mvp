@@ -118,7 +118,7 @@ export class UserProducerValidationService {
         }
 
         if (!staff) {
-          throw new NotFoundException('Staff not found');
+          throw new ForbiddenException('Staff not found');
         }
       }
 
@@ -129,7 +129,7 @@ export class UserProducerValidationService {
       });
 
       if (!user) {
-        throw new NotFoundException('User not found');
+        throw new ForbiddenException('User not found');
       }
 
       const response: UserValidationEmailResponseDto = {
@@ -160,7 +160,7 @@ export class UserProducerValidationService {
         const passwordValid = compareSync(password, user.password);
 
         if (!passwordValid) {
-          throw new ForbiddenException('Invalid password');
+          throw new ForbiddenException('User not found');
         }
 
         return response;
@@ -181,7 +181,7 @@ export class UserProducerValidationService {
     }
   }
 
-    async eventExists(slug: string, userEmail: String, paramPica?: string) {
+  async eventExists(slug: string, userEmail: String, paramPica?: string) {
     const event = await this.prisma.event.findUnique({
       where: {
         slug: slug,

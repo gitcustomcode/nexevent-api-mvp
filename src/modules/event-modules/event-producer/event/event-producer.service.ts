@@ -1,4 +1,5 @@
-import {  BadRequestException,
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -121,6 +122,7 @@ export class EventProducerService {
           printAutomatic: true,
           event: {
             userId,
+            status: 'ENABLE',
           },
         },
       });
