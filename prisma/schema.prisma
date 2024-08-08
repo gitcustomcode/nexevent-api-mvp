@@ -207,6 +207,17 @@ model TermSignatorie {
   @@map("term_signatories")
 }
 
+model WebSocketConnection {
+  id        Int      @id @default(autoincrement())
+  eventId   String   @map("event_id")
+  ClientId  String   @map("client_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  event Event @relation(fields: [eventId], references: [id])
+
+  @@map("web_socket_connections")
+}
+
 model Event {
   id                String        @id @default(uuid())
   userId            String        @map("user_id")
@@ -241,20 +252,21 @@ model Event {
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
 
-  user             User               @relation(fields: [userId], references: [id])
-  eventNetwork     EventNetwork[]
-  eventConfig      EventConfig[]
-  eventAward       EventAward[]
-  eventTicket      EventTicket[]
-  eventSchedule    EventSchedule[]
-  eventTerm        EventTerm[]
-  eventParticipant EventParticipant[]
-  EventStaff       EventStaff[]
-  eventPhotos      EventPhoto[]
-  BalanceHistoric  BalanceHistoric[]
-  EventTicketCupom EventTicketCupom[]
-  UserTicket       UserTicket[]
-  EventQuiz        EventQuiz[]
+  user                User                  @relation(fields: [userId], references: [id])
+  eventNetwork        EventNetwork[]
+  eventConfig         EventConfig[]
+  eventAward          EventAward[]
+  eventTicket         EventTicket[]
+  eventSchedule       EventSchedule[]
+  eventTerm           EventTerm[]
+  eventParticipant    EventParticipant[]
+  EventStaff          EventStaff[]
+  eventPhotos         EventPhoto[]
+  BalanceHistoric     BalanceHistoric[]
+  EventTicketCupom    EventTicketCupom[]
+  UserTicket          UserTicket[]
+  EventQuiz           EventQuiz[]
+  WebSocketConnection WebSocketConnection[]
 
   @@map("events")
 }

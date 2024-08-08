@@ -20,6 +20,7 @@ import {
   LastAccreditedParticipantsResponse,
 } from './dto/event-producer-accreditation-response.dto';
 import { PaginationService } from 'src/services/paginate.service';
+import { AppGateway } from 'src/gateway/gateway';
 
 function isSameDay(date1: Date, date2: Date): boolean {
   return (
@@ -36,6 +37,7 @@ export class EventProducerAccreditationService {
     private readonly storageService: StorageService,
     private readonly paginationService: PaginationService,
     private readonly userProducerValidationService: UserProducerValidationService,
+    private readonly appGateway: AppGateway,
   ) {}
   async findByQrCode(
     userEmail: string,
@@ -241,6 +243,14 @@ export class EventProducerAccreditationService {
         participant.eventParticipantHistoric.length === 0 &&
         participant.isPrinted === false
       ) {
+        const connectedClients = await this.prisma.webSocketConnection.findMany(
+          {
+            where: {
+              eventId: event.id,
+            },
+          },
+        );
+
         await this.prisma.eventParticipant.update({
           where: {
             id: participant.id,
@@ -250,6 +260,21 @@ export class EventProducerAccreditationService {
             isPrinted: false,
           },
         });
+
+        if (connectedClients.length > 0) {
+          const printData = {
+            name: participant.user.name,
+            qrcode: participant.qrcode,
+            eventId: event.id,
+            ticketName: participant.eventTicket.title,
+          };
+
+          connectedClients.forEach((client) => {
+            this.appGateway.server
+              .to(client.ClientId)
+              .emit('participantAccredited', printData);
+          });
+        }
       }
 
       return historic.status;
@@ -325,6 +350,7 @@ export class EventProducerAccreditationService {
           orderBy: { createdAt: 'desc' },
         },
         user: true,
+        eventTicket: true,
       },
     });
 
