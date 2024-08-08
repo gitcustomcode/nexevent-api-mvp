@@ -1,5 +1,4 @@
-import { Module } from '@nestjs/common';
-import { PrismaService } from './services/prisma.service';
+import { Module } from '@nestjs/common';import { PrismaService } from './services/prisma.service';
 import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AuthModule } from './modules/auth-modules/auth/auth.module';
@@ -18,6 +17,7 @@ import { EventQuizModule } from './modules/event-modules/event-producer/event-qu
 import { ConfigModule } from '@nestjs/config';
 import variables from './variables';
 import { SponsorUserModule } from './modules/user-modules/sponser-user/sponsor-user.module';
+import { AppGateway } from './gateway/gateway';
 
 @Module({
   imports: [
@@ -41,6 +41,7 @@ import { SponsorUserModule } from './modules/user-modules/sponser-user/sponsor-u
   ],
   controllers: [],
   providers: [
+    AppGateway,
     PrismaService,
     ConfigService,
     { provide: APP_INTERCEPTOR, useClass: ZodSerializerInterceptor },
