@@ -27,7 +27,9 @@ export class AppGateway
 
   @SubscribeMessage('printSuccess')
   async handleMessage(client: Socket, payload: { participantId: string }) {
-    console.log(payload.participantId);
+    if (!payload.participantId) {
+      return `participantId is required`;
+    }
 
     await this.prisma.eventParticipant.update({
       where: {
