@@ -1,5 +1,4 @@
-import { UserType } from '@prisma/client';
-import { z } from 'nestjs-zod/z';
+import { UserType } from '@prisma/client';import { z } from 'nestjs-zod/z';
 
 export const LoginResponseSchema = z.object({
   token: z.string(),

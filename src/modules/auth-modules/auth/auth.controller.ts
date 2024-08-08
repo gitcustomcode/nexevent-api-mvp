@@ -1,4 +1,4 @@
-import {
+import {  Body,
   Controller,
   Get,
   Header,
@@ -15,6 +15,7 @@ import {
   ApiBadRequestResponse,
   ApiBody,
   ApiConsumes,
+  ApiForbiddenResponse,
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -35,6 +36,7 @@ import {
   StorageServiceType,
 } from 'src/services/storage.service';
 import { Response } from 'express';
+import { AuthLoginDto } from './dto/auth-login.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -51,30 +53,22 @@ export class AuthController {
     await this.stripe.webhook(req);
   }
 
-  @Get('v1/auth/login')
+  @Post('v1/auth/login')
   @ApiOperation({
     summary: 'Login',
   })
   @ApiResponse({
+    status: 201,
     description: 'the auth has been successfully',
     type: LoginResponseDto,
   })
   @ApiBadRequestResponse({ description: 'Bad request' })
   @ApiInternalServerErrorResponse({ description: 'Internal server error' })
-  @ApiQuery({
-    name: 'userEmail',
-    required: true,
-    type: String,
+  @ApiForbiddenResponse({
+    description: 'Forbidden request',
   })
-  @ApiQuery({
-    name: 'userPassword',
-    required: true,
-    type: String,
-  })
-  async login(
-    @Query('userEmail') userEmail: string,
-    @Query('userPassword') userPassword: string,
-  ): Promise<LoginResponseDto> {
+  @ApiBody({ type: AuthLoginDto })
+  async login(@Body() body: AuthLoginDto): Promise<LoginResponseDto> {
     /*   const string = `vbvcbcv&nbsp;
     <div><br></div><div>
     <img src="blob:http://localhost:5173/40755f1f-d989-4098-aa78-9878c837aee7" id="Screenshot_2">
@@ -90,8 +84,8 @@ export class AuthController {
     const updatedString = string.replace(regex, `$1${newSrc}$2`);
 
     console.log(updatedString); */
-
-    return await this.authService.login(userEmail, userPassword);
+    const { email, password } = body;
+    return await this.authService.login(email, password);
   }
 
   /*  @Get('v1/auth/login/:eventSlug')
@@ -213,13 +207,11 @@ export class AuthController {
         key,
       );
 
-      res.header('Content-Type', 'image/jpeg'); // Substitua 'image/jpeg' pelo tipo correto, se necessário
+      res.header('Content-Type', 'image/jpeg');
 
       if (Buffer.isBuffer(file)) {
-        // Verifica se file.photo é um buffer válido
         res.end(file);
       } else {
-        // Se não for um buffer válido, retorne um erro 500 ou apropriado
         console.error('Erro: O conteúdo do arquivo não é um buffer válido.');
         res.status(500).send('Erro interno do servidor');
       }

@@ -1,4 +1,5 @@
-import { NestFactory } from '@nestjs/core';import { AppModule } from './app.module';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
 import * as dotenv from 'dotenv';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { patchNestJsSwagger } from 'nestjs-zod';
@@ -18,7 +19,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const config = new DocumentBuilder()
-    .setTitle('Advoga API')
+    .setTitle('Nex Event API')
     .setDescription(
       'Utilize essa documentação para realizar a integração com o nosso sistema',
     )
