@@ -77,6 +77,20 @@ export class EventTicketProducerService {
           slug,
         );
 
+      const ticketNameAlreadyUsedInThisEvent =
+        await this.prisma.eventTicket.findFirst({
+          where: {
+            title,
+            eventId: event.id,
+          },
+        });
+
+      if (ticketNameAlreadyUsedInThisEvent) {
+        throw new UnprocessableEntityException(
+          'This ticket title already exists in the event',
+        );
+      }
+
       const user = await this.prisma.user.findUnique({
         where: {
           email: userEmail.toLowerCase(),
