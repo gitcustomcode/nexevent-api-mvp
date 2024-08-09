@@ -1,5 +1,4 @@
-import {
-  BadRequestException,
+import {  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -202,6 +201,16 @@ export class EventProducerService {
       eventTickets.map((ticket) => {
         let firstBatch = null;
         let endPublishAt = null;
+
+        const ticketTitles = new Set<string>();
+
+        if (ticketTitles.has(ticket.title)) {
+          throw new ConflictException(
+            `O título do ingresso "${ticket.title}" já existe no evento.`,
+          );
+        } else {
+          ticketTitles.add(ticket.title);
+        }
 
         ticket.eventTicketPrices.map((price) => {
           if (price.endPublishAt && price.startPublishAt) {
